@@ -23,14 +23,19 @@
 
 ### Build & Toolchain
 - **Gradle:** 9.6.0 (via Gradle Wrapper)
-- **AGP:** 9.4.0
-- **Kotlin:** 2.2.10
-- **KSP:** 2.2.10-2.0.2
+- **AGP:** 9.4.0 (using official built-in Kotlin support)
+- **Kotlin:** 2.2.10 (built-in via AGP 9.4.0)
+- **KSP:** 2.2.10-2.0.2 (using `android.disallowKotlinSourceSets=false`)
 - **Compose Compiler:** 2.2.10
 - **Compose BOM:** 2026.09.00
 - **Target SDK / Compile SDK:** targetSdk 36, compileSdk 37 (installed locally: Android SDK Platform 37.2)
 - **Min SDK:** 29 (Android 10)
 - **JVM Target:** 17
+- **Technical Debt Elimination:**
+  - `android.builtInKotlin=false` REMOVED (AGP 9 built-in Kotlin active).
+  - `android.newDsl=false` REMOVED (AGP 9 New DSL active).
+  - `org.jetbrains.kotlin.android` REMOVED (no legacy plugin).
+  - `-Xskip-metadata-version-check` REMOVED (eliminated via `kotlin-stdlib:2.2.10` dependency alignment).
 
 ### Architecture Layers Established
 - **DI:** Hilt 2.60.1 configured with `@HiltAndroidApp` in `AuralisApplication` and `@AndroidEntryPoint` in `MainActivity`.
