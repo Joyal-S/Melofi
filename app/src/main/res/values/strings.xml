@@ -50,4 +50,23 @@
     <string name="widget_no_music">No music playing</string>
     <string name="stats_title">Your Listening</string>
     <string name="stats_empty">No listening history yet. Start playing your music to view listening statistics.</string>
+
+    <!-- Real-Time Lo-Fi + Reverb DSP Addon -->
+    <string name="lofi_reverb_title">Lo-Fi + Reverb</string>
+    <string name="lofi_reverb_subtitle">Add warmth, texture and atmosphere to your music.</string>
+    <string name="lofi_reverb_description">Real-time digital signal processing providing vintage analog warmth, vinyl tape saturation, and immersive Schroeder-Moorer reverberation.</string>
+    <string name="lofi_reverb_active">Active</string>
+    <string name="lofi_reverb_disabled">Disabled</string>
+    <string name="lofi_reverb_preset">Preset</string>
+    <string name="lofi_reverb_choose_preset">Choose a Preset</string>
+    <string name="lofi_reverb_intensity">Intensity</string>
+    <string name="lofi_reverb_advanced">Advanced Parameters</string>
+    <string name="lofi_character_title">Lo-Fi Character</string>
+    <string name="lofi_bit_crush">Bit Crush</string>
+    <string name="lofi_sample_reduction">Sample Rate</string>
+    <string name="lofi_saturation">Tape Saturation</string>
+    <string name="reverb_space_title">Acoustic Space (Reverb)</string>
+    <string name="reverb_room_size">Room Size</string>
+    <string name="reverb_decay">Decay Time</string>
+    <string name="reverb_wet_level">Wet Mix</string>
 </resources>

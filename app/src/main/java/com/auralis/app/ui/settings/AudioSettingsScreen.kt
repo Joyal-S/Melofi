@@ -49,15 +49,24 @@ import com.auralis.app.playback.audiofx.EqualizerState
 import com.auralis.app.playback.audiofx.ReplayGainMode
 import com.auralis.app.playback.audiofx.SleepTimerState
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
+import com.auralis.app.playback.dsp.DspParameters
+import kotlin.math.roundToInt
+
 /**
  * Material 3 Audio Settings screen providing direct control over native hardware effects,
- * ReplayGain loudness normalization, sleep timer, and playback engine configurations.
+ * ReplayGain loudness normalization, sleep timer, playback engine configurations,
+ * and the real-time Lo-Fi + Reverb DSP addon.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AudioSettingsScreen(
     modifier: Modifier = Modifier,
-    viewModel: AudioSettingsViewModel = hiltViewModel()
+    viewModel: AudioSettingsViewModel = hiltViewModel(),
+    onNavigateToLoFiReverb: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showCustomTimerDialog by remember { mutableStateOf(false) }
@@ -104,7 +113,14 @@ fun AudioSettingsScreen(
             onStrengthChanged = { viewModel.setVirtualizerStrength(it) }
         )
 
-        // 4. Loudness Normalization / ReplayGain
+        // 4. Real-Time Lo-Fi + Reverb Addon Card
+        LoFiReverbSection(
+            dspParameters = uiState.dspParameters,
+            onToggleEnabled = { viewModel.toggleLoFiReverbMaster(it) },
+            onClick = { onNavigateToLoFiReverb?.invoke() }
+        )
+
+        // 5. Loudness Normalization / ReplayGain
         ReplayGainSection(
             currentMode = uiState.replayGainState.mode,
             currentMetadataSummary = uiState.replayGainState.currentMetadata?.displaySummary,
@@ -719,4 +735,90 @@ fun CustomSleepTimerDialog(
             }
         }
     )
+}
+
+@Composable
+private fun LoFiReverbSection(
+    dspParameters: DspParameters,
+    onToggleEnabled: (Boolean) -> Unit,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f).padding(end = 12.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_waves),
+                        contentDescription = null,
+                        tint = if (dspParameters.isAnyActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = stringResource(R.string.lofi_reverb_title),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = if (dspParameters.isAnyActive) {
+                                "${stringResource(R.string.lofi_reverb_active)} • ${dspParameters.preset.displayName} (${(dspParameters.loFi.intensity * 100).roundToInt()}%)"
+                            } else {
+                                stringResource(R.string.lofi_reverb_disabled)
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (dspParameters.isAnyActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = if (dspParameters.isAnyActive) FontWeight.Medium else FontWeight.Normal
+                        )
+                    }
+                }
+                Switch(
+                    checked = dspParameters.isAnyActive,
+                    onCheckedChange = onToggleEnabled
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.lofi_reverb_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Configure",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        painter = painterResource(R.drawable.ic_chevron_right),
+                        contentDescription = "Configure Lo-Fi and Reverb",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+    }
 }

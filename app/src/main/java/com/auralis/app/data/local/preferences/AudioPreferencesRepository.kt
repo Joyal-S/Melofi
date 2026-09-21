@@ -101,6 +101,18 @@ class AudioPreferencesRepository @Inject constructor(
         context.dataStore.edit { it[KEY_DSP_LOFI_INTENSITY] = intensity }
     }
 
+    suspend fun setDspLoFiBitCrush(bitCrush: Float) {
+        context.dataStore.edit { it[KEY_DSP_LOFI_BIT_CRUSH] = bitCrush }
+    }
+
+    suspend fun setDspLoFiSampleReduction(sampleReduction: Float) {
+        context.dataStore.edit { it[KEY_DSP_LOFI_SAMPLE_REDUCTION] = sampleReduction }
+    }
+
+    suspend fun setDspLoFiSaturation(saturation: Float) {
+        context.dataStore.edit { it[KEY_DSP_LOFI_SATURATION] = saturation }
+    }
+
     suspend fun setDspReverbRoomSize(roomSize: Float) {
         context.dataStore.edit { it[KEY_DSP_REVERB_ROOM_SIZE] = roomSize }
     }
@@ -140,6 +152,9 @@ class AudioPreferencesRepository @Inject constructor(
         val rawDspPreset = preferences[KEY_DSP_PRESET]
         val dspPreset = DspPreset.fromString(rawDspPreset)
         val dspLoFiIntensity = preferences[KEY_DSP_LOFI_INTENSITY] ?: 0.5f
+        val dspLoFiBitCrush = preferences[KEY_DSP_LOFI_BIT_CRUSH] ?: 0.0f
+        val dspLoFiSampleReduction = preferences[KEY_DSP_LOFI_SAMPLE_REDUCTION] ?: 0.0f
+        val dspLoFiSaturation = preferences[KEY_DSP_LOFI_SATURATION] ?: 0.2f
         val dspReverbRoomSize = preferences[KEY_DSP_REVERB_ROOM_SIZE] ?: 0.5f
         val dspReverbDecay = preferences[KEY_DSP_REVERB_DECAY] ?: 0.5f
         val dspReverbWetLevel = preferences[KEY_DSP_REVERB_WET_LEVEL] ?: 0.3f
@@ -159,6 +174,9 @@ class AudioPreferencesRepository @Inject constructor(
             dspReverbEnabled = dspReverbEnabled,
             dspPreset = dspPreset,
             dspLoFiIntensity = dspLoFiIntensity,
+            dspLoFiBitCrush = dspLoFiBitCrush,
+            dspLoFiSampleReduction = dspLoFiSampleReduction,
+            dspLoFiSaturation = dspLoFiSaturation,
             dspReverbRoomSize = dspReverbRoomSize,
             dspReverbDecay = dspReverbDecay,
             dspReverbWetLevel = dspReverbWetLevel
@@ -181,6 +199,9 @@ class AudioPreferencesRepository @Inject constructor(
         val KEY_DSP_REVERB_ENABLED = booleanPreferencesKey("dsp_reverb_enabled")
         val KEY_DSP_PRESET = stringPreferencesKey("dsp_preset")
         val KEY_DSP_LOFI_INTENSITY = androidx.datastore.preferences.core.floatPreferencesKey("dsp_lofi_intensity")
+        val KEY_DSP_LOFI_BIT_CRUSH = androidx.datastore.preferences.core.floatPreferencesKey("dsp_lofi_bit_crush")
+        val KEY_DSP_LOFI_SAMPLE_REDUCTION = androidx.datastore.preferences.core.floatPreferencesKey("dsp_lofi_sample_reduction")
+        val KEY_DSP_LOFI_SATURATION = androidx.datastore.preferences.core.floatPreferencesKey("dsp_lofi_saturation")
         val KEY_DSP_REVERB_ROOM_SIZE = androidx.datastore.preferences.core.floatPreferencesKey("dsp_reverb_room_size")
         val KEY_DSP_REVERB_DECAY = androidx.datastore.preferences.core.floatPreferencesKey("dsp_reverb_decay")
         val KEY_DSP_REVERB_WET_LEVEL = androidx.datastore.preferences.core.floatPreferencesKey("dsp_reverb_wet_level")

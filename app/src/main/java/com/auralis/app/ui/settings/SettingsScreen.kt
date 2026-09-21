@@ -53,8 +53,10 @@ import com.auralis.app.domain.model.LibraryViewMode
 import com.auralis.app.domain.model.SongSortOrder
 import com.auralis.app.domain.model.ThemeMode
 
+import androidx.activity.compose.BackHandler
+
 /**
- * Unified Settings screen organizing Audio Effects (Equalizer, Bass Boost, ReplayGain)
+ * Unified Settings screen organizing Audio Effects (Equalizer, Bass Boost, ReplayGain, Lo-Fi + Reverb)
  * and Personalization (Theme, AMOLED black, Library defaults, Privacy, About Melofy).
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -66,50 +68,64 @@ fun SettingsScreen(
     initialTab: Int = 0
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(initialTab) }
+    var showLoFiReverbScreen by remember { mutableStateOf(false) }
     val tabs = listOf("Audio Effects", "Personalization & About")
 
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        topBar = {
-            Column {
-                TopAppBar(
-                    title = {
-                        Text(
-                            text = "Settings",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
-                )
-                PrimaryTabRow(selectedTabIndex = selectedTabIndex) {
-                    tabs.forEachIndexed { index, title ->
-                        Tab(
-                            selected = selectedTabIndex == index,
-                            onClick = { selectedTabIndex = index },
-                            text = { Text(title, fontWeight = FontWeight.SemiBold) }
-                        )
+    BackHandler(enabled = showLoFiReverbScreen) {
+        showLoFiReverbScreen = false
+    }
+
+    if (showLoFiReverbScreen) {
+        LoFiReverbScreen(
+            onBackClick = { showLoFiReverbScreen = false },
+            viewModel = audioViewModel,
+            modifier = modifier.fillMaxSize()
+        )
+    } else {
+        Scaffold(
+            modifier = modifier.fillMaxSize(),
+            topBar = {
+                Column {
+                    TopAppBar(
+                        title = {
+                            Text(
+                                text = "Settings",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+                    )
+                    PrimaryTabRow(selectedTabIndex = selectedTabIndex) {
+                        tabs.forEachIndexed { index, title ->
+                            Tab(
+                                selected = selectedTabIndex == index,
+                                onClick = { selectedTabIndex = index },
+                                text = { Text(title, fontWeight = FontWeight.SemiBold) }
+                            )
+                        }
                     }
                 }
             }
-        }
-    ) { innerPadding ->
-        when (selectedTabIndex) {
-            0 -> {
-                AudioSettingsScreen(
-                    viewModel = audioViewModel,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
-                )
-            }
-            1 -> {
-                PersonalizationAndAboutContent(
-                    viewModel = settingsViewModel,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
-                )
+        ) { innerPadding ->
+            when (selectedTabIndex) {
+                0 -> {
+                    AudioSettingsScreen(
+                        viewModel = audioViewModel,
+                        onNavigateToLoFiReverb = { showLoFiReverbScreen = true },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                    )
+                }
+                1 -> {
+                    PersonalizationAndAboutContent(
+                        viewModel = settingsViewModel,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                    )
+                }
             }
         }
     }

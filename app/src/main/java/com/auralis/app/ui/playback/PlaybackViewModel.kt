@@ -8,18 +8,23 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
 
+import com.auralis.app.playback.dsp.DspEffectsManager
+import com.auralis.app.playback.dsp.DspParameters
+
 /**
  * ViewModel exposing reactive playback state and user actions to Jetpack Compose UI.
  */
 @HiltViewModel
 class PlaybackViewModel @Inject constructor(
-    private val playbackController: PlaybackController
+    private val playbackController: PlaybackController,
+    private val dspEffectsManager: DspEffectsManager
 ) : ViewModel() {
 
     val playbackState: StateFlow<PlaybackState> = playbackController.playbackState
     val playbackPositionMs: StateFlow<Long> = playbackController.playbackPositionMs
     val playbackProgress: StateFlow<Float> = playbackController.playbackProgress
     val activeQueue: StateFlow<List<Song>> = playbackController.activeQueue
+    val dspParameters: StateFlow<DspParameters> = dspEffectsManager.parametersState
 
     fun setHighFrequencyTracking(enabled: Boolean) {
         playbackController.setHighFrequencyTracking(enabled)

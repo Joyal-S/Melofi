@@ -2,6 +2,7 @@ package com.auralis.app.ui.playback
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -75,6 +77,7 @@ fun NowPlayingScreen(
 ) {
     val playbackState by playbackViewModel.playbackState.collectAsStateWithLifecycle()
     val activeQueue by playbackViewModel.activeQueue.collectAsStateWithLifecycle()
+    val dspParams by playbackViewModel.dspParameters.collectAsStateWithLifecycle()
     val song = playbackState.currentSong ?: return
 
     DisposableEffect(Unit) {
@@ -126,7 +129,8 @@ fun NowPlayingScreen(
                     IconButton(onClick = { onOpenAudioSettings?.invoke() }) {
                         Icon(
                             painter = painterResource(R.drawable.ic_tune),
-                            contentDescription = "Audio Effects & Equalizer"
+                            contentDescription = "Audio Effects & Equalizer",
+                            tint = if (dspParams.isAnyActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 },
@@ -206,6 +210,35 @@ fun NowPlayingScreen(
                         tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(28.dp)
                     )
+                }
+            }
+
+            // Subtle Active Lo-Fi + Reverb Indicator (clean and non-intrusive)
+            if (dspParams.isAnyActive) {
+                Spacer(modifier = Modifier.height(MelofySpacing.xs))
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.clickable { onOpenAudioSettings?.invoke() }
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = MelofySpacing.sm, vertical = MelofySpacing.xxs)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_waves),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(MelofySpacing.xs))
+                        Text(
+                            text = "Lo-Fi • ${dspParams.preset.displayName}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
 

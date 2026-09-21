@@ -197,15 +197,80 @@ The engine defines 4 curated presets via `DspPreset`:
 
 ## 15. Known Limitations
 1. **Algorithmic Reverb Character:** Schroeder reverb is an acoustic approximation; it produces subtle comb coloration compared to heavy convolution reverbs, but runs with a fraction of the CPU and memory cost.
-2. **UI Deferred to Addon 3:** Addon 2 implements the complete engine, persistence, and service integration. UI controls in the Audio Settings screen will be added in Addon 3.
+2. **Device Hardware Testing:** Verified on JVM unit test suite (328 tests) and debug APK assembly; on-device acoustic tuning scheduled for Addon 4.
 
 ---
 
-## 16. Recommendation for Addon 3
-For **Audio Addon 3 (Minimal Melofy UI + Integration)**:
-1. **Settings Card:** Add a clean, native "Lo-Fi & Reverb" card to `AudioSettingsScreen.kt` following Melofy's existing Material 3 design system.
-2. **Controls:**
-   - Master ON/OFF toggle switch.
-   - Preset selector filter chips (`Dreamy`, `Cassette`, `Late Night`, `Deep Lo-Fi`).
-   - Simple sliders for Lo-Fi Intensity and Reverb Room Size / Wet Mix.
-3. **ViewModel Integration:** Connect `AudioSettingsViewModel` to `DspEffectsManager` via StateFlows.
+## 16. Audio Addon 3 — Premium UI Integration & Personalization
+
+### Design Philosophy
+**"Rich App Experience + Simple Effect Controls"**
+The Lo-Fi + Reverb controls are intentionally simple (Enable, Preset, Intensity, with an expandable Advanced drawer), while the overall Melofy application remains premium, aesthetic, smooth, immersive, and feature-rich.
+
+### Entry Point & Navigation
+- **Entry Point:** Integrated directly into `AudioSettingsScreen.kt` inside the "Audio Effects" tab of `SettingsScreen.kt`. It resides alongside Equalizer, Bass Boost, Virtualizer, ReplayGain, and Sleep Timer.
+- **Card:** `LoFiReverbSection` card displays the current status (e.g. `Active • Dreamy (58%)` or `Disabled`), an instant ON/OFF switch, and a chevron button to open the dedicated screen.
+- **Dedicated Sub-Page:** Navigates to `LoFiReverbScreen.kt` with a standard Top App Bar (`< Back | Lo-Fi + Reverb`). Supported by Jetpack Compose `BackHandler` and system back navigation. No new top-level navigation tabs.
+
+### Page Structure & Controls
+1. **Top App Bar:** Back navigation button and title `Lo-Fi + Reverb`.
+2. **Header:** Title and descriptive subtitle ("Add warmth, texture and atmosphere to your music").
+3. **Main Effect Card:**
+   - Master ON/OFF Switch.
+   - Dynamic status badge ("Active" / "Disabled") and sound wave accent icon.
+   - Card container subtle tinting when active.
+4. **Primary Controls Tier (Subdued when disabled):**
+   - **Preset Card:** Displays current preset name and icon (`🌙 Dreamy`, `📼 Cassette`, `🌃 Late Night`, `📻 Deep Lo-Fi`, or `✨ Custom`). Tapping opens a Material 3 `ModalBottomSheet` with radio buttons and aesthetic descriptions.
+   - **Intensity Card:** Single smooth Slider (0%..100%) with percentage readout, controlling master wet/dry effect blend in real-time.
+5. **Advanced Controls Tier (Collapsible):**
+   - Collapsible card, collapsed by default with an animated 180-degree rotating chevron.
+   - **Lo-Fi Character:**
+     - Bit Crush (0%..100%, 16-bit down to 8-bit quantization crunch).
+     - Sample Rate (0%..100%, 1x down to 8x decimation downsampling).
+     - Tape Saturation (0%..100%, warm analog cubic soft-clipping).
+   - **Acoustic Space (Reverb):**
+     - Room Size (0%..100%, virtual acoustic volume).
+     - Decay Time (0%..100%, reverberation feedback persistence).
+     - Wet Mix (0%..100%, reverberated signal balance).
+
+### Presets
+1. **Dreamy:** Moderate Lo-Fi, lush atmospheric reverb, gentle high-frequency softening.
+2. **Cassette:** Warm tape saturation, analog roll-off, vintage cassette character.
+3. **Late Night:** Dark intimate low-pass cutoff, subtle bit texture, nocturnal acoustic space.
+4. **Deep Lo-Fi:** Vintage sampler crunch, heavy tape saturation, deep spacious reverberant tail.
+5. **Custom:** Tailored user adjustments.
+
+### Now Playing Integration
+- When DSP is active:
+  - Displays a subtle pill chip: `♫ Lo-Fi • [PresetName]` above the seek scrubber with container background tint. Tapping opens Audio Settings.
+  - Tints the `ic_tune` action button in the Top App Bar with `MaterialTheme.colorScheme.primary`.
+- When DSP is inactive:
+  - Clean existing layout; no permanent or distracting UI elements.
+
+### Mini-Player Integration
+- Left completely clean to avoid visual clutter.
+
+### Theme Support
+- 100% theme token integration with `MaterialTheme.colorScheme`:
+  - **SYSTEM:** Follows system dark/light mode dynamically.
+  - **LIGHT:** Crisp, high-contrast Material 3 light color scheme.
+  - **DARK:** Elegant dark theme with deep slate surfaces.
+  - **AMOLED:** Pure #000000 black background and surface tokens for OLED battery saving.
+
+### Accessibility
+- All interactive elements adhere to Android's minimum 48dp touch target guidelines.
+- Sliders and switches provide semantic accessibility labels (`contentDescription`).
+
+### Real-Time Parameter Changes & Persistence
+- UI parameter modifications are dispatched instantaneously to the running `MelofyDspAudioProcessor` lock-free, smoothly updating audio without restarting playback or glitching.
+- Parameters are asynchronously saved to `AudioPreferencesRepository` via AndroidX DataStore.
+- Addon is **OFF by default**; normal playback is completely untouched out of the box.
+
+---
+
+## 17. Recommendation for Addon 4
+For **Audio Addon 4 (Testing & Tuning)**:
+1. Conduct perceptual listening tests on physical Android test devices with varied genres (classical, jazz, rock, synthwave, ambient).
+2. Tune filter cutoff curves, saturation knee, and Schroeder comb filter prime delays for optimal fidelity and warmth across various sample rates (44.1 kHz, 48 kHz, 96 kHz).
+3. Validate battery consumption and latency under sustained background playback.
+

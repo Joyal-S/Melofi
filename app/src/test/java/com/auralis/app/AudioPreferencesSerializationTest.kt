@@ -28,6 +28,17 @@ class AudioPreferencesSerializationTest {
         assertEquals(ReplayGainMode.OFF, prefs.replayGainMode)
         assertFalse(prefs.crossfadeEnabled)
         assertEquals(0, prefs.crossfadeDurationSeconds)
+        // DSP Addon defaults: Disabled out of the box
+        assertFalse(prefs.dspLoFiEnabled)
+        assertFalse(prefs.dspReverbEnabled)
+        assertEquals(com.auralis.app.playback.dsp.DspPreset.DREAMY, prefs.dspPreset)
+        assertEquals(0.5f, prefs.dspLoFiIntensity, 0.001f)
+        assertEquals(0.0f, prefs.dspLoFiBitCrush, 0.001f)
+        assertEquals(0.0f, prefs.dspLoFiSampleReduction, 0.001f)
+        assertEquals(0.2f, prefs.dspLoFiSaturation, 0.001f)
+        assertEquals(0.5f, prefs.dspReverbRoomSize, 0.001f)
+        assertEquals(0.5f, prefs.dspReverbDecay, 0.001f)
+        assertEquals(0.3f, prefs.dspReverbWetLevel, 0.001f)
     }
 
     @Test

@@ -43,7 +43,13 @@ class DspEffectsManager @Inject constructor(
         val baseParams = if (prefs.dspPreset != DspPreset.CUSTOM) {
             DspParameters.createPreset(prefs.dspPreset)
         } else {
-            DspParameters.DEFAULT
+            DspParameters.DEFAULT.copy(
+                loFi = DspParameters.DEFAULT.loFi.copy(
+                    bitCrush = prefs.dspLoFiBitCrush,
+                    sampleRateReduction = prefs.dspLoFiSampleReduction,
+                    saturation = prefs.dspLoFiSaturation
+                )
+            )
         }
 
         val updated = baseParams.copy(
@@ -64,25 +70,64 @@ class DspEffectsManager @Inject constructor(
         audioProcessor.updateParameters(updated)
     }
 
+    fun setMasterEnabled(enabled: Boolean) {
+        audioProcessor.engine.setLoFiEnabled(enabled)
+        audioProcessor.engine.setReverbEnabled(enabled)
+        val updated = audioProcessor.getParameters().copy(
+            loFi = audioProcessor.getParameters().loFi.copy(enabled = enabled),
+            reverb = audioProcessor.getParameters().reverb.copy(enabled = enabled)
+        )
+        audioProcessor.updateParameters(updated)
+        _parametersState.update { updated }
+        scope.launch {
+            preferencesRepository.setDspLoFiEnabled(enabled)
+            preferencesRepository.setDspReverbEnabled(enabled)
+        }
+    }
+
     fun setLoFiEnabled(enabled: Boolean) {
         audioProcessor.engine.setLoFiEnabled(enabled)
-        _parametersState.update { it.copy(loFi = it.loFi.copy(enabled = enabled)) }
+        val updated = audioProcessor.getParameters().copy(
+            loFi = audioProcessor.getParameters().loFi.copy(enabled = enabled)
+        )
+        audioProcessor.updateParameters(updated)
+        _parametersState.update { updated }
         scope.launch { preferencesRepository.setDspLoFiEnabled(enabled) }
     }
 
     fun setReverbEnabled(enabled: Boolean) {
         audioProcessor.engine.setReverbEnabled(enabled)
-        _parametersState.update { it.copy(reverb = it.reverb.copy(enabled = enabled)) }
+        val updated = audioProcessor.getParameters().copy(
+            reverb = audioProcessor.getParameters().reverb.copy(enabled = enabled)
+        )
+        audioProcessor.updateParameters(updated)
+        _parametersState.update { updated }
         scope.launch { preferencesRepository.setDspReverbEnabled(enabled) }
     }
 
     fun setPreset(preset: DspPreset) {
+        val currentActive = _parametersState.value.isAnyActive
         audioProcessor.engine.setPreset(preset)
-        val newParams = audioProcessor.getParameters()
+        if (currentActive) {
+            audioProcessor.engine.setLoFiEnabled(true)
+            audioProcessor.engine.setReverbEnabled(true)
+        }
+        val newParams = audioProcessor.getParameters().let {
+            if (currentActive) {
+                it.copy(
+                    loFi = it.loFi.copy(enabled = true),
+                    reverb = it.reverb.copy(enabled = true)
+                )
+            } else it
+        }
+        audioProcessor.updateParameters(newParams)
         _parametersState.update { newParams }
         scope.launch {
             preferencesRepository.setDspPreset(preset)
             preferencesRepository.setDspLoFiIntensity(newParams.loFi.intensity)
+            preferencesRepository.setDspLoFiBitCrush(newParams.loFi.bitCrush)
+            preferencesRepository.setDspLoFiSampleReduction(newParams.loFi.sampleRateReduction)
+            preferencesRepository.setDspLoFiSaturation(newParams.loFi.saturation)
             preferencesRepository.setDspReverbRoomSize(newParams.reverb.roomSize)
             preferencesRepository.setDspReverbDecay(newParams.reverb.decay)
             preferencesRepository.setDspReverbWetLevel(newParams.reverb.wetLevel)
@@ -100,6 +145,48 @@ class DspEffectsManager @Inject constructor(
         scope.launch {
             preferencesRepository.setDspPreset(DspPreset.CUSTOM)
             preferencesRepository.setDspLoFiIntensity(updated.loFi.intensity)
+        }
+    }
+
+    fun setLoFiBitCrush(bitCrush: Float) {
+        val current = audioProcessor.getParameters()
+        val updated = current.copy(
+            preset = DspPreset.CUSTOM,
+            loFi = current.loFi.copy(bitCrush = bitCrush.coerceIn(0.0f, 1.0f))
+        )
+        audioProcessor.updateParameters(updated)
+        _parametersState.update { updated }
+        scope.launch {
+            preferencesRepository.setDspPreset(DspPreset.CUSTOM)
+            preferencesRepository.setDspLoFiBitCrush(updated.loFi.bitCrush)
+        }
+    }
+
+    fun setLoFiSampleReduction(sampleReduction: Float) {
+        val current = audioProcessor.getParameters()
+        val updated = current.copy(
+            preset = DspPreset.CUSTOM,
+            loFi = current.loFi.copy(sampleRateReduction = sampleReduction.coerceIn(0.0f, 1.0f))
+        )
+        audioProcessor.updateParameters(updated)
+        _parametersState.update { updated }
+        scope.launch {
+            preferencesRepository.setDspPreset(DspPreset.CUSTOM)
+            preferencesRepository.setDspLoFiSampleReduction(updated.loFi.sampleRateReduction)
+        }
+    }
+
+    fun setLoFiSaturation(saturation: Float) {
+        val current = audioProcessor.getParameters()
+        val updated = current.copy(
+            preset = DspPreset.CUSTOM,
+            loFi = current.loFi.copy(saturation = saturation.coerceIn(0.0f, 1.0f))
+        )
+        audioProcessor.updateParameters(updated)
+        _parametersState.update { updated }
+        scope.launch {
+            preferencesRepository.setDspPreset(DspPreset.CUSTOM)
+            preferencesRepository.setDspLoFiSaturation(updated.loFi.saturation)
         }
     }
 

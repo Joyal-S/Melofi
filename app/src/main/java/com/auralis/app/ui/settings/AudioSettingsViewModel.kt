@@ -15,30 +15,36 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.auralis.app.playback.dsp.DspEffectsManager
+import com.auralis.app.playback.dsp.DspPreset
+
 /**
  * ViewModel coordinating audio effects, ReplayGain normalization, sleep timer,
- * and user preferences for the Audio Settings screen.
+ * real-time Lo-Fi + Reverb DSP processing, and user preferences for the Audio Settings screen.
  */
 @HiltViewModel
 class AudioSettingsViewModel @Inject constructor(
     private val audioEffectsManager: AudioEffectsManager,
     private val replayGainManager: ReplayGainManager,
     private val sleepTimerManager: SleepTimerManager,
-    private val preferencesRepository: AudioPreferencesRepository
+    private val preferencesRepository: AudioPreferencesRepository,
+    private val dspEffectsManager: DspEffectsManager
 ) : ViewModel() {
 
     val uiState: StateFlow<AudioSettingsUiState> = combine(
         audioEffectsManager.effectsState,
         replayGainManager.replayGainState,
         sleepTimerManager.timerState,
-        preferencesRepository.preferencesFlow
-    ) { effects, replayGain, sleepTimer, prefs ->
+        preferencesRepository.preferencesFlow,
+        dspEffectsManager.parametersState
+    ) { effects, replayGain, sleepTimer, prefs, dspParams ->
         AudioSettingsUiState(
             effectsState = effects,
             replayGainState = replayGain,
             sleepTimerState = sleepTimer,
             crossfadeEnabled = prefs.crossfadeEnabled,
-            crossfadeDurationSeconds = prefs.crossfadeDurationSeconds
+            crossfadeDurationSeconds = prefs.crossfadeDurationSeconds,
+            dspParameters = dspParams
         )
     }.stateIn(
         scope = viewModelScope,
@@ -84,5 +90,43 @@ class AudioSettingsViewModel @Inject constructor(
 
     fun cancelSleepTimer() {
         sleepTimerManager.cancel()
+    }
+
+    // Real-Time Lo-Fi + Reverb DSP Controls
+
+    fun toggleLoFiReverbMaster(enabled: Boolean) {
+        dspEffectsManager.setMasterEnabled(enabled)
+    }
+
+    fun setLoFiReverbPreset(preset: DspPreset) {
+        dspEffectsManager.setPreset(preset)
+    }
+
+    fun setLoFiReverbIntensity(intensity: Float) {
+        dspEffectsManager.setLoFiIntensity(intensity)
+    }
+
+    fun setLoFiBitCrush(bitCrush: Float) {
+        dspEffectsManager.setLoFiBitCrush(bitCrush)
+    }
+
+    fun setLoFiSampleReduction(sampleReduction: Float) {
+        dspEffectsManager.setLoFiSampleReduction(sampleReduction)
+    }
+
+    fun setLoFiSaturation(saturation: Float) {
+        dspEffectsManager.setLoFiSaturation(saturation)
+    }
+
+    fun setReverbRoomSize(roomSize: Float) {
+        dspEffectsManager.setReverbRoomSize(roomSize)
+    }
+
+    fun setReverbDecay(decay: Float) {
+        dspEffectsManager.setReverbDecay(decay)
+    }
+
+    fun setReverbWetLevel(wetLevel: Float) {
+        dspEffectsManager.setReverbWetLevel(wetLevel)
     }
 }
