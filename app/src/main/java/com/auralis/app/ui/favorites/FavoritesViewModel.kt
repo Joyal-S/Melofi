@@ -33,4 +33,10 @@ class FavoritesViewModel @Inject constructor(
             toggleFavoriteUseCase(songId)
         }
     }
+
+    fun toggleFavorite(songId: Long) {
+        viewModelScope.launch {
+            toggleFavoriteUseCase(songId)
+        }
+    }
 }

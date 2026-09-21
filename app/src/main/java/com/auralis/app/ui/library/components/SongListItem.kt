@@ -1,5 +1,7 @@
 package com.auralis.app.ui.library.components
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -25,18 +27,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.auralis.app.R
+import com.auralis.app.core.ui.theme.MelofySpacing
 import com.auralis.app.core.util.TimeUtils
 import com.auralis.app.domain.model.Song
 
 /**
- * High-performance, Material 3 song item component with reactive favorite toggle
- * and context actions menu.
+ * High-performance, Material 3 song item component with reactive favorite toggle,
+ * animated micro-interaction, accessible touch targets, and context actions menu.
  */
 @Composable
 fun SongListItem(
@@ -51,17 +56,23 @@ fun SongListItem(
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
+    val heartScale by animateFloatAsState(
+        targetValue = if (isFavorite) 1.2f else 1.0f,
+        animationSpec = spring(dampingRatio = 0.5f, stiffness = 400f),
+        label = "favoriteBounce"
+    )
+
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+            .padding(horizontal = MelofySpacing.lg, vertical = MelofySpacing.xs),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Album art thumbnail with local vector fallback
         Box(
             modifier = Modifier
-                .size(52.dp)
+                .size(50.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center
@@ -69,7 +80,7 @@ fun SongListItem(
             AsyncImage(
                 model = song.albumArtUri,
                 contentDescription = "Cover art for ${song.title}",
-                modifier = Modifier.size(52.dp),
+                modifier = Modifier.size(50.dp),
                 contentScale = ContentScale.Crop,
                 placeholder = painterResource(R.drawable.ic_music_placeholder),
                 error = painterResource(R.drawable.ic_music_placeholder),
@@ -77,17 +88,18 @@ fun SongListItem(
             )
         }
 
-        Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.width(MelofySpacing.md))
 
         // Title and Artist/Album
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(end = 4.dp)
+                .padding(end = MelofySpacing.xs)
         ) {
             Text(
                 text = song.title,
                 style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -106,14 +118,16 @@ fun SongListItem(
             text = TimeUtils.formatDuration(song.duration),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(end = 4.dp)
+            modifier = Modifier.padding(end = MelofySpacing.xxs)
         )
 
-        // Favorite Toggle Action
+        // Favorite Toggle Action (Accessible 44dp touch target)
         if (onToggleFavorite != null) {
             IconButton(
                 onClick = onToggleFavorite,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier
+                    .size(44.dp)
+                    .scale(heartScale)
             ) {
                 Icon(
                     painter = painterResource(
@@ -121,23 +135,23 @@ fun SongListItem(
                     ),
                     contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
                     tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             }
         }
 
-        // Context Actions Menu (Add to Playlist, Play Next)
-        if (onAddToPlaylist != null || onPlayNext != null) {
+        // Context Actions Menu (Add to Playlist, Play Next, Song Details)
+        if (onAddToPlaylist != null || onPlayNext != null || onShowDetails != null) {
             Box {
                 IconButton(
                     onClick = { showMenu = true },
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(44.dp)
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_more_vert),
-                        contentDescription = "Song options",
+                        contentDescription = "More options for ${song.title}",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 }
 

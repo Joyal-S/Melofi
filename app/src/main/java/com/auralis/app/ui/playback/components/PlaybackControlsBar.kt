@@ -1,11 +1,12 @@
 package com.auralis.app.ui.playback.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -19,126 +20,78 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.auralis.app.R
-import com.auralis.app.core.util.TimeUtils
-import com.auralis.app.playback.model.PlaybackRepeatMode
+import com.auralis.app.core.ui.theme.MelofyElevation
+import com.auralis.app.core.ui.theme.MelofyShapes
+import com.auralis.app.core.ui.theme.MelofySpacing
 import com.auralis.app.playback.model.PlaybackState
 
 /**
- * Functional bottom playback control surface for Phase 3 verification.
+ * Polished, sleek persistent playback controls bar (mini player).
+ * Tapping the bar expands into the full Now Playing screen.
  */
 @Composable
 fun PlaybackControlsBar(
     playbackState: PlaybackState,
     onTogglePlayPause: () -> Unit,
-    onSeekTo: (Long) -> Unit,
-    onNext: () -> Unit,
-    onPrevious: () -> Unit,
-    onToggleShuffle: () -> Unit,
-    onCycleRepeat: () -> Unit,
+    onSeekTo: (Long) -> Unit = {},
+    onNext: () -> Unit = {},
+    onPrevious: () -> Unit = {},
+    onToggleShuffle: () -> Unit = {},
+    onCycleRepeat: () -> Unit = {},
+    onClick: (() -> Unit)? = null,
+    isFavorite: Boolean = false,
+    onToggleFavorite: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val song = playbackState.currentSong ?: return
 
-    var isUserSeeking by remember { mutableStateOf(false) }
-    var seekProgress by remember { mutableFloatStateOf(0f) }
-
-    val currentProgress = if (isUserSeeking) {
-        seekProgress
-    } else {
-        playbackState.progress
-    }
-
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(16.dp),
+            .padding(horizontal = MelofySpacing.sm, vertical = MelofySpacing.xxs)
+            .clickable(enabled = onClick != null) { onClick?.invoke() },
+        shape = MelofyShapes.large,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = MelofyElevation.medium)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-        ) {
-            // Seek Slider
-            Slider(
-                value = currentProgress,
-                onValueChange = {
-                    isUserSeeking = true
-                    seekProgress = it
-                },
-                onValueChangeFinished = {
-                    val targetMs = (seekProgress * playbackState.durationMs).toLong()
-                    onSeekTo(targetMs)
-                    isUserSeeking = false
-                },
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Sleek top progress indicator
+            LinearProgressIndicator(
+                progress = { playbackState.progress },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(18.dp),
-                colors = SliderDefaults.colors(
-                    thumbColor = MaterialTheme.colorScheme.primary,
-                    activeTrackColor = MaterialTheme.colorScheme.primary,
-                    inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-                )
+                    .height(3.dp),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
             )
 
-            // Duration labels
+            // Content row
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                val positionMs = if (isUserSeeking) {
-                    (seekProgress * playbackState.durationMs).toLong()
-                } else {
-                    playbackState.currentPositionMs
-                }
-                Text(
-                    text = TimeUtils.formatDuration(positionMs),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = TimeUtils.formatDuration(playbackState.durationMs),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Track info and controls row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
+                    .padding(horizontal = MelofySpacing.md, vertical = MelofySpacing.sm),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Album art
+                // Album Art Thumbnail
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(46.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(MaterialTheme.colorScheme.surface),
                     contentAlignment = Alignment.Center
@@ -146,7 +99,7 @@ fun PlaybackControlsBar(
                     AsyncImage(
                         model = song.albumArtUri,
                         contentDescription = "Artwork for ${song.title}",
-                        modifier = Modifier.size(44.dp),
+                        modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
                         placeholder = painterResource(R.drawable.ic_music_placeholder),
                         error = painterResource(R.drawable.ic_music_placeholder),
@@ -154,23 +107,24 @@ fun PlaybackControlsBar(
                     )
                 }
 
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(MelofySpacing.md))
 
                 // Track Title & Artist
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(end = 4.dp)
+                        .padding(end = MelofySpacing.xs)
                 ) {
                     Text(
                         text = song.title,
                         style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = song.artistName,
+                        text = "${song.artistName} • ${song.albumName}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -178,38 +132,27 @@ fun PlaybackControlsBar(
                     )
                 }
 
-                // Transport controls
-                IconButton(
-                    onClick = onToggleShuffle,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_shuffle),
-                        contentDescription = "Shuffle",
-                        modifier = Modifier.size(20.dp),
-                        tint = if (playbackState.shuffleEnabled) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    )
+                // Favorite Toggle (if provided)
+                if (onToggleFavorite != null) {
+                    IconButton(
+                        onClick = onToggleFavorite,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(
+                                if (isFavorite) R.drawable.ic_favorite else R.drawable.ic_favorite_border
+                            ),
+                            contentDescription = if (isFavorite) "Favorite" else "Not favorite",
+                            tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                 }
 
-                IconButton(
-                    onClick = onPrevious,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_skip_previous),
-                        contentDescription = "Previous",
-                        modifier = Modifier.size(22.dp),
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
+                // Play / Pause Button
                 FilledIconButton(
                     onClick = onTogglePlayPause,
-                    modifier = Modifier.size(42.dp),
+                    modifier = Modifier.size(44.dp),
                     shape = CircleShape,
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
@@ -225,37 +168,16 @@ fun PlaybackControlsBar(
                     )
                 }
 
+                // Next Button
                 IconButton(
                     onClick = onNext,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(40.dp)
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_skip_next),
-                        contentDescription = "Next",
-                        modifier = Modifier.size(22.dp),
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                IconButton(
-                    onClick = onCycleRepeat,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    val iconRes = if (playbackState.repeatMode == PlaybackRepeatMode.ONE) {
-                        R.drawable.ic_repeat_one
-                    } else {
-                        R.drawable.ic_repeat
-                    }
-                    val tint = if (playbackState.repeatMode != PlaybackRepeatMode.OFF) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                    Icon(
-                        painter = painterResource(iconRes),
-                        contentDescription = "Repeat mode: ${playbackState.repeatMode}",
-                        modifier = Modifier.size(20.dp),
-                        tint = tint
+                        contentDescription = "Next Track",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
             }

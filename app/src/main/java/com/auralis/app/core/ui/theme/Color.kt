@@ -43,3 +43,11 @@ val AuralisBackgroundDark = Color(0xFF1C1B1F)
 val AuralisOnBackgroundDark = Color(0xFFE6E1E5)
 val AuralisSurfaceDark = Color(0xFF1C1B1F)
 val AuralisOnSurfaceDark = Color(0xFFE6E1E5)
+
+// AMOLED Pure Black theme
+val AuralisBackgroundAmoled = Color(0xFF000000)
+val AuralisOnBackgroundAmoled = Color(0xFFEDEDED)
+val AuralisSurfaceAmoled = Color(0xFF000000)
+val AuralisOnSurfaceAmoled = Color(0xFFEDEDED)
+val AuralisSurfaceVariantAmoled = Color(0xFF161616)
+val AuralisOnSurfaceVariantAmoled = Color(0xFFB0B0B0)

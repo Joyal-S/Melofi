@@ -70,6 +70,7 @@ import com.auralis.app.R
 import com.auralis.app.core.util.PermissionUtils
 import com.auralis.app.domain.model.DurationFilter
 import com.auralis.app.domain.model.FormatFilter
+import com.auralis.app.domain.model.LibraryTab
 import com.auralis.app.domain.model.LibraryViewMode
 import com.auralis.app.domain.model.PlaybackFilter
 import com.auralis.app.domain.model.Playlist

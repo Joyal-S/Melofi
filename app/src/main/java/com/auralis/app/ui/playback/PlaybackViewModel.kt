@@ -17,6 +17,7 @@ class PlaybackViewModel @Inject constructor(
 ) : ViewModel() {
 
     val playbackState: StateFlow<PlaybackState> = playbackController.playbackState
+    val activeQueue: StateFlow<List<Song>> = playbackController.activeQueue
 
     fun playSong(song: Song, allSongs: List<Song>) {
         val index = allSongs.indexOfFirst { it.id == song.id }.coerceAtLeast(0)

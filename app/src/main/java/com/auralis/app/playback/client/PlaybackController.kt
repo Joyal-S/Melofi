@@ -47,6 +47,9 @@ class PlaybackController @Inject constructor(
     private val _playbackState = MutableStateFlow(PlaybackState())
     val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
 
+    private val _activeQueue = MutableStateFlow<List<Song>>(emptyList())
+    val activeQueue: StateFlow<List<Song>> = _activeQueue.asStateFlow()
+
     private var mediaController: MediaController? = null
     private var positionUpdateJob: Job? = null
 
@@ -73,6 +76,7 @@ class PlaybackController @Inject constructor(
                     mediaController = controller
                     controller.addListener(PlayerListener())
                     syncStateFromPlayer(controller)
+                    _activeQueue.value = playbackQueue.getSongs()
                     onConnected?.invoke(controller)
                 } catch (e: Exception) {
                     _playbackState.update {
@@ -91,6 +95,7 @@ class PlaybackController @Inject constructor(
         if (songs.isEmpty()) return
 
         playbackQueue.setQueue(songs, startIndex)
+        _activeQueue.value = playbackQueue.getSongs()
         val targetSong = playbackQueue.currentSong()
         val mediaItems = MediaItemMapper.toMediaItemList(songs)
 
@@ -113,6 +118,7 @@ class PlaybackController @Inject constructor(
         if (songs.isEmpty()) return
 
         playbackQueue.addToQueue(songs)
+        _activeQueue.value = playbackQueue.getSongs()
         val mediaItems = MediaItemMapper.toMediaItemList(songs)
 
         ensureController { controller ->

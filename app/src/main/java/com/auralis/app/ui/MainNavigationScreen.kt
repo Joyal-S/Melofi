@@ -21,6 +21,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.auralis.app.R
 import com.auralis.app.domain.model.SmartPlaylistType
+import com.auralis.app.domain.model.Song
 import com.auralis.app.ui.browse.AlbumDetailScreen
 import com.auralis.app.ui.browse.AlbumDetailViewModel
 import com.auralis.app.ui.browse.ArtistDetailScreen
@@ -35,6 +36,7 @@ import com.auralis.app.ui.favorites.FavoritesScreen
 import com.auralis.app.ui.favorites.FavoritesViewModel
 import com.auralis.app.ui.library.SongsScreen
 import com.auralis.app.ui.library.SongsViewModel
+import com.auralis.app.ui.playback.NowPlayingScreen
 import com.auralis.app.ui.playback.PlaybackViewModel
 import com.auralis.app.ui.playback.components.PlaybackControlsBar
 import com.auralis.app.ui.playlists.PlaylistsScreen
@@ -47,7 +49,9 @@ import com.auralis.app.ui.recommendations.RecommendationDetailScreen
 import com.auralis.app.ui.recommendations.RecommendationViewModel
 import com.auralis.app.ui.search.SearchScreen
 import com.auralis.app.ui.search.SearchViewModel
-import com.auralis.app.ui.settings.AudioSettingsScreen
+import com.auralis.app.ui.settings.AudioSettingsViewModel
+import com.auralis.app.ui.settings.SettingsScreen
+import com.auralis.app.ui.settings.SettingsViewModel
 import com.auralis.app.ui.stats.StatisticsScreen
 
 enum class MainTab {
@@ -55,14 +59,14 @@ enum class MainTab {
     FAVORITES,
     PLAYLISTS,
     STATS,
-    AUDIO
+    SETTINGS
 }
 
 /**
  * Top-level navigation host coordinating library tabs, playlist details,
  * listening statistics, smart playlists, metadata inspection, duplicates,
  * advanced search, category browsing (albums, artists, genres),
- * on-device recommendations, and the persistent Media3 playback controls bar.
+ * on-device recommendations, settings, and the persistent Media3 playback controls bar.
  */
 @Composable
 fun MainNavigationScreen(
@@ -79,6 +83,8 @@ fun MainNavigationScreen(
     artistDetailViewModel: ArtistDetailViewModel = hiltViewModel(),
     genreDetailViewModel: GenreDetailViewModel = hiltViewModel(),
     recommendationViewModel: RecommendationViewModel = hiltViewModel(),
+    settingsViewModel: SettingsViewModel = hiltViewModel(),
+    audioSettingsViewModel: AudioSettingsViewModel = hiltViewModel(),
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(MainTab.SONGS) }
@@ -88,15 +94,18 @@ fun MainNavigationScreen(
     var showDuplicateScreen by remember { mutableStateOf(false) }
     var showSearchScreen by remember { mutableStateOf(false) }
     var showRecommendationDetail by remember { mutableStateOf(false) }
+    var showNowPlaying by remember { mutableStateOf(false) }
     var selectedAlbumId by remember { mutableStateOf<Long?>(null) }
     var selectedArtistId by remember { mutableStateOf<Long?>(null) }
     var selectedGenreId by remember { mutableStateOf<Long?>(null) }
-    var songForPlaylistDialog by remember { mutableStateOf<com.auralis.app.domain.model.Song?>(null) }
+    var songForPlaylistDialog by remember { mutableStateOf<Song?>(null) }
 
     val playbackState by playbackViewModel.playbackState.collectAsStateWithLifecycle()
     val playlists by playlistsViewModel.playlists.collectAsStateWithLifecycle()
+    val favoriteSongIds by songsViewModel.favoriteSongIds.collectAsStateWithLifecycle()
 
-    val isSubScreen = selectedPlaylistId != null ||
+    val isSubScreen = showNowPlaying ||
+            selectedPlaylistId != null ||
             selectedSmartPlaylistType != null ||
             selectedSongDetailsId != null ||
             showDuplicateScreen ||
@@ -108,6 +117,7 @@ fun MainNavigationScreen(
 
     BackHandler(enabled = isSubScreen) {
         when {
+            showNowPlaying -> showNowPlaying = false
             selectedSongDetailsId != null -> selectedSongDetailsId = null
             showDuplicateScreen -> showDuplicateScreen = false
             showRecommendationDetail -> showRecommendationDetail = false
@@ -126,8 +136,8 @@ fun MainNavigationScreen(
         modifier = modifier.fillMaxSize(),
         bottomBar = {
             Column {
-                // Persistent Playback Controls Bar
-                if (playbackState.currentSong != null) {
+                // Persistent Playback Controls Bar (hidden when full-screen Now Playing is open)
+                if (playbackState.currentSong != null && !showNowPlaying) {
                     PlaybackControlsBar(
                         playbackState = playbackState,
                         onTogglePlayPause = { playbackViewModel.togglePlayPause() },
@@ -135,11 +145,14 @@ fun MainNavigationScreen(
                         onNext = { playbackViewModel.next() },
                         onPrevious = { playbackViewModel.previous() },
                         onToggleShuffle = { playbackViewModel.toggleShuffle() },
-                        onCycleRepeat = { playbackViewModel.cycleRepeatMode() }
+                        onCycleRepeat = { playbackViewModel.cycleRepeatMode() },
+                        onClick = { showNowPlaying = true },
+                        isFavorite = playbackState.currentSong?.id?.let { it in favoriteSongIds } == true,
+                        onToggleFavorite = { playbackState.currentSong?.let { favoritesViewModel.toggleFavorite(it.id) } }
                     )
                 }
 
-                // Root Navigation Bar (hidden on sub-details)
+                // Root Navigation Bar (hidden on sub-details and Now Playing)
                 if (!isSubScreen) {
                     NavigationBar(
                         containerColor = MaterialTheme.colorScheme.surface
@@ -189,15 +202,15 @@ fun MainNavigationScreen(
                             label = { Text("Stats") }
                         )
                         NavigationBarItem(
-                            selected = selectedTab == MainTab.AUDIO,
-                            onClick = { selectedTab = MainTab.AUDIO },
+                            selected = selectedTab == MainTab.SETTINGS,
+                            onClick = { selectedTab = MainTab.SETTINGS },
                             icon = {
                                 Icon(
-                                    painter = painterResource(R.drawable.ic_tune),
-                                    contentDescription = "Audio"
+                                    painter = painterResource(R.drawable.ic_settings),
+                                    contentDescription = "Settings"
                                 )
                             },
-                            label = { Text("Audio") }
+                            label = { Text("Settings") }
                         )
                     }
                 }
@@ -215,7 +228,19 @@ fun MainNavigationScreen(
         val activeArtistId = selectedArtistId
         val activeGenreId = selectedGenreId
 
-        if (activeSongDetailsId != null) {
+        if (showNowPlaying) {
+            NowPlayingScreen(
+                playbackViewModel = playbackViewModel,
+                onCollapse = { showNowPlaying = false },
+                isFavorite = playbackState.currentSong?.id?.let { it in favoriteSongIds } == true,
+                onToggleFavorite = { favoritesViewModel.toggleFavorite(it) },
+                onOpenAudioSettings = {
+                    showNowPlaying = false
+                    selectedTab = MainTab.SETTINGS
+                },
+                modifier = screenModifier
+            )
+        } else if (activeSongDetailsId != null) {
             SongDetailsScreen(
                 songId = activeSongDetailsId,
                 viewModel = songDetailsViewModel,
@@ -362,8 +387,10 @@ fun MainNavigationScreen(
                         modifier = screenModifier
                     )
                 }
-                MainTab.AUDIO -> {
-                    AudioSettingsScreen(
+                MainTab.SETTINGS -> {
+                    SettingsScreen(
+                        settingsViewModel = settingsViewModel,
+                        audioViewModel = audioSettingsViewModel,
                         modifier = screenModifier
                     )
                 }

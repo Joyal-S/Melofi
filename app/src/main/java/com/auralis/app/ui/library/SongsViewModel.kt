@@ -36,13 +36,9 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 import javax.inject.Inject
 
-enum class LibraryTab(val displayName: String) {
-    FOR_YOU("For You"),
-    TRACKS("Tracks"),
-    ALBUMS("Albums"),
-    ARTISTS("Artists"),
-    GENRES("Genres")
-}
+import com.auralis.app.data.local.preferences.UserPreferencesRepository
+import com.auralis.app.domain.model.LibraryTab
+import kotlinx.coroutines.flow.firstOrNull
 
 private data class SyncState(
     val isScanning: Boolean = false,
@@ -60,14 +56,25 @@ class SongsViewModel @Inject constructor(
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
     private val addSongToPlaylistUseCase: AddSongToPlaylistUseCase,
     private val historyRepository: HistoryRepository,
-    private val browserRepository: LibraryBrowserRepository
+    private val browserRepository: LibraryBrowserRepository,
+    private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
 
-    private val _selectedTab = MutableStateFlow(LibraryTab.TRACKS)
+    private val _selectedTab = MutableStateFlow(LibraryTab.FOR_YOU)
     val selectedTab: StateFlow<LibraryTab> = _selectedTab.asStateFlow()
 
     private val _viewMode = MutableStateFlow(LibraryViewMode.LIST)
     val viewMode: StateFlow<LibraryViewMode> = _viewMode.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            userPreferencesRepository.preferencesFlow.firstOrNull()?.let { prefs ->
+                _selectedTab.value = prefs.defaultLibraryTab
+                _viewMode.value = prefs.defaultViewMode
+                _sortOrder.value = prefs.defaultSortOrder
+            }
+        }
+    }
 
     val favoriteSongIds: StateFlow<Set<Long>> = getFavoriteSongIdsUseCase()
         .stateIn(
@@ -225,10 +232,12 @@ class SongsViewModel @Inject constructor(
 
     fun setViewMode(mode: LibraryViewMode) {
         _viewMode.value = mode
+        viewModelScope.launch { userPreferencesRepository.setDefaultViewMode(mode) }
     }
 
     fun setSortOrder(sortOrder: SongSortOrder) {
         _sortOrder.value = sortOrder
+        viewModelScope.launch { userPreferencesRepository.setDefaultSortOrder(sortOrder) }
     }
 
     fun setFilterState(newFilter: SongFilterState) {

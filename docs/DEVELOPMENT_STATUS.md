@@ -1,6 +1,6 @@
 # Melofy — Development Status
 
-> **Current Phase:** Phase 9 Complete (Local Recommendation Engine)  
+> **Current Phase:** Phase 10 Complete (UI/UX Polish & Personalization)  
 > **Last Updated:** 2026-09-21  
 
 ---
@@ -19,6 +19,7 @@
 | **Phase 7** | Metadata, Artwork & Advanced Library Management | ✅ Complete |
 | **Phase 8** | Advanced Search, Filtering & Library Organization | ✅ Complete |
 | **Phase 9** | Local Recommendation Engine | ✅ Complete |
+| **Phase 10** | UI/UX Polish & Personalization | ✅ Complete |
 
 ---
 
@@ -191,6 +192,47 @@
   - Dedicated `RecommendationDetailScreen` for full section inspection with "Play All", "Shuffle", and context menu actions.
   - No database migration required; queries existing v4 schema tables.
 
+### UI/UX Polish & Personalization Architecture (Phase 10)
+- **Standardized Design System Tokens (`core/ui/theme/Spacing.kt`, `Color.kt`, `Theme.kt`):**
+  - `MelofySpacing`: Consistent 8dp baseline grid (`xxs: 2dp`, `xs: 4dp`, `sm: 8dp`, `md: 16dp`, `lg: 24dp`, `xl: 32dp`, `xxl: 48dp`).
+  - `MelofyElevation`: Material 3 tonal and shadow elevation standards (`none: 0dp`, `level1: 1dp`, `level2: 3dp`, `level3: 6dp`, `level4: 8dp`, `level5: 12dp`).
+  - `MelofyShapes`: Uniform corner radii (`extraSmall: 4dp`, `small: 8dp`, `medium: 12dp`, `large: 16dp`, `full: RoundedCornerShape(50)`).
+  - Color Tokens: Refined Light and Dark Material 3 palettes, plus high-contrast pure AMOLED Black scheme (`#000000` background and surface with vibrant violet `#9D4EDD` accents).
+- **Local Personalization & Preferences Architecture (`domain/model/UserPreferences.kt`, `data/local/preferences/UserPreferencesRepository.kt`):**
+  - Lightweight local-only storage via AndroidX DataStore (`melofy_user_preferences`).
+  - `ThemeMode`: `SYSTEM`, `LIGHT`, `DARK`.
+  - Pure AMOLED mode toggle: active when in dark theme.
+  - Startup Library Tab: Configurable initial tab (`FOR_YOU`, `TRACKS`, `ALBUMS`, `ARTISTS`, `GENRES`).
+  - Default View Mode: Standard List, Compact List, or Grid.
+  - Default Sort Order: User-preferred ordering persisted across restarts.
+  - 100% offline: zero cloud sync or remote user profiling.
+- **Dedicated Now Playing Screen & Queue Management (`ui/playback/NowPlayingScreen.kt`, `PlaybackQueueSheet.kt`):**
+  - High-fidelity full-screen player with large album art, track title, artist, and album.
+  - Interactive playback scrubber: elapsed time and remaining time counters (`-mm:ss`).
+  - Heart toggle with smooth spring bounce animation.
+  - Full transport controls: Shuffle, Previous, Play/Pause (64dp target), Next, Repeat modes (`OFF`, `ALL`, `ONE`).
+  - Fast-action shortcuts: Audio Effects/Equalizer launcher and Playback Queue modal bottom sheet.
+  - Playback Queue modal: active track auto-highlight, song duration, tap-to-jump, and empty queue state.
+- **Polished Mini-Player (`ui/playback/components/PlaybackControlsBar.kt`):**
+  - Sleek persistent floating bar with live linear progress indicator along the top edge.
+  - Compact artwork, scrolling/ellipsized title/artist, favorite heart toggle, and Play/Pause.
+  - Tap-to-expand gesture transitions seamlessly into full `NowPlayingScreen`.
+- **Settings & Personalization Center (`ui/settings/SettingsScreen.kt`, `SettingsViewModel.kt`):**
+  - Replaced standalone audio tab with a comprehensive Settings destination.
+  - Tab 1: Audio Effects (Equalizer, Bass Boost, Virtualizer, ReplayGain, Sleep Timer).
+  - Tab 2: Personalization & About:
+    - Theme Mode selector (System / Light / Dark).
+    - Pure AMOLED Black switch (with automatic dark-mode dependency detection).
+    - Default startup library tab selector.
+    - Default library view mode selector (Standard / Compact / Grid).
+    - Default song sort order selector.
+    - Melofy Privacy Guarantee Card (100% offline, zero data collection).
+    - About Melofy (version, build info, local audio engine).
+- **Visual Polish, Micro-Interactions & Empty States:**
+  - `EmptyStateView`: Reusable empty state component with contextual icons, explanatory title, body text, and optional call-to-action buttons. Applied to Favorites and empty library tabs.
+  - Micro-interactions: Spring-animated favorite heart bounce on both list items and Now Playing.
+  - Accessibility: All interactive touch targets meet or exceed 48x48dp; clear semantic content descriptions for screen readers.
+
 ---
 
 ## 3. Completed Verification
@@ -199,12 +241,13 @@
 |---|---|---|
 | `./gradlew --version` | ✅ Pass | Gradle 9.6.0, JDK 21.0.10 (Android Studio JBR) |
 | `./gradlew clean` | ✅ Pass | Clean build cache & outputs |
-| `./gradlew assembleDebug` | ✅ Pass | Generates `app-debug.apk` cleanly in 8s without errors |
-| `./gradlew testDebugUnitTest` | ✅ Pass | 254/254 unit tests execute and pass across all test suites |
+| `./gradlew assembleDebug` | ✅ Pass | Generates `app-debug.apk` cleanly in 11s without errors |
+| `./gradlew testDebugUnitTest` | ✅ Pass | 257/257 unit tests execute and pass across all test suites |
+| Preference & Theme Unit Tests | ✅ Pass | 3/3 dedicated tests passing (DataStore serialization, theme resolution, playback queue flow) |
 | Recommendation Engine Unit Tests | ✅ Pass | 12/12 dedicated tests passing (cold start, decay, frequency, completion, co-occurrence, diversity, determinism) |
 | Recommendation Benchmark | ✅ Pass | 5,000 tracks scored and partitioned in 32ms |
 | KSP Annotation Processing | ✅ Pass | Room DAOs (`PlaylistDao`), entities, and Hilt components generate cleanly |
-| Hilt Code Generation | ✅ Pass | `DatabaseModule`, `RepositoryModule` with `RecommendationRepository` validated |
+| Hilt Code Generation | ✅ Pass | `DatabaseModule`, `RepositoryModule` with `UserPreferencesRepository` validated |
 | Permissions Audit | ✅ Pass | Storage and playback permissions verified; 0 network permissions |
 | Privacy Audit | ✅ Pass | 100% offline; no analytics, ads, Firebase, or external telemetry libraries |
 | Runtime Verification | ⚠️ NOT TESTED | 0 connected physical devices or emulators detected via `adb devices` |
@@ -222,7 +265,6 @@
 ## 5. Next Steps / Future Enhancements
 
 - Physical hardware and emulator UI/audio quality testing.
-- UI theme customization (custom color schemes, AMOLED pure black theme).
 - Android Auto / MediaBrowserService export.
 - Embedded lyrics display (LRC synchronized parser).
 

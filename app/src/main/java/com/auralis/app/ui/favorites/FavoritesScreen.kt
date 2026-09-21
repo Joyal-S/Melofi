@@ -103,33 +103,12 @@ fun FavoritesScreen(
                 .padding(innerPadding)
         ) {
             if (favoriteSongs.isEmpty()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_favorite_border),
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "No favorites yet",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Tap the heart icon on any song in your library to add it to your favorites.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                com.auralis.app.ui.library.components.EmptyStateView(
+                    iconRes = R.drawable.ic_favorite_border,
+                    title = "No favorites yet",
+                    description = "Tap the heart icon on any song in your library to add it to your favorites.",
+                    modifier = Modifier.fillMaxSize()
+                )
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(
