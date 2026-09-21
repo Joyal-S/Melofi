@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.auralis.app.playback.audiofx.EqualizerState
 import com.auralis.app.playback.audiofx.ReplayGainMode
+import com.auralis.app.playback.dsp.DspPreset
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -84,6 +85,34 @@ class AudioPreferencesRepository @Inject constructor(
         context.dataStore.edit { it[KEY_CROSSFADE_DURATION] = seconds }
     }
 
+    suspend fun setDspLoFiEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_DSP_LOFI_ENABLED] = enabled }
+    }
+
+    suspend fun setDspReverbEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_DSP_REVERB_ENABLED] = enabled }
+    }
+
+    suspend fun setDspPreset(preset: DspPreset) {
+        context.dataStore.edit { it[KEY_DSP_PRESET] = preset.name }
+    }
+
+    suspend fun setDspLoFiIntensity(intensity: Float) {
+        context.dataStore.edit { it[KEY_DSP_LOFI_INTENSITY] = intensity }
+    }
+
+    suspend fun setDspReverbRoomSize(roomSize: Float) {
+        context.dataStore.edit { it[KEY_DSP_REVERB_ROOM_SIZE] = roomSize }
+    }
+
+    suspend fun setDspReverbDecay(decay: Float) {
+        context.dataStore.edit { it[KEY_DSP_REVERB_DECAY] = decay }
+    }
+
+    suspend fun setDspReverbWetLevel(wetLevel: Float) {
+        context.dataStore.edit { it[KEY_DSP_REVERB_WET_LEVEL] = wetLevel }
+    }
+
     private fun mapPreferences(preferences: Preferences): AudioPreferences {
         val eqEnabled = preferences[KEY_EQUALIZER_ENABLED] ?: false
         val eqPreset = preferences[KEY_EQUALIZER_PRESET] ?: EqualizerState.PRESET_CUSTOM
@@ -106,6 +135,15 @@ class AudioPreferencesRepository @Inject constructor(
         val crossfadeEnabled = preferences[KEY_CROSSFADE_ENABLED] ?: false
         val crossfadeDuration = preferences[KEY_CROSSFADE_DURATION] ?: 0
 
+        val dspLoFiEnabled = preferences[KEY_DSP_LOFI_ENABLED] ?: false
+        val dspReverbEnabled = preferences[KEY_DSP_REVERB_ENABLED] ?: false
+        val rawDspPreset = preferences[KEY_DSP_PRESET]
+        val dspPreset = DspPreset.fromString(rawDspPreset)
+        val dspLoFiIntensity = preferences[KEY_DSP_LOFI_INTENSITY] ?: 0.5f
+        val dspReverbRoomSize = preferences[KEY_DSP_REVERB_ROOM_SIZE] ?: 0.5f
+        val dspReverbDecay = preferences[KEY_DSP_REVERB_DECAY] ?: 0.5f
+        val dspReverbWetLevel = preferences[KEY_DSP_REVERB_WET_LEVEL] ?: 0.3f
+
         return AudioPreferences(
             equalizerEnabled = eqEnabled,
             equalizerPreset = eqPreset,
@@ -116,7 +154,14 @@ class AudioPreferencesRepository @Inject constructor(
             virtualizerStrength = virtStrength,
             replayGainMode = replayGainMode,
             crossfadeEnabled = crossfadeEnabled,
-            crossfadeDurationSeconds = crossfadeDuration
+            crossfadeDurationSeconds = crossfadeDuration,
+            dspLoFiEnabled = dspLoFiEnabled,
+            dspReverbEnabled = dspReverbEnabled,
+            dspPreset = dspPreset,
+            dspLoFiIntensity = dspLoFiIntensity,
+            dspReverbRoomSize = dspReverbRoomSize,
+            dspReverbDecay = dspReverbDecay,
+            dspReverbWetLevel = dspReverbWetLevel
         )
     }
 
@@ -131,6 +176,14 @@ class AudioPreferencesRepository @Inject constructor(
         val KEY_REPLAY_GAIN_MODE = stringPreferencesKey("replay_gain_mode")
         val KEY_CROSSFADE_ENABLED = booleanPreferencesKey("crossfade_enabled")
         val KEY_CROSSFADE_DURATION = intPreferencesKey("crossfade_duration_seconds")
+
+        val KEY_DSP_LOFI_ENABLED = booleanPreferencesKey("dsp_lofi_enabled")
+        val KEY_DSP_REVERB_ENABLED = booleanPreferencesKey("dsp_reverb_enabled")
+        val KEY_DSP_PRESET = stringPreferencesKey("dsp_preset")
+        val KEY_DSP_LOFI_INTENSITY = androidx.datastore.preferences.core.floatPreferencesKey("dsp_lofi_intensity")
+        val KEY_DSP_REVERB_ROOM_SIZE = androidx.datastore.preferences.core.floatPreferencesKey("dsp_reverb_room_size")
+        val KEY_DSP_REVERB_DECAY = androidx.datastore.preferences.core.floatPreferencesKey("dsp_reverb_decay")
+        val KEY_DSP_REVERB_WET_LEVEL = androidx.datastore.preferences.core.floatPreferencesKey("dsp_reverb_wet_level")
 
         fun serializeBandLevels(levels: Map<Int, Int>): String {
             return levels.entries.joinToString(",") { "${it.key}:${it.value}" }

@@ -1,11 +1,12 @@
 package com.auralis.app.playback.dsp
 
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.round
 
 /**
- * High-performance, zero-allocation Real-Time Lo-Fi DSP Engine.
+ * High-performance, zero-allocation Real-Time Lo-Fi DSP Engine with click-free parameter smoothing.
  *
  * Implements 4 sequential analog/retro modeling stages:
  * 1. Sample Rate Decimation (Phase-accumulating downsampler modeling vintage 8/12-bit samplers)
@@ -13,8 +14,9 @@ import kotlin.math.round
  * 3. Warm Low-Pass Filter (Single-pole IIR filter rolling off high-end to emulate tape warmth)
  * 4. Soft Saturation (Smooth polynomial cubic saturation modeling magnetic tape overdrive)
  *
- * Designed specifically for real-time audio threads:
- * - Zero heap allocations during [processInterleaved] execution.
+ * Features:
+ * - Linear per-frame parameter interpolation eliminating zipper noise during real-time adjustments.
+ * - Zero heap allocations during [process] execution.
  * - Numerically bounded to guarantee no NaN, Infinity, or clipping overflow.
  * - Thread-safe state reset on seek or track transitions.
  */
@@ -29,6 +31,17 @@ class LoFiDspEngine {
     private var holdRight: Float = 0.0f
     private var decimationPhase: Float = 1.0f
 
+    // Smoothed parameter states for click-free transitions
+    private var currentIntensity: Float = 0.0f
+    private var currentDecimationFactor: Float = 1.0f
+    private var currentHalfLevels: Float = 32768.0f
+    private var currentLpfAlpha: Float = 0.95f
+    private var currentSatDrive: Float = 1.0f
+    private var currentBitCrush: Float = 0.0f
+    private var currentSaturation: Float = 0.0f
+
+    private var isInitialized: Boolean = false
+
     /**
      * Resets internal filter states and sample-and-hold accumulators.
      * Must be invoked during seek, pause-flush, or track transitions to eliminate clicks.
@@ -39,10 +52,11 @@ class LoFiDspEngine {
         holdLeft = 0.0f
         holdRight = 0.0f
         decimationPhase = 1.0f
+        isInitialized = false
     }
 
     /**
-     * Processes interleaved 16-bit PCM samples in-place or from input array to output array.
+     * Processes interleaved audio samples in real time with per-frame parameter smoothing.
      *
      * @param inputSamples Interleaved PCM samples as normalized floats in [-1.0f..1.0f].
      * @param outputSamples Target array to receive processed float samples (can be the same as [inputSamples]).
@@ -64,38 +78,71 @@ class LoFiDspEngine {
             if (inputSamples !== outputSamples) {
                 System.arraycopy(inputSamples, 0, outputSamples, 0, frameCount * channelCount)
             }
+            currentIntensity = 0.0f
             return
         }
 
-        val intensity = params.intensity
-        val sampleReduction = params.sampleRateReduction
-        val bitCrush = params.bitCrush
-        val saturation = params.saturation
+        val targetIntensity = params.intensity
+        val targetReduction = params.sampleRateReduction
+        val targetBitCrush = params.bitCrush
+        val targetSaturation = params.saturation
 
-        // 1. Decimation step factor: 1.0f (no reduction) up to 8.0f (extreme reduction)
-        val decimationFactor = 1.0f + (sampleReduction * 7.0f)
+        // Compute target parameter targets
+        val targetDecimationFactor = 1.0f + (targetReduction * 7.0f)
 
-        // 2. Bit crush quantization levels: 16-bit (65536) down to 8-bit (256) or 6-bit (64)
-        val targetBits = 16.0f - (bitCrush * 8.0f)
-        val quantizationLevels = 2.0.pow(targetBits.toDouble()).toFloat()
-        val halfLevels = quantizationLevels * 0.5f
+        val targetBits = 16.0f - (targetBitCrush * 8.0f)
+        val targetQuantizationLevels = 2.0.pow(targetBits.toDouble()).toFloat()
+        val targetHalfLevels = targetQuantizationLevels * 0.5f
 
-        // 3. Low-pass filter coefficient calculation:
-        // Cutoff frequency sweeps between 2000 Hz and 20000 Hz
-        val cutoffHz = 2000.0f + (params.lowPassCutoff * 18000.0f)
         val safeSampleRate = sampleRate.coerceAtLeast(8000).toFloat()
-        val omega = (2.0 * PI * cutoffHz / safeSampleRate).toFloat()
-        val lpfAlpha = (omega / (omega + 1.0f)).coerceIn(0.01f, 0.99f)
+        val targetCutoffHz = 2000.0f + (params.lowPassCutoff * 18000.0f)
+        val omega = (2.0 * PI * targetCutoffHz / safeSampleRate).toFloat()
+        val targetLpfAlpha = (omega / (omega + 1.0f)).coerceIn(0.01f, 0.99f)
 
-        // Saturation drive: 1.0f to 2.5f
-        val satDrive = 1.0f + (saturation * 1.5f)
+        val targetSatDrive = 1.0f + (targetSaturation * 1.5f)
 
-        val totalSamples = frameCount * channelCount
+        if (!isInitialized) {
+            currentIntensity = targetIntensity
+            currentDecimationFactor = targetDecimationFactor
+            currentHalfLevels = targetHalfLevels
+            currentLpfAlpha = targetLpfAlpha
+            currentSatDrive = targetSatDrive
+            currentBitCrush = targetBitCrush
+            currentSaturation = targetSaturation
+            isInitialized = true
+        }
+
+        // Per-frame ramp increments
+        val invFrames = 1.0f / frameCount.coerceAtLeast(1).toFloat()
+        val stepIntensity = (targetIntensity - currentIntensity) * invFrames
+        val stepDecimation = (targetDecimationFactor - currentDecimationFactor) * invFrames
+        val stepHalfLevels = (targetHalfLevels - currentHalfLevels) * invFrames
+        val stepAlpha = (targetLpfAlpha - currentLpfAlpha) * invFrames
+        val stepSatDrive = (targetSatDrive - currentSatDrive) * invFrames
+        val stepBitCrush = (targetBitCrush - currentBitCrush) * invFrames
+        val stepSaturation = (targetSaturation - currentSaturation) * invFrames
+
+        var intensity = currentIntensity
+        var decimationFactor = currentDecimationFactor
+        var halfLevels = currentHalfLevels
+        var lpfAlpha = currentLpfAlpha
+        var satDrive = currentSatDrive
+        var bitCrush = currentBitCrush
+        var saturation = currentSaturation
+
         var sampleIndex = 0
 
         if (channelCount == 1) {
             // Mono processing
-            while (sampleIndex < totalSamples) {
+            for (frame in 0 until frameCount) {
+                intensity += stepIntensity
+                decimationFactor += stepDecimation
+                halfLevels += stepHalfLevels
+                lpfAlpha += stepAlpha
+                satDrive += stepSatDrive
+                bitCrush += stepBitCrush
+                saturation += stepSaturation
+
                 val dry = inputSamples[sampleIndex]
                 var wet = dry
 
@@ -112,7 +159,7 @@ class LoFiDspEngine {
                 }
 
                 // Stage 2: Bit crushing
-                if (bitCrush > 0.0f) {
+                if (bitCrush > 0.01f) {
                     wet = (round(wet * halfLevels) / halfLevels).coerceIn(-1.0f, 1.0f)
                 }
 
@@ -121,7 +168,7 @@ class LoFiDspEngine {
                 wet = lpfStateLeft
 
                 // Stage 4: Soft Saturation (Cubic polynomial soft-clipper)
-                if (saturation > 0.0f) {
+                if (saturation > 0.01f) {
                     val driven = wet * satDrive
                     val clipped = when {
                         driven > 1.0f -> 1.0f
@@ -139,7 +186,15 @@ class LoFiDspEngine {
             }
         } else {
             // Stereo processing (interleaved L, R, L, R...)
-            while (sampleIndex < totalSamples) {
+            for (frame in 0 until frameCount) {
+                intensity += stepIntensity
+                decimationFactor += stepDecimation
+                halfLevels += stepHalfLevels
+                lpfAlpha += stepAlpha
+                satDrive += stepSatDrive
+                bitCrush += stepBitCrush
+                saturation += stepSaturation
+
                 val dryL = inputSamples[sampleIndex]
                 val dryR = inputSamples[sampleIndex + 1]
                 var wetL = dryL
@@ -160,7 +215,7 @@ class LoFiDspEngine {
                 }
 
                 // Stage 2: Bit crushing
-                if (bitCrush > 0.0f) {
+                if (bitCrush > 0.01f) {
                     wetL = (round(wetL * halfLevels) / halfLevels).coerceIn(-1.0f, 1.0f)
                     wetR = (round(wetR * halfLevels) / halfLevels).coerceIn(-1.0f, 1.0f)
                 }
@@ -172,7 +227,7 @@ class LoFiDspEngine {
                 wetR = lpfStateRight
 
                 // Stage 4: Soft Saturation
-                if (saturation > 0.0f) {
+                if (saturation > 0.01f) {
                     val drivenL = wetL * satDrive
                     val clippedL = when {
                         drivenL > 1.0f -> 1.0f
@@ -197,5 +252,14 @@ class LoFiDspEngine {
                 sampleIndex += 2
             }
         }
+
+        // Store final smoothed states for subsequent buffer continuity
+        currentIntensity = targetIntensity
+        currentDecimationFactor = targetDecimationFactor
+        currentHalfLevels = targetHalfLevels
+        currentLpfAlpha = targetLpfAlpha
+        currentSatDrive = targetSatDrive
+        currentBitCrush = targetBitCrush
+        currentSaturation = targetSaturation
     }
 }

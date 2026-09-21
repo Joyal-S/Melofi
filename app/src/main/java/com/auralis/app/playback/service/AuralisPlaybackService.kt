@@ -13,6 +13,8 @@ import androidx.media3.session.MediaSessionService
 import com.auralis.app.MainActivity
 import com.auralis.app.playback.audiofx.AudioEffectsManager
 import com.auralis.app.playback.audiofx.ReplayGainManager
+import com.auralis.app.playback.dsp.DspEffectsManager
+import com.auralis.app.playback.dsp.MelofyDspAudioProcessor
 import com.auralis.app.playback.history.PlaybackSessionTracker
 import com.auralis.app.playback.mapper.MediaItemMapper
 import com.auralis.app.widget.MelofyWidgetProvider
@@ -45,6 +47,12 @@ class AuralisPlaybackService : MediaSessionService() {
     @Inject
     lateinit var playbackSessionTracker: PlaybackSessionTracker
 
+    @Inject
+    lateinit var dspEffectsManager: DspEffectsManager
+
+    @Inject
+    lateinit var dspAudioProcessor: MelofyDspAudioProcessor
+
     private var mediaSession: MediaSession? = null
 
     override fun onCreate() {
@@ -55,7 +63,19 @@ class AuralisPlaybackService : MediaSessionService() {
             .setUsage(C.USAGE_MEDIA)
             .build()
 
-        val player = ExoPlayer.Builder(this)
+        val renderersFactory = object : androidx.media3.exoplayer.DefaultRenderersFactory(this) {
+            override fun buildAudioSink(
+                context: android.content.Context,
+                enableFloatOutput: Boolean,
+                enableAudioTrackPlaybackParams: Boolean
+            ): androidx.media3.exoplayer.audio.AudioSink? {
+                return androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context)
+                    .setAudioProcessors(arrayOf(dspAudioProcessor))
+                    .build()
+            }
+        }
+
+        val player = ExoPlayer.Builder(this, renderersFactory)
             .setAudioAttributes(audioAttributes, /* handleAudioFocus = */ true)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_LOCAL)
@@ -80,11 +100,23 @@ class AuralisPlaybackService : MediaSessionService() {
                 replayGainManager.onMetadata(metadata, player)
             }
 
+            override fun onPositionDiscontinuity(
+                eventTime: AnalyticsListener.EventTime,
+                oldPosition: androidx.media3.common.Player.PositionInfo,
+                newPosition: androidx.media3.common.Player.PositionInfo,
+                reason: Int
+            ) {
+                if (reason == androidx.media3.common.Player.DISCONTINUITY_REASON_SEEK) {
+                    dspEffectsManager.reset()
+                }
+            }
+
             override fun onMediaItemTransition(
                 eventTime: AnalyticsListener.EventTime,
                 mediaItem: MediaItem?,
                 reason: Int
             ) {
+                dspEffectsManager.reset()
                 replayGainManager.onMediaItemTransition(player)
                 val songId = MediaItemMapper.extractSongId(mediaItem)
                 if (songId != null) {
@@ -179,6 +211,7 @@ class AuralisPlaybackService : MediaSessionService() {
         MelofyWidgetProvider.updateAllWidgets(this, null, null, false, null)
         audioEffectsManager.release()
         replayGainManager.release()
+        dspEffectsManager.reset()
         mediaSession?.run {
             player.release()
             release()
