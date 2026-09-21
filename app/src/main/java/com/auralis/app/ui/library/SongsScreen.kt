@@ -53,15 +53,19 @@ import com.auralis.app.R
 import com.auralis.app.core.util.PermissionUtils
 import com.auralis.app.domain.model.SongSortOrder
 import com.auralis.app.ui.library.components.SongListItem
+import com.auralis.app.ui.playback.PlaybackViewModel
+import com.auralis.app.ui.playback.components.PlaybackControlsBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SongsScreen(
     viewModel: SongsViewModel,
+    playbackViewModel: PlaybackViewModel,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val playbackState by playbackViewModel.playbackState.collectAsStateWithLifecycle()
     val requiredPermission = remember { PermissionUtils.getRequiredStoragePermission() }
 
     // Launcher for runtime media permissions
@@ -161,6 +165,19 @@ fun SongsScreen(
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 }
             }
+        },
+        bottomBar = {
+            if (playbackState.currentSong != null) {
+                PlaybackControlsBar(
+                    playbackState = playbackState,
+                    onTogglePlayPause = { playbackViewModel.togglePlayPause() },
+                    onSeekTo = { playbackViewModel.seekTo(it) },
+                    onNext = { playbackViewModel.next() },
+                    onPrevious = { playbackViewModel.previous() },
+                    onToggleShuffle = { playbackViewModel.toggleShuffle() },
+                    onCycleRepeat = { playbackViewModel.cycleRepeatMode() }
+                )
+            }
         }
     ) { innerPadding ->
         Box(
@@ -218,7 +235,7 @@ fun SongsScreen(
                             SongListItem(
                                 song = song,
                                 onClick = {
-                                    // Player integration reserved for Phase 3
+                                    playbackViewModel.playSong(song, state.songs)
                                 }
                             )
                         }
