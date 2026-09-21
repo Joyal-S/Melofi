@@ -1,7 +1,9 @@
 package com.auralis.app.domain.repository
 
+import com.auralis.app.domain.model.DuplicateGroup
 import com.auralis.app.domain.model.ScanResult
 import com.auralis.app.domain.model.Song
+import com.auralis.app.domain.model.SongDetails
 import com.auralis.app.domain.model.SongSortOrder
 import kotlinx.coroutines.flow.Flow
 
@@ -23,4 +25,35 @@ interface SongRepository {
      * Run a full differential synchronization between MediaStore and local database.
      */
     suspend fun scanLibrary(): Result<ScanResult>
+
+    /**
+     * Observe detailed metadata and technical audio specifications for a song.
+     */
+    fun getSongDetails(id: Long): Flow<SongDetails?>
+
+    /**
+     * Updates song metadata safely in MediaStore and Room database.
+     */
+    suspend fun updateSongMetadata(
+        songId: Long,
+        title: String,
+        artist: String,
+        album: String,
+        albumArtist: String? = null,
+        genre: String? = null,
+        composer: String? = null,
+        year: Int? = null,
+        trackNumber: Int? = null,
+        discNumber: Int? = null
+    ): Result<Unit>
+
+    /**
+     * Identifies duplicate groups across the local song library.
+     */
+    suspend fun findDuplicates(): List<com.auralis.app.domain.model.DuplicateGroup>
+
+    /**
+     * Safely deletes a song file from MediaStore and Room with explicit user confirmation.
+     */
+    suspend fun deleteSong(songId: Long): Result<Unit>
 }

@@ -18,9 +18,9 @@ Melofy is a completely local music player for Android. It plays audio files stor
 
 ## Status
 
-**Phase 1 Complete — Foundation & Project Bootstrap**
+**Phase 7 Complete — Metadata, Artwork & Advanced Library Management**
 
-The core Android foundation is established, including Gradle build toolchain (AGP 9.4.0, Kotlin 2.2.10, KSP 2.2.10-2.0.2), Jetpack Compose with Material 3 theming, Hilt dependency injection, Room database configuration, and Media3 dependencies. See [docs/DEVELOPMENT_STATUS.md](docs/DEVELOPMENT_STATUS.md) and [PROJECT_SPECIFICATION.md](PROJECT_SPECIFICATION.md) for full technical documentation.
+Melofy features a complete local-first music library with Media3 background playback, custom playlists, reactive favorites, hardware-accelerated audio effects (Equalizer, Bass Boost, Virtualizer, ReplayGain), listening history, statistics, home screen widget, deep on-demand metadata inspection, safe metadata editing, offline artwork management with custom overrides, multi-signal duplicate detection, and specification filtering. See [docs/DEVELOPMENT_STATUS.md](docs/DEVELOPMENT_STATUS.md) and [PROJECT_SPECIFICATION.md](PROJECT_SPECIFICATION.md) for full technical documentation.
 
 ---
 

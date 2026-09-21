@@ -46,7 +46,8 @@ fun SongListItem(
     isFavorite: Boolean = false,
     onToggleFavorite: (() -> Unit)? = null,
     onAddToPlaylist: (() -> Unit)? = null,
-    onPlayNext: (() -> Unit)? = null
+    onPlayNext: (() -> Unit)? = null,
+    onShowDetails: (() -> Unit)? = null
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -171,6 +172,21 @@ fun SongListItem(
                             onClick = {
                                 showMenu = false
                                 onAddToPlaylist()
+                            }
+                        )
+                    }
+                    if (onShowDetails != null) {
+                        DropdownMenuItem(
+                            text = { Text("Song Details") },
+                            leadingIcon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_info),
+                                    contentDescription = null
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                onShowDetails()
                             }
                         )
                     }

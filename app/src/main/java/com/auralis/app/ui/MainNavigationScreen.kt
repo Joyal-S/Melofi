@@ -21,6 +21,10 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.auralis.app.R
 import com.auralis.app.domain.model.SmartPlaylistType
+import com.auralis.app.ui.details.SongDetailsScreen
+import com.auralis.app.ui.details.SongDetailsViewModel
+import com.auralis.app.ui.duplicates.DuplicateDetectionScreen
+import com.auralis.app.ui.duplicates.DuplicateDetectionViewModel
 import com.auralis.app.ui.favorites.FavoritesScreen
 import com.auralis.app.ui.favorites.FavoritesViewModel
 import com.auralis.app.ui.library.SongsScreen
@@ -46,7 +50,8 @@ enum class MainTab {
 
 /**
  * Top-level navigation host coordinating library tabs, playlist details,
- * listening statistics, smart playlists, and the persistent Media3 playback controls bar.
+ * listening statistics, smart playlists, metadata inspection, duplicates,
+ * and the persistent Media3 playback controls bar.
  */
 @Composable
 fun MainNavigationScreen(
@@ -55,19 +60,35 @@ fun MainNavigationScreen(
     playlistsViewModel: PlaylistsViewModel = hiltViewModel(),
     playlistDetailViewModel: PlaylistDetailViewModel = hiltViewModel(),
     smartPlaylistDetailViewModel: SmartPlaylistDetailViewModel = hiltViewModel(),
+    songDetailsViewModel: SongDetailsViewModel = hiltViewModel(),
+    duplicateDetectionViewModel: DuplicateDetectionViewModel = hiltViewModel(),
     playbackViewModel: PlaybackViewModel = hiltViewModel(),
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(MainTab.SONGS) }
     var selectedPlaylistId by remember { mutableStateOf<Long?>(null) }
     var selectedSmartPlaylistType by remember { mutableStateOf<SmartPlaylistType?>(null) }
+    var selectedSongDetailsId by remember { mutableStateOf<Long?>(null) }
+    var showDuplicateScreen by remember { mutableStateOf(false) }
+    var songForPlaylistDialog by remember { mutableStateOf<com.auralis.app.domain.model.Song?>(null) }
 
     val playbackState by playbackViewModel.playbackState.collectAsStateWithLifecycle()
     val playlists by playlistsViewModel.playlists.collectAsStateWithLifecycle()
 
-    BackHandler(enabled = selectedPlaylistId != null || selectedSmartPlaylistType != null) {
-        selectedPlaylistId = null
-        selectedSmartPlaylistType = null
+    val isSubScreen = selectedPlaylistId != null ||
+            selectedSmartPlaylistType != null ||
+            selectedSongDetailsId != null ||
+            showDuplicateScreen
+
+    BackHandler(enabled = isSubScreen) {
+        if (selectedSongDetailsId != null) {
+            selectedSongDetailsId = null
+        } else if (showDuplicateScreen) {
+            showDuplicateScreen = false
+        } else {
+            selectedPlaylistId = null
+            selectedSmartPlaylistType = null
+        }
     }
 
     Scaffold(
@@ -88,7 +109,7 @@ fun MainNavigationScreen(
                 }
 
                 // Root Navigation Bar (hidden on sub-details)
-                if (selectedPlaylistId == null && selectedSmartPlaylistType == null) {
+                if (!isSubScreen) {
                     NavigationBar(
                         containerColor = MaterialTheme.colorScheme.surface
                     ) {
@@ -158,8 +179,30 @@ fun MainNavigationScreen(
 
         val activePlaylistId = selectedPlaylistId
         val activeSmartPlaylistType = selectedSmartPlaylistType
+        val activeSongDetailsId = selectedSongDetailsId
 
-        if (activeSmartPlaylistType != null) {
+        if (activeSongDetailsId != null) {
+            SongDetailsScreen(
+                songId = activeSongDetailsId,
+                viewModel = songDetailsViewModel,
+                onBackClick = { selectedSongDetailsId = null },
+                onPlaySong = { song -> playbackViewModel.playSong(song, listOf(song)) },
+                onAddToQueue = { song -> playbackViewModel.addSongsToQueue(listOf(song)) },
+                onAddToPlaylist = { song -> songForPlaylistDialog = song },
+                onFindDuplicates = {
+                    selectedSongDetailsId = null
+                    showDuplicateScreen = true
+                },
+                modifier = screenModifier
+            )
+        } else if (showDuplicateScreen) {
+            DuplicateDetectionScreen(
+                viewModel = duplicateDetectionViewModel,
+                onBackClick = { showDuplicateScreen = false },
+                onPlaySong = { song -> playbackViewModel.playSong(song, listOf(song)) },
+                modifier = screenModifier
+            )
+        } else if (activeSmartPlaylistType != null) {
             SmartPlaylistDetailScreen(
                 playlistType = activeSmartPlaylistType,
                 viewModel = smartPlaylistDetailViewModel,
@@ -187,6 +230,8 @@ fun MainNavigationScreen(
                                 songsViewModel.addSongToPlaylist(newId, songId)
                             }
                         },
+                        onSongDetailsClick = { selectedSongDetailsId = it.id },
+                        onCheckDuplicatesClick = { showDuplicateScreen = true },
                         showBottomBar = false,
                         modifier = screenModifier
                     )
@@ -226,6 +271,24 @@ fun MainNavigationScreen(
                     )
                 }
             }
+        }
+
+        songForPlaylistDialog?.let { song ->
+            com.auralis.app.ui.library.components.AddToPlaylistDialog(
+                song = song,
+                playlists = playlists,
+                onDismiss = { songForPlaylistDialog = null },
+                onAddToPlaylist = { playlistId ->
+                    songsViewModel.addSongToPlaylist(playlistId, song.id)
+                    songForPlaylistDialog = null
+                },
+                onCreateAndAdd = { name ->
+                    playlistsViewModel.createPlaylist(name) { newId ->
+                        songsViewModel.addSongToPlaylist(newId, song.id)
+                    }
+                    songForPlaylistDialog = null
+                }
+            )
         }
     }
 }

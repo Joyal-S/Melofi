@@ -56,6 +56,25 @@ class GetSongsUseCaseTest {
 
         override suspend fun scanLibrary(): Result<ScanResult> =
             Result.success(ScanResult(1, 1, 0, 0))
+
+        override fun getSongDetails(id: Long): Flow<com.auralis.app.domain.model.SongDetails?> = flowOf(null)
+
+        override suspend fun updateSongMetadata(
+            songId: Long,
+            title: String,
+            artist: String,
+            album: String,
+            albumArtist: String?,
+            genre: String?,
+            composer: String?,
+            year: Int?,
+            trackNumber: Int?,
+            discNumber: Int?
+        ): Result<Unit> = Result.success(Unit)
+
+        override suspend fun findDuplicates(): List<com.auralis.app.domain.model.DuplicateGroup> = emptyList()
+
+        override suspend fun deleteSong(songId: Long): Result<Unit> = Result.success(Unit)
     }
 
     @Test

@@ -1,6 +1,6 @@
 # Melofy — Development Status
 
-> **Current Phase:** Phase 6 Complete (Listening History, Statistics, Smart Playlists & Widgets)  
+> **Current Phase:** Phase 7 Complete (Metadata, Artwork & Advanced Library Management)  
 > **Last Updated:** 2026-09-21  
 
 ---
@@ -16,6 +16,7 @@
 | **Phase 4** | Playlists, Favorites, Membership, Ordering & Queue Persistence | ✅ Complete |
 | **Phase 5** | Audio Features & Advanced Controls (Equalizer, ReplayGain, Sleep Timer) | ✅ Complete |
 | **Phase 6** | Listening History, Statistics, Smart Playlists & Home Screen Widgets | ✅ Complete |
+| **Phase 7** | Metadata, Artwork & Advanced Library Management | ✅ Complete |
 
 ---
 
@@ -103,6 +104,33 @@
   - AppWidgetProvider with dedicated layout (`widget_playback.xml`) featuring album artwork, track title, artist, and remote playback controls (Play/Pause, Skip, Previous).
   - Broadcast-driven updates synchronized directly with `AuralisPlaybackService` state changes.
 
+### Metadata, Artwork & Advanced Library Management Architecture (Phase 7)
+- **Deep On-Demand Metadata Inspection (`metadata/SongMetadataInspector.kt`):**
+  - Utilizes Android's `MediaMetadataRetriever` on `contentUri` to lazily extract technical audio specifications without incurring library-wide scanning penalties.
+  - Safely extracts exact sample rate (API 29+ `METADATA_KEY_SAMPLERATE`), bit depth (API 31+ `METADATA_KEY_BITS_PER_SAMPLE`), exact bitrate in kbps, codec/MIME type, composer, and album artist.
+  - Determines file writability via `ContentResolver.openFileDescriptor(uri, "rw")` under Scoped Storage.
+  - Adheres strictly to factual data: displays "Unknown" when fields are absent; zero invented parameters.
+- **Safe Metadata Editing & Format Capability Detection (`domain/model/MetadataEditValidator.kt`):**
+  - Safe editing workflow supporting Title, Artist, Album, Album Artist, Genre, Composer, Year (1000–2100), Track # (1–999), and Disc # (1–99).
+  - Explicit format capability detection: supported formats (`MP3`, `FLAC`, `AAC/M4A`, `OGG`, `Opus`) allow editing; formats with limited/dangerous tag writing (such as `WAV`, `AIFF`) display explicit "Metadata editing is not supported for this file format." banner and disable saving to prevent file corruption.
+  - Atomic synchronization: updates MediaStore (API 30+ AudioColumns) and Room `SongEntity` atomically, updating library listings without interrupting active playback.
+- **Local Artwork Handling & Custom Overrides (`repository/LocalArtworkRepository.kt`):**
+  - Multi-tier local artwork resolution: (1) Custom artwork override (`filesDir/custom_artwork`), (2) Local WebP disk cache (`cacheDir/artwork_cache`), (3) `ContentResolver.loadThumbnail` (API 29+), (4) Embedded picture extraction via `MediaMetadataRetriever` downsampled to max 512x512, (5) MediaStore album art URI, (6) Vector placeholder fallback.
+  - 100% offline; zero network calls and zero Coil network modules.
+  - Full artwork management UI: tapping cover art opens enlarged preview, allows picking local images via system image picker (`ActivityResultContracts.GetContent`), and enables resetting back to default artwork with automated cache invalidation.
+- **Multi-Signal Duplicate Detection (`domain/model/DuplicateDetectionEngine.kt`):**
+  - High-performance $O(N \log N)$ grouping using candidate title normalization (cleaning brackets, remastered tags, video suffixes, collaboration prefixes).
+  - Multi-signal confidence evaluation:
+    - **Exact Match:** Identical file size + identical duration (within 1s) + matching normalized artist.
+    - **Very Likely:** Identical normalized artist + duration within 2s (differing bitrates/encodings).
+    - **Possible Match:** Matching artist with duration variance up to 15s (radio edits), or identical title and duration (within 1s).
+  - **Zero Auto-Deletion:** Files are never deleted automatically; dedicated `DuplicateDetectionScreen` allows users to audition candidates via playback and selectively delete redundant tracks with explicit confirmation dialogs.
+- **Specification-Driven Filtering & Local Search (`domain/model/SongFilter.kt`, `ui/library/SongsScreen.kt`):**
+  - Format filters: All Formats, Lossless, FLAC, MP3, WAV, AAC.
+  - Duration filters: All, Short (< 3 min), Medium (3–6 min), Long (> 6 min).
+  - Quality filters: High Quality (≥ 320 kbps or Lossless).
+  - Real-time offline search bar operating against title, artist, album, and genre with instant UI updates.
+
 ---
 
 ## 3. Completed Verification
@@ -112,7 +140,7 @@
 | `./gradlew --version` | ✅ Pass | Gradle 9.6.0, JDK 21.0.10 (Android Studio JBR) |
 | `./gradlew clean` | ✅ Pass | Clean build cache & outputs |
 | `./gradlew assembleDebug` | ✅ Pass | Generates `app-debug.apk` cleanly in 9s without errors |
-| `./gradlew testDebugUnitTest` | ✅ Pass | 172/172 unit tests execute and pass across all 29 test suites |
+| `./gradlew testDebugUnitTest` | ✅ Pass | 207/207 unit tests execute and pass across all 35 test suites |
 | KSP Annotation Processing | ✅ Pass | Room DAOs, entities, and Hilt components generate cleanly |
 | Hilt Code Generation | ✅ Pass | `DatabaseModule`, `RepositoryModule`, `DispatchersModule`, `PlaybackModule`, `AudioModule` validated |
 | Permissions Audit | ✅ Pass | Storage and playback permissions verified; `ACCESS_NETWORK_STATE` explicitly removed via `tools:node="remove"`; 0 network permissions |
@@ -125,6 +153,7 @@
 
 - **No Connected Hardware / Emulator:** `adb devices` returned 0 attached devices at verification time; compilation and unit test suite are fully verified, but physical device runtime verification was marked NOT TESTED.
 - **Single-Player Crossfade Limitation:** Media3 1.11.1 does not provide a native dual-decoder crossfade pipeline in a single player instance; documented honestly in UI.
+- **Audio File Mutation Boundaries:** Direct binary audio tag re-writing on WAV/AIFF is omitted by design to protect user audio files from platform corruption.
 
 ---
 
@@ -134,3 +163,4 @@
 - UI theme customization (custom color schemes, AMOLED pure black theme).
 - Android Auto / MediaBrowserService export.
 - Embedded lyrics display (LRC synchronized parser).
+

@@ -49,6 +49,12 @@ interface SongDao {
     @Update
     suspend fun updateSongs(songs: List<SongEntity>)
 
+    @Update
+    suspend fun updateSong(song: SongEntity)
+
+    @Query("DELETE FROM songs WHERE id = :id")
+    suspend fun deleteSongById(id: Long)
+
     @Query("DELETE FROM songs WHERE id IN (:ids)")
     suspend fun deleteSongsByIds(ids: List<Long>)
 

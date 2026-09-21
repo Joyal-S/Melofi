@@ -17,6 +17,16 @@ import com.auralis.app.domain.repository.SongRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import android.content.ContentValues
+import android.content.Context
+import android.net.Uri
+import android.provider.MediaStore
+import android.util.Log
+import com.auralis.app.data.local.metadata.SongMetadataInspector
+import com.auralis.app.domain.model.DuplicateDetectionEngine
+import com.auralis.app.domain.model.DuplicateGroup
+import com.auralis.app.domain.model.SongDetails
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -33,6 +43,9 @@ class SongRepositoryImpl @Inject constructor(
     private val genreDao: GenreDao,
     private val database: AuralisDatabase,
     private val scanner: MediaStoreAudioScanner,
+    private val metadataInspector: SongMetadataInspector,
+    private val artworkRepository: LocalArtworkRepository,
+    @param:ApplicationContext private val context: Context,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : SongRepository {
 
@@ -88,6 +101,120 @@ class SongRepositoryImpl @Inject constructor(
             )
             Result.success(result)
         } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override fun getSongDetails(id: Long): Flow<SongDetails?> {
+        return songDao.getSongById(id).map { entity ->
+            entity?.let {
+                val domain = SongMapper.toDomain(it)
+                val baseDetails = metadataInspector.inspectSong(domain)
+                val resolvedArt = artworkRepository.getArtworkUri(domain)
+                if (resolvedArt != null) {
+                    baseDetails.copy(
+                        technicalInfo = baseDetails.technicalInfo.copy(albumArtUri = resolvedArt)
+                    )
+                } else {
+                    baseDetails
+                }
+            }
+        }
+    }
+
+    override suspend fun updateSongMetadata(
+        songId: Long,
+        title: String,
+        artist: String,
+        album: String,
+        albumArtist: String?,
+        genre: String?,
+        composer: String?,
+        year: Int?,
+        trackNumber: Int?,
+        discNumber: Int?
+    ): Result<Unit> = withContext(ioDispatcher) {
+        try {
+            val entity = songDao.getAllSongsList().find { it.id == songId }
+                ?: return@withContext Result.failure(IllegalArgumentException("Song with ID $songId not found"))
+
+            // Safely attempt to update MediaStore record
+            try {
+                val uri = Uri.parse(entity.contentUri)
+                val values = ContentValues().apply {
+                    put(MediaStore.Audio.Media.TITLE, title)
+                    put(MediaStore.Audio.Media.ARTIST, artist)
+                    put(MediaStore.Audio.Media.ALBUM, album)
+                    if (year != null && year > 0) {
+                        put(MediaStore.Audio.Media.YEAR, year)
+                    }
+                    if (trackNumber != null && trackNumber > 0) {
+                        put(MediaStore.Audio.Media.TRACK, trackNumber)
+                    }
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                        if (!genre.isNullOrBlank()) {
+                            put(MediaStore.Audio.AudioColumns.GENRE, genre)
+                        }
+                        if (!albumArtist.isNullOrBlank()) {
+                            put(MediaStore.Audio.AudioColumns.ALBUM_ARTIST, albumArtist)
+                        }
+                        if (!composer.isNullOrBlank()) {
+                            put(MediaStore.Audio.AudioColumns.COMPOSER, composer)
+                        }
+                    }
+                }
+                context.contentResolver.update(uri, values, null, null)
+            } catch (se: SecurityException) {
+                Log.w("SongRepository", "MediaStore ContentResolver update caught SecurityException: ${se.message}")
+            } catch (e: Exception) {
+                Log.w("SongRepository", "MediaStore update failed: ${e.message}")
+            }
+
+            // Atomically update local Room database so UI and library immediately reflect changes
+            val updatedEntity = entity.copy(
+                title = title,
+                artistName = artist,
+                albumName = album,
+                genreName = genre ?: entity.genreName,
+                year = year ?: entity.year,
+                trackNumber = trackNumber ?: entity.trackNumber,
+                discNumber = discNumber ?: entity.discNumber,
+                dateModified = System.currentTimeMillis() / 1000L
+            )
+            songDao.updateSong(updatedEntity)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("SongRepository", "Error updating song metadata: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun findDuplicates(): List<DuplicateGroup> = withContext(ioDispatcher) {
+        val entities = songDao.getAllSongsList()
+        val songs = entities.map { SongMapper.toDomain(it) }
+        DuplicateDetectionEngine.findDuplicates(songs)
+    }
+
+    override suspend fun deleteSong(songId: Long): Result<Unit> = withContext(ioDispatcher) {
+        try {
+            val entity = songDao.getAllSongsList().find { it.id == songId }
+                ?: return@withContext Result.failure(IllegalArgumentException("Song with ID $songId not found"))
+
+            // Safely attempt MediaStore deletion
+            try {
+                val uri = Uri.parse(entity.contentUri)
+                context.contentResolver.delete(uri, null, null)
+            } catch (se: SecurityException) {
+                Log.w("SongRepository", "MediaStore deletion SecurityException: ${se.message}")
+            } catch (e: Exception) {
+                Log.w("SongRepository", "MediaStore deletion error: ${e.message}")
+            }
+
+            // Remove from Room database (cascading removes favorites and playlist links without deleting playlists)
+            songDao.deleteSongById(songId)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("SongRepository", "Error deleting song: ${e.message}", e)
             Result.failure(e)
         }
     }

@@ -76,10 +76,13 @@ fun SongsScreen(
     modifier: Modifier = Modifier,
     playlists: List<Playlist> = emptyList(),
     onCreatePlaylistAndAdd: ((String, Long) -> Unit)? = null,
+    onSongDetailsClick: ((Song) -> Unit)? = null,
+    onCheckDuplicatesClick: (() -> Unit)? = null,
     showBottomBar: Boolean = true
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val filterState by viewModel.filterState.collectAsStateWithLifecycle()
     val playbackState by playbackViewModel.playbackState.collectAsStateWithLifecycle()
     val favoriteSongIds by viewModel.favoriteSongIds.collectAsStateWithLifecycle()
     val recentlyPlayed by viewModel.recentlyPlayed.collectAsStateWithLifecycle()
@@ -106,79 +109,231 @@ fun SongsScreen(
     }
 
     var showSortMenu by remember { mutableStateOf(false) }
+    var isSearchActive by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
             Column {
-                TopAppBar(
-                    title = {
-                        val subtitle = when (val state = uiState) {
-                            is SongsUiState.Success -> " (${state.songs.size})"
-                            else -> ""
-                        }
-                        Text(
-                            text = stringResource(R.string.nav_songs) + subtitle,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
+                if (isSearchActive) {
+                    TopAppBar(
+                        title = {
+                            androidx.compose.material3.TextField(
+                                value = filterState.searchQuery,
+                                onValueChange = { viewModel.setSearchQuery(it) },
+                                placeholder = { Text("Search songs, artists, albums...") },
+                                singleLine = true,
+                                colors = androidx.compose.material3.TextFieldDefaults.colors(
+                                    focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+                                    unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+                                    disabledContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+                                    focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                                    unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = {
+                                viewModel.setSearchQuery("")
+                                isSearchActive = false
+                            }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_arrow_back),
+                                    contentDescription = "Close Search"
+                                )
+                            }
+                        },
+                        actions = {
+                            if (filterState.searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { viewModel.setSearchQuery("") }) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_close),
+                                        contentDescription = "Clear Search"
+                                    )
+                                }
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surface
                         )
-                    },
-                    actions = {
-                        // Rescan action
-                        IconButton(onClick = { viewModel.scanLibrary() }) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_refresh),
-                                contentDescription = stringResource(R.string.action_rescan)
+                    )
+                } else {
+                    TopAppBar(
+                        title = {
+                            val subtitle = when (val state = uiState) {
+                                is SongsUiState.Success -> " (${state.songs.size})"
+                                else -> ""
+                            }
+                            Text(
+                                text = stringResource(R.string.nav_songs) + subtitle,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                        },
+                        actions = {
+                            // Search action
+                            IconButton(onClick = { isSearchActive = true }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_search),
+                                    contentDescription = "Search library"
+                                )
+                            }
+
+                            // Rescan action
+                            IconButton(onClick = { viewModel.scanLibrary() }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_refresh),
+                                    contentDescription = stringResource(R.string.action_rescan)
+                                )
+                            }
+
+                            // Sort options menu
+                            Box {
+                                IconButton(onClick = { showSortMenu = true }) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_more_vert),
+                                        contentDescription = stringResource(R.string.action_sort)
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = showSortMenu,
+                                    onDismissRequest = { showSortMenu = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.sort_title)) },
+                                        onClick = {
+                                            viewModel.setSortOrder(SongSortOrder.TITLE)
+                                            showSortMenu = false
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.sort_artist)) },
+                                        onClick = {
+                                            viewModel.setSortOrder(SongSortOrder.ARTIST)
+                                            showSortMenu = false
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.sort_album)) },
+                                        onClick = {
+                                            viewModel.setSortOrder(SongSortOrder.ALBUM)
+                                            showSortMenu = false
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.sort_date_added)) },
+                                        onClick = {
+                                            viewModel.setSortOrder(SongSortOrder.DATE_ADDED)
+                                            showSortMenu = false
+                                        }
+                                    )
+                                    androidx.compose.material3.HorizontalDivider()
+                                    DropdownMenuItem(
+                                        text = { Text("Check for Duplicates") },
+                                        leadingIcon = {
+                                            Icon(
+                                                painter = painterResource(R.drawable.ic_file_copy),
+                                                contentDescription = null
+                                            )
+                                        },
+                                        onClick = {
+                                            showSortMenu = false
+                                            onCheckDuplicatesClick?.invoke()
+                                        }
+                                    )
+                                }
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        )
+                    )
+                }
+
+                // Library Filter Chips
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    item {
+                        androidx.compose.material3.FilterChip(
+                            selected = filterState.formatFilter == com.auralis.app.domain.model.FormatFilter.ALL,
+                            onClick = { viewModel.setFormatFilter(com.auralis.app.domain.model.FormatFilter.ALL) },
+                            label = { Text("All Formats") }
+                        )
+                    }
+                    item {
+                        androidx.compose.material3.FilterChip(
+                            selected = filterState.formatFilter == com.auralis.app.domain.model.FormatFilter.LOSSLESS,
+                            onClick = {
+                                val next = if (filterState.formatFilter == com.auralis.app.domain.model.FormatFilter.LOSSLESS)
+                                    com.auralis.app.domain.model.FormatFilter.ALL
+                                else
+                                    com.auralis.app.domain.model.FormatFilter.LOSSLESS
+                                viewModel.setFormatFilter(next)
+                            },
+                            label = { Text("Lossless") }
+                        )
+                    }
+                    item {
+                        androidx.compose.material3.FilterChip(
+                            selected = filterState.formatFilter == com.auralis.app.domain.model.FormatFilter.FLAC,
+                            onClick = {
+                                val next = if (filterState.formatFilter == com.auralis.app.domain.model.FormatFilter.FLAC)
+                                    com.auralis.app.domain.model.FormatFilter.ALL
+                                else
+                                    com.auralis.app.domain.model.FormatFilter.FLAC
+                                viewModel.setFormatFilter(next)
+                            },
+                            label = { Text("FLAC") }
+                        )
+                    }
+                    item {
+                        androidx.compose.material3.FilterChip(
+                            selected = filterState.formatFilter == com.auralis.app.domain.model.FormatFilter.MP3,
+                            onClick = {
+                                val next = if (filterState.formatFilter == com.auralis.app.domain.model.FormatFilter.MP3)
+                                    com.auralis.app.domain.model.FormatFilter.ALL
+                                else
+                                    com.auralis.app.domain.model.FormatFilter.MP3
+                                viewModel.setFormatFilter(next)
+                            },
+                            label = { Text("MP3") }
+                        )
+                    }
+                    item {
+                        androidx.compose.material3.FilterChip(
+                            selected = filterState.bitrateFilter == com.auralis.app.domain.model.BitrateFilter.HIGH_QUALITY,
+                            onClick = {
+                                val next = if (filterState.bitrateFilter == com.auralis.app.domain.model.BitrateFilter.HIGH_QUALITY)
+                                    com.auralis.app.domain.model.BitrateFilter.ALL
+                                else
+                                    com.auralis.app.domain.model.BitrateFilter.HIGH_QUALITY
+                                viewModel.setBitrateFilter(next)
+                            },
+                            label = { Text("≥ 320 kbps") }
+                        )
+                    }
+                    item {
+                        androidx.compose.material3.FilterChip(
+                            selected = filterState.favoritesOnly,
+                            onClick = { viewModel.setFavoritesOnly(!filterState.favoritesOnly) },
+                            label = { Text("Favorites") }
+                        )
+                    }
+                    if (!filterState.isDefault) {
+                        item {
+                            androidx.compose.material3.AssistChip(
+                                onClick = { viewModel.resetFilters() },
+                                label = { Text("Reset Filters") }
                             )
                         }
+                    }
+                }
 
-                        // Sort options menu
-                        Box {
-                            IconButton(onClick = { showSortMenu = true }) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_more_vert),
-                                    contentDescription = stringResource(R.string.action_sort)
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = showSortMenu,
-                                onDismissRequest = { showSortMenu = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.sort_title)) },
-                                    onClick = {
-                                        viewModel.setSortOrder(SongSortOrder.TITLE)
-                                        showSortMenu = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.sort_artist)) },
-                                    onClick = {
-                                        viewModel.setSortOrder(SongSortOrder.ARTIST)
-                                        showSortMenu = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.sort_album)) },
-                                    onClick = {
-                                        viewModel.setSortOrder(SongSortOrder.ALBUM)
-                                        showSortMenu = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.sort_date_added)) },
-                                    onClick = {
-                                        viewModel.setSortOrder(SongSortOrder.DATE_ADDED)
-                                        showSortMenu = false
-                                    }
-                                )
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
-                )
                 if (uiState is SongsUiState.Success && (uiState as SongsUiState.Success).isScanning) {
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 }
@@ -291,7 +446,8 @@ fun SongsScreen(
                                 isFavorite = favoriteSongIds.contains(song.id),
                                 onToggleFavorite = { viewModel.toggleFavorite(song.id) },
                                 onAddToPlaylist = { songForPlaylistDialog = song },
-                                onPlayNext = { playbackViewModel.addSongsToQueue(listOf(song)) }
+                                onPlayNext = { playbackViewModel.addSongsToQueue(listOf(song)) },
+                                onShowDetails = { onSongDetailsClick?.invoke(song) }
                             )
                         }
                     }

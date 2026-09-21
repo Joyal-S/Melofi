@@ -2,7 +2,11 @@ package com.auralis.app.ui.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.auralis.app.domain.model.BitrateFilter
+import com.auralis.app.domain.model.DurationFilter
+import com.auralis.app.domain.model.FormatFilter
 import com.auralis.app.domain.model.Song
+import com.auralis.app.domain.model.SongFilterState
 import com.auralis.app.domain.model.SongSortOrder
 import com.auralis.app.domain.repository.HistoryRepository
 import com.auralis.app.domain.usecase.GetSongsUseCase
@@ -15,6 +19,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -56,6 +61,8 @@ class SongsViewModel @Inject constructor(
 
     private val _sortOrder = MutableStateFlow(SongSortOrder.TITLE)
     private val _syncState = MutableStateFlow(SyncState())
+    private val _filterState = MutableStateFlow(com.auralis.app.domain.model.SongFilterState())
+    val filterState: StateFlow<com.auralis.app.domain.model.SongFilterState> = _filterState.asStateFlow()
 
     private val _songsFlow = _sortOrder.flatMapLatest { order ->
         getSongsUseCase(order)
@@ -64,8 +71,10 @@ class SongsViewModel @Inject constructor(
     val uiState: StateFlow<SongsUiState> = combine(
         _songsFlow,
         _sortOrder,
-        _syncState
-    ) { songs, sortOrder, syncState ->
+        _syncState,
+        _filterState,
+        favoriteSongIds
+    ) { songs, sortOrder, syncState, filter, favIds ->
         when {
             syncState.permissionGranted == false -> {
                 SongsUiState.PermissionRequired(isPermanentlyDenied = syncState.isPermanentlyDenied)
@@ -80,8 +89,11 @@ class SongsViewModel @Inject constructor(
                 SongsUiState.Empty(isPermissionGranted = true)
             }
             else -> {
+                val filtered = songs.filter { song ->
+                    filter.matches(song, isFavorite = song.id in favIds)
+                }
                 SongsUiState.Success(
-                    songs = songs,
+                    songs = filtered,
                     sortOrder = sortOrder,
                     isScanning = syncState.isScanning
                 )
@@ -143,5 +155,29 @@ class SongsViewModel @Inject constructor(
         viewModelScope.launch {
             addSongToPlaylistUseCase(playlistId, songId)
         }
+    }
+
+    fun setFormatFilter(formatFilter: com.auralis.app.domain.model.FormatFilter) {
+        _filterState.update { it.copy(formatFilter = formatFilter) }
+    }
+
+    fun setDurationFilter(durationFilter: com.auralis.app.domain.model.DurationFilter) {
+        _filterState.update { it.copy(durationFilter = durationFilter) }
+    }
+
+    fun setBitrateFilter(bitrateFilter: com.auralis.app.domain.model.BitrateFilter) {
+        _filterState.update { it.copy(bitrateFilter = bitrateFilter) }
+    }
+
+    fun setFavoritesOnly(favoritesOnly: Boolean) {
+        _filterState.update { it.copy(favoritesOnly = favoritesOnly) }
+    }
+
+    fun setSearchQuery(query: String) {
+        _filterState.update { it.copy(searchQuery = query) }
+    }
+
+    fun resetFilters() {
+        _filterState.value = com.auralis.app.domain.model.SongFilterState()
     }
 }
