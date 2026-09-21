@@ -18,4 +18,29 @@
     <string name="unknown_artist">Unknown Artist</string>
     <string name="unknown_album">Unknown Album</string>
     <string name="unknown_title">Unknown Title</string>
+
+    <!-- Phase 5 Audio Settings -->
+    <string name="nav_audio">Audio</string>
+    <string name="audio_settings_title">Audio Settings</string>
+    <string name="equalizer_title">Equalizer</string>
+    <string name="equalizer_not_supported">Equalizer is not supported on this device</string>
+    <string name="bass_boost_title">Bass Boost</string>
+    <string name="bass_boost_not_supported">Bass Boost is not supported on this device</string>
+    <string name="virtualizer_title">Virtualizer</string>
+    <string name="virtualizer_not_supported">Virtualizer is not supported on this device</string>
+    <string name="loudness_title">Loudness Normalization</string>
+    <string name="replaygain_title">ReplayGain</string>
+    <string name="replaygain_desc_off">Disabled (1.0x unity gain). Audio plays at source volume.</string>
+    <string name="replaygain_desc_track">Track Mode: Normalizes each track independently to reference volume.</string>
+    <string name="replaygain_desc_album">Album Mode: Preserves loudness dynamics across tracks in the same album.</string>
+    <string name="replaygain_disclaimer">100% offline. ReplayGain adjusts playback volume in real-time. Original files are never modified or transcoded.</string>
+    <string name="playback_behavior_title">Playback Engine</string>
+    <string name="gapless_title">Gapless Playback</string>
+    <string name="gapless_desc">Automatic via Media3 ExoPlayer for compatible formats (FLAC, WAV, AAC, and MP3 with encoder delay metadata).</string>
+    <string name="crossfade_title">Crossfade</string>
+    <string name="crossfade_desc">Requires dual-stream concurrent decoding. Not supported natively in single-player Media3 1.11.1; parallel player engines are disabled to prevent playback glitches.</string>
+    <string name="sleep_timer_title">Sleep Timer</string>
+    <string name="sleep_timer_cancel">Cancel Timer</string>
+    <string name="sleep_timer_custom">Custom</string>
+    <string name="sleep_timer_completed">Playback paused by sleep timer</string>
 </resources>

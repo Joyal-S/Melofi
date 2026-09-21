@@ -30,11 +30,13 @@ import com.auralis.app.ui.playlists.PlaylistsScreen
 import com.auralis.app.ui.playlists.PlaylistsViewModel
 import com.auralis.app.ui.playlists.detail.PlaylistDetailScreen
 import com.auralis.app.ui.playlists.detail.PlaylistDetailViewModel
+import com.auralis.app.ui.settings.AudioSettingsScreen
 
 enum class MainTab {
     SONGS,
     FAVORITES,
-    PLAYLISTS
+    PLAYLISTS,
+    AUDIO
 }
 
 /**
@@ -115,6 +117,17 @@ fun MainNavigationScreen(
                             },
                             label = { Text("Playlists") }
                         )
+                        NavigationBarItem(
+                            selected = selectedTab == MainTab.AUDIO,
+                            onClick = { selectedTab = MainTab.AUDIO },
+                            icon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_tune),
+                                    contentDescription = "Audio"
+                                )
+                            },
+                            label = { Text("Audio") }
+                        )
                     }
                 }
             }
@@ -169,6 +182,11 @@ fun MainNavigationScreen(
                     PlaylistsScreen(
                         playlistsViewModel = playlistsViewModel,
                         onPlaylistClick = { selectedPlaylistId = it },
+                        modifier = screenModifier
+                    )
+                }
+                MainTab.AUDIO -> {
+                    AudioSettingsScreen(
                         modifier = screenModifier
                     )
                 }
