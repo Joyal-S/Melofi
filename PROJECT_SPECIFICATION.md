@@ -4,7 +4,7 @@
 > **Tagline:** "Your music. Your device. Your control."  
 > **Type:** Native Android Application  
 > **Vision:** A local-first, offline music player focused on high-quality audio playback and a polished modern user experience.  
-> **Status:** Phase 5 — Audio Features & Advanced Controls Complete  
+> **Status:** Phase 6 — Listening History, Statistics, Smart Playlists & Widgets Complete  
 > **Last Updated:** 2026-09-21
 
 ---

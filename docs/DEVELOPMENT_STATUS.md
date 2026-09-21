@@ -1,6 +1,6 @@
 # Melofy — Development Status
 
-> **Current Phase:** Phase 5 Complete (Audio Features & Advanced Controls)  
+> **Current Phase:** Phase 6 Complete (Listening History, Statistics, Smart Playlists & Widgets)  
 > **Last Updated:** 2026-09-21  
 
 ---
@@ -15,7 +15,7 @@
 | **Phase 3** | Media3 Playback Engine & Background Playback | ✅ Complete |
 | **Phase 4** | Playlists, Favorites, Membership, Ordering & Queue Persistence | ✅ Complete |
 | **Phase 5** | Audio Features & Advanced Controls (Equalizer, ReplayGain, Sleep Timer) | ✅ Complete |
-| **Phase 6** | Polish, Stats, Smart Playlists & Performance Optimization | ⬜ Next |
+| **Phase 6** | Listening History, Statistics, Smart Playlists & Home Screen Widgets | ✅ Complete |
 
 ---
 

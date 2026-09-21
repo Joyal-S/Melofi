@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -39,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -46,15 +48,17 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.auralis.app.R
 import com.auralis.app.domain.model.Playlist
+import com.auralis.app.domain.model.SmartPlaylistType
 
 /**
- * Screen displaying the user's playlists with creation, renaming, and deletion capabilities.
+ * Screen displaying the user's playlists alongside local rule-based smart playlists.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaylistsScreen(
     playlistsViewModel: PlaylistsViewModel,
     onPlaylistClick: (Long) -> Unit,
+    onSmartPlaylistClick: ((SmartPlaylistType) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val playlists by playlistsViewModel.playlists.collectAsStateWithLifecycle()
@@ -78,9 +82,8 @@ fun PlaylistsScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    val count = if (playlists.isNotEmpty()) " (${playlists.size})" else ""
                     Text(
-                        text = "Playlists$count",
+                        text = "Playlists",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -99,64 +102,99 @@ fun PlaylistsScreen(
             )
         }
     ) { innerPadding ->
-        Box(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .padding(innerPadding),
+            contentPadding = PaddingValues(vertical = 8.dp)
         ) {
-            if (playlists.isEmpty()) {
-                Column(
+            // Smart Playlists Section
+            item {
+                Text(
+                    text = "SMART PLAYLISTS",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+
+            items(SmartPlaylistType.entries) { type ->
+                SmartPlaylistItemRow(
+                    type = type,
+                    onClick = { onSmartPlaylistClick?.invoke(type) }
+                )
+            }
+
+            // User Playlists Section Header
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_playlist_play),
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    val count = if (playlists.isNotEmpty()) " (${playlists.size})" else ""
                     Text(
-                        text = "No playlists yet",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
+                        text = "USER PLAYLISTS$count",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Create custom playlists to organize your music.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(20.dp))
-                    Button(onClick = { showCreateDialog = true }) {
+                    IconButton(
+                        onClick = { showCreateDialog = true },
+                        modifier = Modifier.size(24.dp)
+                    ) {
                         Icon(
                             painter = painterResource(R.drawable.ic_add),
-                            contentDescription = null,
-                            modifier = Modifier.padding(end = 4.dp)
+                            contentDescription = "New custom playlist",
+                            tint = MaterialTheme.colorScheme.primary
                         )
-                        Text("Create Playlist")
+                    }
+                }
+            }
+
+            if (playlists.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "No custom playlists yet",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(onClick = { showCreateDialog = true }) {
+                                Text("Create Playlist")
+                            }
+                        }
                     }
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    items(
-                        items = playlists,
-                        key = { it.id }
-                    ) { playlist ->
-                        PlaylistItemRow(
-                            playlist = playlist,
-                            onClick = { onPlaylistClick(playlist.id) },
-                            onRename = { playlistToRename = playlist },
-                            onDelete = { playlistToDelete = playlist }
-                        )
-                    }
+                items(
+                    items = playlists,
+                    key = { it.id }
+                ) { playlist ->
+                    PlaylistItemRow(
+                        playlist = playlist,
+                        onClick = { onPlaylistClick(playlist.id) },
+                        onRename = { playlistToRename = playlist },
+                        onDelete = { playlistToDelete = playlist }
+                    )
                 }
             }
         }
@@ -350,3 +388,49 @@ private fun PlaylistNameDialog(
         }
     )
 }
+
+@Composable
+private fun SmartPlaylistItemRow(
+    type: SmartPlaylistType,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            painter = painterResource(type.iconRes),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(32.dp)
+        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 16.dp)
+        ) {
+            Text(
+                text = type.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = type.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Icon(
+            painter = painterResource(R.drawable.ic_arrow_back),
+            contentDescription = null,
+            modifier = Modifier
+                .size(16.dp)
+                .rotate(180f),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+        )
+    }
+}
+

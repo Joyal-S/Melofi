@@ -49,6 +49,21 @@
             </intent-filter>
         </service>
 
+        <!-- Home Screen AppWidget -->
+        <receiver
+            android:name=".widget.MelofyWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.auralis.app.ACTION_WIDGET_PLAY_PAUSE" />
+                <action android:name="com.auralis.app.ACTION_WIDGET_NEXT" />
+                <action android:name="com.auralis.app.ACTION_WIDGET_PREVIOUS" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/melofy_widget_info" />
+        </receiver>
+
     </application>
 
 </manifest>

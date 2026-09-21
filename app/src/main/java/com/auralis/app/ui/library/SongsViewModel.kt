@@ -2,7 +2,9 @@ package com.auralis.app.ui.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.auralis.app.domain.model.Song
 import com.auralis.app.domain.model.SongSortOrder
+import com.auralis.app.domain.repository.HistoryRepository
 import com.auralis.app.domain.usecase.GetSongsUseCase
 import com.auralis.app.domain.usecase.ScanLibraryUseCase
 import com.auralis.app.domain.usecase.favorites.GetFavoriteSongIdsUseCase
@@ -34,7 +36,8 @@ class SongsViewModel @Inject constructor(
     private val scanLibraryUseCase: ScanLibraryUseCase,
     private val getFavoriteSongIdsUseCase: GetFavoriteSongIdsUseCase,
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
-    private val addSongToPlaylistUseCase: AddSongToPlaylistUseCase
+    private val addSongToPlaylistUseCase: AddSongToPlaylistUseCase,
+    private val historyRepository: HistoryRepository
 ) : ViewModel() {
 
     val favoriteSongIds: StateFlow<Set<Long>> = getFavoriteSongIdsUseCase()
@@ -42,6 +45,13 @@ class SongsViewModel @Inject constructor(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptySet()
+        )
+
+    val recentlyPlayed: StateFlow<List<Song>> = historyRepository.getRecentlyPlayedSongs(limit = 10)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
         )
 
     private val _sortOrder = MutableStateFlow(SongSortOrder.TITLE)

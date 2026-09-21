@@ -43,4 +43,11 @@
     <string name="sleep_timer_cancel">Cancel Timer</string>
     <string name="sleep_timer_custom">Custom</string>
     <string name="sleep_timer_completed">Playback paused by sleep timer</string>
+
+    <!-- Phase 6 Stats, Smart Playlists & Widget -->
+    <string name="nav_stats">Stats</string>
+    <string name="widget_description">Melofy music player playback controls and current song display.</string>
+    <string name="widget_no_music">No music playing</string>
+    <string name="stats_title">Your Listening</string>
+    <string name="stats_empty">No listening history yet. Start playing your music to view listening statistics.</string>
 </resources>

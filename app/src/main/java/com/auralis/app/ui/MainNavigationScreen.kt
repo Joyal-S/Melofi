@@ -20,6 +20,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.auralis.app.R
+import com.auralis.app.domain.model.SmartPlaylistType
 import com.auralis.app.ui.favorites.FavoritesScreen
 import com.auralis.app.ui.favorites.FavoritesViewModel
 import com.auralis.app.ui.library.SongsScreen
@@ -30,18 +31,22 @@ import com.auralis.app.ui.playlists.PlaylistsScreen
 import com.auralis.app.ui.playlists.PlaylistsViewModel
 import com.auralis.app.ui.playlists.detail.PlaylistDetailScreen
 import com.auralis.app.ui.playlists.detail.PlaylistDetailViewModel
+import com.auralis.app.ui.playlists.smart.SmartPlaylistDetailScreen
+import com.auralis.app.ui.playlists.smart.SmartPlaylistDetailViewModel
 import com.auralis.app.ui.settings.AudioSettingsScreen
+import com.auralis.app.ui.stats.StatisticsScreen
 
 enum class MainTab {
     SONGS,
     FAVORITES,
     PLAYLISTS,
+    STATS,
     AUDIO
 }
 
 /**
  * Top-level navigation host coordinating library tabs, playlist details,
- * and the persistent Media3 playback controls bar.
+ * listening statistics, smart playlists, and the persistent Media3 playback controls bar.
  */
 @Composable
 fun MainNavigationScreen(
@@ -49,17 +54,20 @@ fun MainNavigationScreen(
     favoritesViewModel: FavoritesViewModel = hiltViewModel(),
     playlistsViewModel: PlaylistsViewModel = hiltViewModel(),
     playlistDetailViewModel: PlaylistDetailViewModel = hiltViewModel(),
+    smartPlaylistDetailViewModel: SmartPlaylistDetailViewModel = hiltViewModel(),
     playbackViewModel: PlaybackViewModel = hiltViewModel(),
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(MainTab.SONGS) }
     var selectedPlaylistId by remember { mutableStateOf<Long?>(null) }
+    var selectedSmartPlaylistType by remember { mutableStateOf<SmartPlaylistType?>(null) }
 
     val playbackState by playbackViewModel.playbackState.collectAsStateWithLifecycle()
     val playlists by playlistsViewModel.playlists.collectAsStateWithLifecycle()
 
-    BackHandler(enabled = selectedPlaylistId != null) {
+    BackHandler(enabled = selectedPlaylistId != null || selectedSmartPlaylistType != null) {
         selectedPlaylistId = null
+        selectedSmartPlaylistType = null
     }
 
     Scaffold(
@@ -80,7 +88,7 @@ fun MainNavigationScreen(
                 }
 
                 // Root Navigation Bar (hidden on sub-details)
-                if (selectedPlaylistId == null) {
+                if (selectedPlaylistId == null && selectedSmartPlaylistType == null) {
                     NavigationBar(
                         containerColor = MaterialTheme.colorScheme.surface
                     ) {
@@ -118,6 +126,17 @@ fun MainNavigationScreen(
                             label = { Text("Playlists") }
                         )
                         NavigationBarItem(
+                            selected = selectedTab == MainTab.STATS,
+                            onClick = { selectedTab = MainTab.STATS },
+                            icon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_insights),
+                                    contentDescription = "Stats"
+                                )
+                            },
+                            label = { Text("Stats") }
+                        )
+                        NavigationBarItem(
                             selected = selectedTab == MainTab.AUDIO,
                             onClick = { selectedTab = MainTab.AUDIO },
                             icon = {
@@ -138,7 +157,17 @@ fun MainNavigationScreen(
             .padding(innerPadding)
 
         val activePlaylistId = selectedPlaylistId
-        if (activePlaylistId != null) {
+        val activeSmartPlaylistType = selectedSmartPlaylistType
+
+        if (activeSmartPlaylistType != null) {
+            SmartPlaylistDetailScreen(
+                playlistType = activeSmartPlaylistType,
+                viewModel = smartPlaylistDetailViewModel,
+                playbackViewModel = playbackViewModel,
+                onBackClick = { selectedSmartPlaylistType = null },
+                modifier = screenModifier
+            )
+        } else if (activePlaylistId != null) {
             PlaylistDetailScreen(
                 playlistId = activePlaylistId,
                 viewModel = playlistDetailViewModel,
@@ -182,6 +211,12 @@ fun MainNavigationScreen(
                     PlaylistsScreen(
                         playlistsViewModel = playlistsViewModel,
                         onPlaylistClick = { selectedPlaylistId = it },
+                        onSmartPlaylistClick = { selectedSmartPlaylistType = it },
+                        modifier = screenModifier
+                    )
+                }
+                MainTab.STATS -> {
+                    StatisticsScreen(
                         modifier = screenModifier
                     )
                 }

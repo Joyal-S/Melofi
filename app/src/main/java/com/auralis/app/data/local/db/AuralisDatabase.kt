@@ -8,12 +8,14 @@ import com.auralis.app.data.local.db.dao.AlbumDao
 import com.auralis.app.data.local.db.dao.ArtistDao
 import com.auralis.app.data.local.db.dao.FavoriteDao
 import com.auralis.app.data.local.db.dao.GenreDao
+import com.auralis.app.data.local.db.dao.HistoryDao
 import com.auralis.app.data.local.db.dao.PlaylistDao
 import com.auralis.app.data.local.db.dao.SongDao
 import com.auralis.app.data.local.db.entity.AlbumEntity
 import com.auralis.app.data.local.db.entity.ArtistEntity
 import com.auralis.app.data.local.db.entity.FavoriteEntity
 import com.auralis.app.data.local.db.entity.GenreEntity
+import com.auralis.app.data.local.db.entity.PlaybackHistoryEntity
 import com.auralis.app.data.local.db.entity.PlaylistEntity
 import com.auralis.app.data.local.db.entity.PlaylistSongCrossRef
 import com.auralis.app.data.local.db.entity.SongEntity
@@ -30,8 +32,9 @@ import com.auralis.app.data.local.db.entity.SongEntity
         PlaylistEntity::class,
         FavoriteEntity::class,
         PlaylistSongCrossRef::class,
+        PlaybackHistoryEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 abstract class AuralisDatabase : RoomDatabase() {
@@ -41,6 +44,7 @@ abstract class AuralisDatabase : RoomDatabase() {
     abstract fun genreDao(): GenreDao
     abstract fun playlistDao(): PlaylistDao
     abstract fun favoriteDao(): FavoriteDao
+    abstract fun historyDao(): HistoryDao
 
     companion object {
         const val DATABASE_NAME = "auralis_database.db"
@@ -90,6 +94,27 @@ abstract class AuralisDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_playlist_songs_playlistId` ON `playlist_songs` (`playlistId`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_playlist_songs_songId` ON `playlist_songs` (`songId`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_playlist_songs_playlistId_position` ON `playlist_songs` (`playlistId`, `position`)")
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Create playback_history table
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `playback_history` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `songId` INTEGER NOT NULL,
+                        `playedAt` INTEGER NOT NULL,
+                        `durationMs` INTEGER NOT NULL,
+                        `completed` INTEGER NOT NULL,
+                        FOREIGN KEY(`songId`) REFERENCES `songs`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_playback_history_songId` ON `playback_history` (`songId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_playback_history_playedAt` ON `playback_history` (`playedAt`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_playback_history_songId_playedAt` ON `playback_history` (`songId`, `playedAt`)")
             }
         }
     }

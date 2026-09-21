@@ -13,6 +13,9 @@ import androidx.media3.session.MediaSessionService
 import com.auralis.app.MainActivity
 import com.auralis.app.playback.audiofx.AudioEffectsManager
 import com.auralis.app.playback.audiofx.ReplayGainManager
+import com.auralis.app.playback.history.PlaybackSessionTracker
+import com.auralis.app.playback.mapper.MediaItemMapper
+import com.auralis.app.widget.MelofyWidgetProvider
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -27,6 +30,8 @@ import javax.inject.Inject
  * - Foreground notification and lock screen controls
  * - Hardware audio effects (Equalizer, Bass Boost, Virtualizer) bound to audioSessionId
  * - ReplayGain metadata decoding and runtime volume normalization
+ * - Playback session tracking and listening history recording
+ * - Home screen AppWidget event-driven state updates
  */
 @AndroidEntryPoint
 class AuralisPlaybackService : MediaSessionService() {
@@ -36,6 +41,9 @@ class AuralisPlaybackService : MediaSessionService() {
 
     @Inject
     lateinit var replayGainManager: ReplayGainManager
+
+    @Inject
+    lateinit var playbackSessionTracker: PlaybackSessionTracker
 
     private var mediaSession: MediaSession? = null
 
@@ -78,6 +86,32 @@ class AuralisPlaybackService : MediaSessionService() {
                 reason: Int
             ) {
                 replayGainManager.onMediaItemTransition(player)
+                val songId = MediaItemMapper.extractSongId(mediaItem)
+                if (songId != null) {
+                    val duration = if (player.duration > 0) player.duration else 0L
+                    playbackSessionTracker.onTrackStarted(songId, duration, player.isPlaying)
+                } else {
+                    playbackSessionTracker.finalizeCurrentSession()
+                }
+                updateWidget(player)
+            }
+
+            override fun onIsPlayingChanged(
+                eventTime: AnalyticsListener.EventTime,
+                isPlaying: Boolean
+            ) {
+                playbackSessionTracker.onPlayingChanged(isPlaying)
+                updateWidget(player)
+            }
+
+            override fun onPlaybackStateChanged(
+                eventTime: AnalyticsListener.EventTime,
+                state: Int
+            ) {
+                if (state == androidx.media3.common.Player.STATE_ENDED) {
+                    playbackSessionTracker.onTrackEnded()
+                }
+                updateWidget(player)
             }
         })
 
@@ -99,6 +133,36 @@ class AuralisPlaybackService : MediaSessionService() {
             .build()
     }
 
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            MelofyWidgetProvider.ACTION_WIDGET_PLAY_PAUSE -> {
+                val player = mediaSession?.player
+                if (player != null) {
+                    if (player.isPlaying) player.pause() else player.play()
+                }
+            }
+            MelofyWidgetProvider.ACTION_WIDGET_NEXT -> {
+                val player = mediaSession?.player
+                if (player?.hasNextMediaItem() == true) {
+                    player.seekToNextMediaItem()
+                }
+            }
+            MelofyWidgetProvider.ACTION_WIDGET_PREVIOUS -> {
+                val player = mediaSession?.player
+                if (player != null) {
+                    if (player.currentPosition > 3000L) {
+                        player.seekTo(0L)
+                    } else if (player.hasPreviousMediaItem()) {
+                        player.seekToPreviousMediaItem()
+                    } else {
+                        player.seekTo(0L)
+                    }
+                }
+            }
+        }
+        return super.onStartCommand(intent, flags, startId)
+    }
+
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
         return mediaSession
     }
@@ -111,6 +175,8 @@ class AuralisPlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        playbackSessionTracker.finalizeCurrentSession()
+        MelofyWidgetProvider.updateAllWidgets(this, null, null, false, null)
         audioEffectsManager.release()
         replayGainManager.release()
         mediaSession?.run {
@@ -119,5 +185,19 @@ class AuralisPlaybackService : MediaSessionService() {
             mediaSession = null
         }
         super.onDestroy()
+    }
+
+    private fun updateWidget(player: androidx.media3.common.Player) {
+        val mediaItem = player.currentMediaItem
+        val title = mediaItem?.mediaMetadata?.title?.toString()
+        val artist = mediaItem?.mediaMetadata?.artist?.toString()
+        val artworkUri = mediaItem?.mediaMetadata?.artworkUri
+        MelofyWidgetProvider.updateAllWidgets(
+            context = this,
+            title = title,
+            artist = artist,
+            isPlaying = player.isPlaying,
+            artworkUri = artworkUri
+        )
     }
 }

@@ -9,6 +9,7 @@ import com.auralis.app.data.local.db.dao.AlbumDao
 import com.auralis.app.data.local.db.dao.ArtistDao
 import com.auralis.app.data.local.db.dao.FavoriteDao
 import com.auralis.app.data.local.db.dao.GenreDao
+import com.auralis.app.data.local.db.dao.HistoryDao
 import com.auralis.app.data.local.db.dao.PlaylistDao
 import com.auralis.app.data.local.db.dao.SongDao
 import dagger.Module
@@ -32,7 +33,7 @@ object DatabaseModule {
             AuralisDatabase::class.java,
             AuralisDatabase.DATABASE_NAME
         )
-        .addMigrations(AuralisDatabase.MIGRATION_1_2)
+        .addMigrations(AuralisDatabase.MIGRATION_1_2, AuralisDatabase.MIGRATION_2_3)
         .addCallback(object : RoomDatabase.Callback() {
             override fun onOpen(db: SupportSQLiteDatabase) {
                 super.onOpen(db)
@@ -70,5 +71,10 @@ object DatabaseModule {
     @Provides
     fun provideFavoriteDao(database: AuralisDatabase): FavoriteDao {
         return database.favoriteDao()
+    }
+
+    @Provides
+    fun provideHistoryDao(database: AuralisDatabase): HistoryDao {
+        return database.historyDao()
     }
 }
