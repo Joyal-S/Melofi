@@ -1150,7 +1150,8 @@ robolectric = { module = "org.robolectric:robolectric", version = "4.x" }
 | **Phase 2** | Library: MediaStore scanner, songs, albums, artists, UI | ✅ Complete |
 | **Phase 3** | Playback Engine: Media3, ExoPlayer, background session, queue & controls | ✅ Complete |
 | **Phase 4** | Playlists, Favorites, Membership, Ordering & Queue Persistence | ✅ Complete |
-| **Phase 5** | Audio Features & Polish (Equalizer, ReplayGain, Sleep Timer, Stats) | ⬜ Next |
+| **Phase 5** | Audio Features & Advanced Controls (Equalizer, ReplayGain, Sleep Timer) | ✅ Complete |
+| **Phase 6** | Listening History, Statistics, Smart Playlists & Home Screen Widgets | ✅ Complete |
 
 ---
 

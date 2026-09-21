@@ -77,6 +77,32 @@
   - `AudioSettingsScreen`: Material 3 settings screen with capability-driven cards for Equalizer (presets + dynamic band sliders), Bass Boost, Virtualizer, ReplayGain (mode chips + live track metadata status), Playback Engine info, and Sleep Timer (preset chips + live countdown + custom duration dialog).
   - `MainNavigationScreen`: Integrated 4th root navigation tab (`Audio`) with `ic_tune` vector icon.
 
+### Listening History, Statistics, Smart Playlists & Widgets Architecture (Phase 6)
+- **Room Database Schema v3 & Migration (`AuralisDatabase.kt`):**
+  - Upgraded schema to version 3 via deterministic `MIGRATION_2_3`.
+  - `playback_history` table: `@PrimaryKey(autoGenerate = true) id: Long`, `songId: Long`, `timestamp: Long`, `durationPlayedMs: Long`, `completed: Boolean`. Foreign key to `songs(id)` with `ON DELETE CASCADE`.
+  - Indexed on `songId`, `timestamp`, and `completed` for high-throughput query performance.
+- **Accurate Playback Session Tracking (`PlaybackSessionTracker.kt`):**
+  - Session-aware duration tracker integrated directly into `AuralisPlaybackService`.
+  - Accurately accumulates active playback time while avoiding duplicate counts during pauses, seeks, buffering, or track changes.
+  - Automatically flags a play as `completed` when listening time meets or exceeds standard thresholds (80% of song duration or 30 seconds for long tracks).
+- **Smart Playlists Engine (`SmartPlaylistRepositoryImpl.kt`):**
+  - Dynamic on-the-fly generation of smart playlists without altering static user-created playlists:
+    - **Most Played**: Songs ordered descending by total play counts.
+    - **Recently Played**: Chronological log of recently played tracks.
+    - **Forgotten Favorites**: Favorited tracks that haven't been played in >30 days or ever.
+    - **Heavy Rotation**: Tracks with multiple repeated plays in the last 7 days.
+  - Full playback queue integration via `PlaybackController`.
+- **Listening Insights & Statistics UI (`ui/stats`):**
+  - Dedicated Stats navigation tab in `MainNavigationScreen`.
+  - Timeframe filtering (All Time, Last 30 Days, Last 7 Days).
+  - Summary KPI cards: Total listening time (formatted into hours and minutes), total completed plays, average completion rate.
+  - Interactive top rankings: Top Songs, Top Artists, and Top Genres with play counts and duration metrics.
+  - Daily listening trend visualization and history management (clearing/resetting history with user confirmation).
+- **Home Screen App Widget (`MelofyWidgetProvider.kt`):**
+  - AppWidgetProvider with dedicated layout (`widget_playback.xml`) featuring album artwork, track title, artist, and remote playback controls (Play/Pause, Skip, Previous).
+  - Broadcast-driven updates synchronized directly with `AuralisPlaybackService` state changes.
+
 ---
 
 ## 3. Completed Verification
@@ -86,7 +112,7 @@
 | `./gradlew --version` | ✅ Pass | Gradle 9.6.0, JDK 21.0.10 (Android Studio JBR) |
 | `./gradlew clean` | ✅ Pass | Clean build cache & outputs |
 | `./gradlew assembleDebug` | ✅ Pass | Generates `app-debug.apk` cleanly in 9s without errors |
-| `./gradlew testDebugUnitTest` | ✅ Pass | 144/144 unit tests execute and pass across all 24 test suites |
+| `./gradlew testDebugUnitTest` | ✅ Pass | 172/172 unit tests execute and pass across all 29 test suites |
 | KSP Annotation Processing | ✅ Pass | Room DAOs, entities, and Hilt components generate cleanly |
 | Hilt Code Generation | ✅ Pass | `DatabaseModule`, `RepositoryModule`, `DispatchersModule`, `PlaybackModule`, `AudioModule` validated |
 | Permissions Audit | ✅ Pass | Storage and playback permissions verified; `ACCESS_NETWORK_STATE` explicitly removed via `tools:node="remove"`; 0 network permissions |
@@ -99,13 +125,12 @@
 
 - **No Connected Hardware / Emulator:** `adb devices` returned 0 attached devices at verification time; compilation and unit test suite are fully verified, but physical device runtime verification was marked NOT TESTED.
 - **Single-Player Crossfade Limitation:** Media3 1.11.1 does not provide a native dual-decoder crossfade pipeline in a single player instance; documented honestly in UI.
-- **Listening History & Analytics Deferred (Phase 6):** Listening stats, play history, and smart playlists remain scheduled for Phase 6.
 
 ---
 
-## 5. Next Phase: Phase 6
+## 5. Next Steps / Future Enhancements
 
-**Focus:** Polish, Stats, Smart Playlists & Performance Optimization
-- Listening statistics and play count tracking.
-- Smart playlists (Most Played, Recently Added, Forgotten Favorites).
-- Performance profiling and smooth list rendering optimizations.
+- Physical hardware and emulator UI/audio quality testing.
+- UI theme customization (custom color schemes, AMOLED pure black theme).
+- Android Auto / MediaBrowserService export.
+- Embedded lyrics display (LRC synchronized parser).
