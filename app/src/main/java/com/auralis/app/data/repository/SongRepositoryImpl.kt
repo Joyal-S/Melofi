@@ -136,6 +136,25 @@ class SongRepositoryImpl @Inject constructor(
         discNumber: Int?
     ): Result<Unit> = withContext(ioDispatcher) {
         try {
+            // Defensive input validation and length bounding
+            val validation = com.auralis.app.domain.model.MetadataEditValidator.validate(
+                title = title,
+                artist = artist,
+                album = album,
+                albumArtist = albumArtist,
+                genre = genre,
+                composer = composer,
+                yearText = year?.toString(),
+                trackNumberText = trackNumber?.toString(),
+                discNumberText = discNumber?.toString()
+            )
+            if (!validation.isValid || validation.sanitizedMetadata == null) {
+                return@withContext Result.failure(
+                    IllegalArgumentException(validation.errorMessage ?: "Invalid metadata values")
+                )
+            }
+            val clean = validation.sanitizedMetadata
+
             val entity = songDao.getAllSongsList().find { it.id == songId }
                 ?: return@withContext Result.failure(IllegalArgumentException("Song with ID $songId not found"))
 
@@ -143,24 +162,24 @@ class SongRepositoryImpl @Inject constructor(
             try {
                 val uri = Uri.parse(entity.contentUri)
                 val values = ContentValues().apply {
-                    put(MediaStore.Audio.Media.TITLE, title)
-                    put(MediaStore.Audio.Media.ARTIST, artist)
-                    put(MediaStore.Audio.Media.ALBUM, album)
-                    if (year != null && year > 0) {
-                        put(MediaStore.Audio.Media.YEAR, year)
+                    put(MediaStore.Audio.Media.TITLE, clean.title)
+                    put(MediaStore.Audio.Media.ARTIST, clean.artist)
+                    put(MediaStore.Audio.Media.ALBUM, clean.album)
+                    if (clean.year != null && clean.year > 0) {
+                        put(MediaStore.Audio.Media.YEAR, clean.year)
                     }
-                    if (trackNumber != null && trackNumber > 0) {
-                        put(MediaStore.Audio.Media.TRACK, trackNumber)
+                    if (clean.trackNumber != null && clean.trackNumber > 0) {
+                        put(MediaStore.Audio.Media.TRACK, clean.trackNumber)
                     }
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                        if (!genre.isNullOrBlank()) {
-                            put(MediaStore.Audio.AudioColumns.GENRE, genre)
+                        if (!clean.genre.isNullOrBlank()) {
+                            put(MediaStore.Audio.AudioColumns.GENRE, clean.genre)
                         }
-                        if (!albumArtist.isNullOrBlank()) {
-                            put(MediaStore.Audio.AudioColumns.ALBUM_ARTIST, albumArtist)
+                        if (!clean.albumArtist.isNullOrBlank()) {
+                            put(MediaStore.Audio.AudioColumns.ALBUM_ARTIST, clean.albumArtist)
                         }
-                        if (!composer.isNullOrBlank()) {
-                            put(MediaStore.Audio.AudioColumns.COMPOSER, composer)
+                        if (!clean.composer.isNullOrBlank()) {
+                            put(MediaStore.Audio.AudioColumns.COMPOSER, clean.composer)
                         }
                     }
                 }
@@ -173,13 +192,13 @@ class SongRepositoryImpl @Inject constructor(
 
             // Atomically update local Room database so UI and library immediately reflect changes
             val updatedEntity = entity.copy(
-                title = title,
-                artistName = artist,
-                albumName = album,
-                genreName = genre ?: entity.genreName,
-                year = year ?: entity.year,
-                trackNumber = trackNumber ?: entity.trackNumber,
-                discNumber = discNumber ?: entity.discNumber,
+                title = clean.title,
+                artistName = clean.artist,
+                albumName = clean.album,
+                genreName = clean.genre ?: entity.genreName,
+                year = clean.year ?: entity.year,
+                trackNumber = clean.trackNumber ?: entity.trackNumber,
+                discNumber = clean.discNumber ?: entity.discNumber,
                 dateModified = System.currentTimeMillis() / 1000L
             )
             songDao.updateSong(updatedEntity)

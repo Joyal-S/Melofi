@@ -36,6 +36,10 @@ class SleepTimerManager(
         onExpireAction = null
     )
 
+    companion object {
+        const val MAX_DURATION_SECONDS = 86_400L // 24 hours maximum
+    }
+
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
     private var timerJob: Job? = null
 
@@ -44,19 +48,21 @@ class SleepTimerManager(
 
     fun startMinutes(minutes: Int) {
         if (minutes <= 0) return
-        startSeconds(minutes.toLong() * 60L)
+        val clampedMinutes = minutes.coerceAtMost(1440)
+        startSeconds(clampedMinutes.toLong() * 60L)
     }
 
     fun startSeconds(totalSeconds: Long) {
         if (totalSeconds <= 0L) return
+        val clampedDuration = totalSeconds.coerceAtMost(MAX_DURATION_SECONDS)
 
         cancel()
 
         timerJob = scope.launch {
-            var remaining = totalSeconds
+            var remaining = clampedDuration
             _timerState.value = SleepTimerState.Running(
                 remainingSeconds = remaining,
-                totalDurationSeconds = totalSeconds
+                totalDurationSeconds = clampedDuration
             )
 
             while (isActive && remaining > 0) {

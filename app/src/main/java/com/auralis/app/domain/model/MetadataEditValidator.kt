@@ -24,6 +24,8 @@ data class MetadataValidationResult(
  */
 object MetadataEditValidator {
 
+    const val MAX_FIELD_LENGTH = 500
+
     private val EDITABLE_FORMATS = setOf(
         "mp3", "flac", "m4a", "aac", "ogg", "opus"
     )
@@ -51,7 +53,7 @@ object MetadataEditValidator {
         trackNumberText: String? = null,
         discNumberText: String? = null
     ): MetadataValidationResult {
-        val cleanTitle = title.trim()
+        val cleanTitle = title.trim().take(MAX_FIELD_LENGTH)
         if (cleanTitle.isEmpty()) {
             return MetadataValidationResult(
                 isValid = false,
@@ -59,11 +61,11 @@ object MetadataEditValidator {
             )
         }
 
-        val cleanArtist = artist.trim().ifEmpty { "Unknown Artist" }
-        val cleanAlbum = album.trim().ifEmpty { "Unknown Album" }
-        val cleanAlbumArtist = albumArtist?.trim()?.ifEmpty { null }
-        val cleanGenre = genre?.trim()?.ifEmpty { null }
-        val cleanComposer = composer?.trim()?.ifEmpty { null }
+        val cleanArtist = artist.trim().take(MAX_FIELD_LENGTH).ifEmpty { "Unknown Artist" }
+        val cleanAlbum = album.trim().take(MAX_FIELD_LENGTH).ifEmpty { "Unknown Album" }
+        val cleanAlbumArtist = albumArtist?.trim()?.take(MAX_FIELD_LENGTH)?.ifEmpty { null }
+        val cleanGenre = genre?.trim()?.take(MAX_FIELD_LENGTH)?.ifEmpty { null }
+        val cleanComposer = composer?.trim()?.take(MAX_FIELD_LENGTH)?.ifEmpty { null }
 
         val parsedYear = if (!yearText.isNullOrBlank()) {
             val y = yearText.trim().toIntOrNull()

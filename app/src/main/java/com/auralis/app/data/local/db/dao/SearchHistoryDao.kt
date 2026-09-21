@@ -42,7 +42,7 @@ interface SearchHistoryDao {
 
     @Transaction
     suspend fun recordSearch(query: String, maxEntries: Int = 20) {
-        val clean = query.trim()
+        val clean = query.trim().take(200)
         if (clean.isEmpty()) return
         val existing = getSearchByQuery(clean)
         if (existing != null) {

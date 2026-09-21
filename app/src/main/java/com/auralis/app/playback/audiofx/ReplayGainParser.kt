@@ -69,7 +69,7 @@ object ReplayGainParser {
             .replace("dB", "", ignoreCase = true)
             .replace("db", "", ignoreCase = true)
             .trim()
-        return cleaned.toFloatOrNull()
+        return cleaned.toFloatOrNull()?.takeIf { it.isFinite() && it in -100f..100f }
     }
 
     /**
@@ -77,7 +77,7 @@ object ReplayGainParser {
      */
     fun parsePeakString(raw: String?): Float? {
         if (raw.isNullOrBlank()) return null
-        return raw.trim().toFloatOrNull()?.takeIf { it >= 0f }
+        return raw.trim().toFloatOrNull()?.takeIf { it.isFinite() && it >= 0f && it <= 100f }
     }
 
     /**
@@ -105,6 +105,8 @@ object ReplayGainParser {
             ReplayGainMode.OFF -> return 1.0f
         }
 
+        if (!gainDb.isFinite()) return 1.0f
+
         val peak = when (mode) {
             ReplayGainMode.TRACK -> metadata.trackPeak
             ReplayGainMode.ALBUM -> metadata.albumPeak ?: metadata.trackPeak
@@ -112,13 +114,16 @@ object ReplayGainParser {
         }
 
         var linearMultiplier = 10.0.pow(gainDb.toDouble() / 20.0).toFloat()
+        if (!linearMultiplier.isFinite()) return 1.0f
 
         // Anti-clipping protection
-        if (peak != null && peak > 0f) {
+        if (peak != null && peak.isFinite() && peak > 0f) {
             if (linearMultiplier * peak > 1.0f) {
                 linearMultiplier = 1.0f / peak
             }
         }
+
+        if (!linearMultiplier.isFinite()) return 1.0f
 
         return linearMultiplier.coerceIn(0.0f, 1.0f)
     }

@@ -73,7 +73,7 @@ class SongMetadataInspector @Inject constructor(
                 }
             }
         } catch (e: Exception) {
-            Log.w(TAG, "MediaMetadataRetriever inspection failed for ${song.contentUri}: ${e.message}")
+            Log.w(TAG, "MediaMetadataRetriever inspection failed for song id ${song.id}: ${e.message}")
         } finally {
             try {
                 retriever.release()

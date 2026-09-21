@@ -1,6 +1,6 @@
 # Melofy — Development Status
 
-> **Current Phase:** Phase 11 Complete (Performance & Battery Optimization)  
+> **Current Phase:** Phase 12 Complete (Security / Privacy / Data Integrity Audit)  
 > **Last Updated:** 2026-09-21  
 
 ---
@@ -21,6 +21,7 @@
 | **Phase 9** | Local Recommendation Engine | ✅ Complete |
 | **Phase 10** | UI/UX Polish & Personalization | ✅ Complete |
 | **Phase 11** | Performance & Battery Optimization | ✅ Complete |
+| **Phase 12** | Security / Privacy / Data Integrity Audit | ✅ Complete |
 
 ---
 
@@ -261,6 +262,27 @@
   - Replaced repeated lowercase allocations with `String.CASE_INSENSITIVE_ORDER` across sorting routines.
   - Post-optimization benchmark: 10,000 songs sorted in **10ms**; 10,000 songs filtered in **7ms**.
 
+### Security, Privacy & Data Integrity Architecture (Phase 12)
+- **Cloud Backup Hardening (`AndroidManifest.xml`):**
+  - Set `android:allowBackup="false"` to prevent automated Google Drive or ADB backup extraction of local listening history, favorites, playlists, and user preferences.
+- **ReplayGain Metadata Hardening (`ReplayGainParser.kt`):**
+  - Added strict `.isFinite()` guards on gain and peak decibel parses to reject `NaN`, `+Infinity`, and `-Infinity`.
+  - Coerced volume multipliers to `[0.0f, 1.0f]` with safe fallback to unity gain (1.0f) on corrupt/out-of-bound audio tags, protecting ExoPlayer and native AudioTrack from crashes.
+- **Sleep Timer Clamping (`SleepTimerManager.kt`):**
+  - Added upper-bound clamping to 24 hours (86,400s / 1,440m) and guarded against negative/zero durations to eliminate integer overflow and runaway coroutine timers.
+- **Defensive Metadata Validation & String Bounding (`MetadataEditValidator.kt`, `SongRepositoryImpl.kt`):**
+  - Added `MAX_FIELD_LENGTH = 500` bounding on title, artist, album, genre, and composer to protect memory and SQLite performance against oversized string payloads.
+  - Embedded defensive validation inside `SongRepositoryImpl.updateSongMetadata` to ensure programmatic callers cannot bypass UI constraints.
+- **Search History Query Bounding (`SearchHistoryDao.kt`):**
+  - Bounded stored search query lengths to 200 characters in `@Transaction recordSearch`.
+- **Artwork Import Validation & Downsampling (`LocalArtworkRepository.kt`):**
+  - Added image MIME type checking and `inJustDecodeBounds` dimension validation in `setCustomArtwork()`.
+  - Enforced downsampling to max 1024x1024 before PNG encoding, preventing disk exhaustion and OutOfMemory errors from arbitrarily large user images.
+- **Diagnostic Logging Sanitization (`LocalArtworkRepository.kt`, `SongMetadataInspector.kt`):**
+  - Replaced user-identifiable song titles and raw `contentUri` paths with internal song IDs in diagnostic warning logs.
+- **Security & Data Integrity Regression Suite (`SecurityAuditTest.kt`):**
+  - Added 8 automated unit tests verifying ReplayGain resilience, boundary clamping, and input validation.
+
 ---
 
 ## 3. Completed Verification
@@ -269,15 +291,16 @@
 |---|---|---|
 | `./gradlew --version` | ✅ Pass | Gradle 9.6.0, JDK 21.0.10 (Android Studio JBR) |
 | `./gradlew clean` | ✅ Pass | Clean build cache & outputs |
-| `./gradlew assembleDebug` | ✅ Pass | Generates `app-debug.apk` cleanly in 7s without errors (46.5MB) |
-| `./gradlew testDebugUnitTest` | ✅ Pass | 277/277 unit tests execute and pass across 47 test suites |
+| `./gradlew assembleDebug` | ✅ Pass | Generates `app-debug.apk` cleanly in 8s without errors (46.7MB) |
+| `./gradlew testDebugUnitTest` | ✅ Pass | 285/285 unit tests execute and pass across 48 test suites |
+| Security & Data Integrity Unit Tests | ✅ Pass | 8/8 dedicated tests passing (NaN/Infinity ReplayGain, string bounds, format blocking, timer clamping) |
 | Large Library Scaling Benchmark | ✅ Pass | 10,000 tracks: duplicate grouping in 84ms, sorting in 10ms, filtering in 7ms, search ranking in 60ms |
 | Recommendation Benchmark | ✅ Pass | 5,000 tracks scored and partitioned in 42ms |
 | Preference & Theme Unit Tests | ✅ Pass | Dedicated tests passing (DataStore serialization, theme resolution, playback queue flow) |
 | KSP Annotation Processing | ✅ Pass | Room DAOs, entities, and Hilt components generate cleanly |
 | Hilt Code Generation | ✅ Pass | Dependency graphs and view model factories validated |
 | Permissions Audit | ✅ Pass | Storage and playback permissions verified; 0 network permissions |
-| Privacy Audit | ✅ Pass | 100% offline; no analytics, ads, Firebase, or external telemetry libraries |
+| Privacy Audit | ✅ Pass | 100% offline; zero analytics, ads, Firebase, or external telemetry libraries; cloud backup disabled |
 | Runtime Verification | ⚠️ NOT TESTED | 0 connected physical devices or emulators detected via `adb devices` |
 
 ---

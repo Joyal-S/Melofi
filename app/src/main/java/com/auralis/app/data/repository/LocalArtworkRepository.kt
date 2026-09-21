@@ -70,15 +70,53 @@ class LocalArtworkRepository @Inject constructor(
 
     /**
      * Saves a custom artwork image provided by the user for an album or track.
+     * Enforces image validation, MIME check, and safe downsampling to prevent storage or memory exhaustion.
      */
     suspend fun setCustomArtwork(targetId: Long, sourceUri: Uri): Result<String> = withContext(ioDispatcher) {
         try {
-            val destination = getCustomArtworkFile(targetId)
+            // 1. Validate MIME type if available from ContentResolver
+            val mimeType = context.contentResolver.getType(sourceUri)
+            if (mimeType != null && !mimeType.startsWith("image/")) {
+                return@withContext Result.failure(IllegalArgumentException("Selected file is not an image ($mimeType)"))
+            }
+
+            // 2. Inspect image dimensions first to verify valid image decode and bounds
+            val boundsOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             context.contentResolver.openInputStream(sourceUri)?.use { input ->
-                FileOutputStream(destination).use { output ->
-                    input.copyTo(output)
+                BitmapFactory.decodeStream(input, null, boundsOptions)
+            } ?: return@withContext Result.failure(IllegalArgumentException("Unable to read artwork stream"))
+
+            val outWidth = boundsOptions.outWidth
+            val outHeight = boundsOptions.outHeight
+            if (outWidth <= 0 || outHeight <= 0) {
+                return@withContext Result.failure(IllegalArgumentException("Invalid or corrupted image format"))
+            }
+
+            // 3. Downsample if image is excessively large to prevent memory spikes (max 1024x1024)
+            val maxCustomDimension = 1024
+            var sampleSize = 1
+            if (outHeight > maxCustomDimension || outWidth > maxCustomDimension) {
+                val halfHeight = outHeight / 2
+                val halfWidth = outWidth / 2
+                while ((halfHeight / sampleSize) >= maxCustomDimension && (halfWidth / sampleSize) >= maxCustomDimension) {
+                    sampleSize *= 2
                 }
             }
+
+            val decodeOptions = BitmapFactory.Options().apply {
+                inSampleSize = sampleSize
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
+
+            val bitmap = context.contentResolver.openInputStream(sourceUri)?.use { input ->
+                BitmapFactory.decodeStream(input, null, decodeOptions)
+            } ?: return@withContext Result.failure(IllegalStateException("Failed to decode image bitmap"))
+
+            val destination = getCustomArtworkFile(targetId)
+            FileOutputStream(destination).use { output ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 90, output)
+            }
+
             // Invalidate thumbnail cache so the new image is re-read
             val cachedFile = File(cacheDir, "$targetId.webp")
             if (cachedFile.exists()) {
@@ -146,7 +184,7 @@ class LocalArtworkRepository @Inject constructor(
                 }
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Embedded artwork extraction failed for ${song.title}: ${e.message}")
+            Log.w(TAG, "Embedded artwork extraction failed for song id ${song.id}: ${e.message}")
         } finally {
             try {
                 retriever.release()
