@@ -1,7 +1,12 @@
 package com.auralis.app.ui.playback
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.background
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,31 +39,29 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil3.compose.AsyncImage
 import com.auralis.app.R
 import com.auralis.app.core.ui.theme.MelofyElevation
+import com.auralis.app.core.ui.theme.MelofyMotion
 import com.auralis.app.core.ui.theme.MelofySpacing
 import com.auralis.app.core.util.TimeUtils
-import com.auralis.app.domain.model.Song
 import com.auralis.app.playback.model.PlaybackRepeatMode
+import com.auralis.app.ui.components.MelofyArtwork
 import com.auralis.app.ui.playback.components.PlaybackQueueSheet
 
 /**
@@ -90,9 +93,9 @@ fun NowPlayingScreen(
     var showQueueSheet by remember { mutableStateOf(false) }
     val queueSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // Heart bounce animation
     val heartScale by animateFloatAsState(
-        targetValue = if (isFavorite) 1.15f else 1.0f,
+        targetValue = if (isFavorite) 1.2f else 1.0f,
+        animationSpec = MelofyMotion.springBouncy(),
         label = "heartScale"
     )
 
@@ -105,7 +108,8 @@ fun NowPlayingScreen(
                         Text(
                             text = "PLAYING FROM LIBRARY",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            letterSpacing = 1.2.sp
                         )
                         Text(
                             text = song.albumName,
@@ -121,7 +125,8 @@ fun NowPlayingScreen(
                     IconButton(onClick = onCollapse) {
                         Icon(
                             painter = painterResource(R.drawable.ic_expand_more),
-                            contentDescription = "Collapse Player"
+                            contentDescription = "Collapse Player",
+                            modifier = Modifier.size(28.dp)
                         )
                     }
                 },
@@ -143,29 +148,26 @@ fun NowPlayingScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = MelofySpacing.xl, vertical = MelofySpacing.md),
+                .padding(horizontal = MelofySpacing.xl, vertical = MelofySpacing.sm),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Spacer(modifier = Modifier.height(MelofySpacing.sm))
 
-            // 1. Large Album Artwork
+            // 1. Large Hero Album Artwork with Elevation & Monogram Gradient Fallback
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(0.85f)
+                    .fillMaxWidth(0.88f)
                     .aspectRatio(1f)
-                    .shadow(MelofyElevation.high, RoundedCornerShape(20.dp))
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                    .shadow(MelofyElevation.high, RoundedCornerShape(24.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                AsyncImage(
-                    model = song.albumArtUri,
-                    contentDescription = "Cover artwork for ${song.title}",
+                MelofyArtwork(
+                    artworkUri = song.albumArtUri,
+                    title = song.title,
+                    artist = song.artistName,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    placeholder = painterResource(R.drawable.ic_music_placeholder),
-                    error = painterResource(R.drawable.ic_music_placeholder)
+                    cornerRadius = 24.dp
                 )
             }
 
@@ -213,7 +215,7 @@ fun NowPlayingScreen(
                 }
             }
 
-            // Subtle Active Lo-Fi + Reverb Indicator (clean and non-intrusive)
+            // Subtle Active Lo-Fi + Reverb Badge
             if (dspParams.isAnyActive) {
                 Spacer(modifier = Modifier.height(MelofySpacing.xs))
                 Surface(
@@ -229,7 +231,7 @@ fun NowPlayingScreen(
                             painter = painterResource(R.drawable.ic_waves),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(12.dp)
+                            modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(MelofySpacing.xs))
                         Text(
@@ -242,15 +244,15 @@ fun NowPlayingScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(MelofySpacing.lg))
+            Spacer(modifier = Modifier.height(MelofySpacing.md))
 
-            // 3. Scrub Slider & Time Row (isolated to avoid recomposition of artwork, buttons, and top bar)
+            // 3. Scrub Slider & Time Row
             NowPlayingScrubber(
                 playbackViewModel = playbackViewModel,
                 durationMs = playbackState.durationMs
             )
 
-            Spacer(modifier = Modifier.height(MelofySpacing.lg))
+            Spacer(modifier = Modifier.height(MelofySpacing.md))
 
             // 4. Primary Transport Controls Row
             Row(
@@ -284,7 +286,7 @@ fun NowPlayingScreen(
                     )
                 }
 
-                // Play / Pause
+                // Play / Pause Button with animated morph
                 FilledIconButton(
                     onClick = { playbackViewModel.togglePlayPause() },
                     modifier = Modifier.size(68.dp),
@@ -294,13 +296,23 @@ fun NowPlayingScreen(
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
-                    Icon(
-                        painter = painterResource(
-                            if (playbackState.isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow
-                        ),
-                        contentDescription = if (playbackState.isPlaying) "Pause" else "Play",
-                        modifier = Modifier.size(36.dp)
-                    )
+                    AnimatedContent(
+                        targetState = playbackState.isPlaying,
+                        transitionSpec = {
+                            (scaleIn(MelofyMotion.springBouncy<Float>()) + fadeIn()).togetherWith(
+                                scaleOut(MelofyMotion.springBouncy<Float>()) + fadeOut()
+                            )
+                        },
+                        label = "nowPlayingPlayPauseMorph"
+                    ) { isPlaying ->
+                        Icon(
+                            painter = painterResource(
+                                if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow
+                            ),
+                            contentDescription = if (isPlaying) "Pause" else "Play",
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
                 }
 
                 // Next
@@ -340,7 +352,7 @@ fun NowPlayingScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(MelofySpacing.lg))
+            Spacer(modifier = Modifier.height(MelofySpacing.md))
 
             // 5. Bottom Queue Shortcut Button
             Row(
@@ -355,7 +367,7 @@ fun NowPlayingScreen(
                         painter = painterResource(R.drawable.ic_queue_music),
                         contentDescription = "Open Play Queue",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(26.dp)
                     )
                 }
             }

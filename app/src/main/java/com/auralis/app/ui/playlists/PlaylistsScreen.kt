@@ -49,6 +49,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.auralis.app.R
 import com.auralis.app.domain.model.Playlist
 import com.auralis.app.domain.model.SmartPlaylistType
+import com.auralis.app.ui.components.PlaylistCover
 
 /**
  * Screen displaying the user's playlists alongside local rule-based smart playlists.
@@ -270,14 +271,15 @@ private fun PlaylistItemRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            painter = painterResource(R.drawable.ic_playlist_play),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(36.dp)
+        PlaylistCover(
+            customCoverUri = playlist.customCoverUri,
+            memberArtUris = emptyList(),
+            title = playlist.name,
+            modifier = Modifier.size(48.dp),
+            cornerRadius = 10.dp
         )
         Column(
             modifier = Modifier
@@ -290,9 +292,15 @@ private fun PlaylistItemRow(
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                text = "${playlist.songCount} ${if (playlist.songCount == 1) "song" else "songs"}",
+                text = buildString {
+                    if (!playlist.description.isNullOrBlank()) {
+                        append("${playlist.description} • ")
+                    }
+                    append("${playlist.songCount} ${if (playlist.songCount == 1) "song" else "songs"}")
+                },
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
             )
         }
         Box {

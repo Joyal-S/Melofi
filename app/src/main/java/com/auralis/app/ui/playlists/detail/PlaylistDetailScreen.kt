@@ -1,5 +1,7 @@
 package com.auralis.app.ui.playlists.detail
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,17 +16,22 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -35,22 +42,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil3.compose.AsyncImage
 import com.auralis.app.R
 import com.auralis.app.core.util.TimeUtils
 import com.auralis.app.domain.model.Song
+import com.auralis.app.ui.components.MelofyArtwork
+import com.auralis.app.ui.components.PlaylistCover
 import com.auralis.app.ui.playback.PlaybackViewModel
 
 /**
- * Screen displaying the ordered songs in a specific playlist with playback and reordering actions.
+ * Screen displaying the ordered songs in a specific playlist with playback,
+ * custom cover selection, description editing, and reordering actions.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,25 +75,26 @@ fun PlaylistDetailScreen(
     val playlist by viewModel.playlist.collectAsStateWithLifecycle()
     val songs by viewModel.songs.collectAsStateWithLifecycle()
 
+    var showEditDescriptionDialog by remember { mutableStateOf(false) }
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { viewModel.updateCover(it.toString()) }
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = playlist?.name ?: "Playlist",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = "${songs.size} ${if (songs.size == 1) "song" else "songs"}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text(
+                        text = playlist?.name ?: "Playlist",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
@@ -97,14 +105,13 @@ fun PlaylistDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showEditDescriptionDialog = true }) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_edit),
+                            contentDescription = "Edit playlist description"
+                        )
+                    }
                     if (songs.isNotEmpty()) {
-                        IconButton(onClick = { playbackViewModel.playSongs(songs, 0) }) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_play_arrow),
-                                contentDescription = "Play all",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
                         IconButton(onClick = { playbackViewModel.addSongsToQueue(songs) }) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_queue_music),
@@ -119,59 +126,206 @@ fun PlaylistDetailScreen(
             )
         }
     ) { innerPadding ->
-        Box(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            if (songs.isEmpty()) {
+            // Hero Playlist Header
+            item {
                 Column(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_playlist_play),
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Playlist is empty",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Add songs to this playlist from the Songs or Favorites screen.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            } else {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    itemsIndexed(
-                        items = songs,
-                        key = { _, song -> song.id }
-                    ) { index, song ->
-                        PlaylistSongItem(
-                            index = index,
-                            song = song,
-                            totalCount = songs.size,
-                            onClick = { playbackViewModel.playSong(song, songs) },
-                            onPlayNext = { playbackViewModel.addSongsToQueue(listOf(song)) },
-                            onRemove = { viewModel.removeSong(song.id) },
-                            onMoveUp = { if (index > 0) viewModel.moveSong(index, index - 1) },
-                            onMoveDown = { if (index < songs.lastIndex) viewModel.moveSong(index, index + 1) }
+                    Box(contentAlignment = Alignment.BottomEnd) {
+                        PlaylistCover(
+                            customCoverUri = playlist?.customCoverUri,
+                            memberArtUris = songs.mapNotNull { it.albumArtUri }.take(4),
+                            title = playlist?.name ?: "Playlist",
+                            modifier = Modifier
+                                .size(160.dp)
+                                .clickable { imagePickerLauncher.launch("image/*") },
+                            cornerRadius = 16.dp
                         )
+
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shadowElevation = 4.dp,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clickable { imagePickerLauncher.launch("image/*") }
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_edit),
+                                    contentDescription = "Change cover image",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = playlist?.name ?: "Playlist",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+
+                    if (!playlist?.description.isNullOrBlank()) {
+                        Text(
+                            text = playlist?.description.orEmpty(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
+                        )
+                    }
+
+                    val totalDurationMs = songs.sumOf { it.duration }
+                    Text(
+                        text = buildString {
+                            append("${songs.size} ${if (songs.size == 1) "track" else "tracks"}")
+                            if (totalDurationMs > 0) {
+                                append(" • ${TimeUtils.formatDuration(totalDurationMs)}")
+                            }
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Play & Shuffle controls
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                if (songs.isNotEmpty()) {
+                                    playbackViewModel.playSongs(songs, 0)
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            enabled = songs.isNotEmpty()
+                        ) {
+                            Icon(painter = painterResource(R.drawable.ic_play_arrow), contentDescription = null)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Play All")
+                        }
+
+                        FilledTonalButton(
+                            onClick = {
+                                if (songs.isNotEmpty()) {
+                                    playbackViewModel.playSong(songs.shuffled().first(), songs.shuffled())
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            enabled = songs.isNotEmpty()
+                        ) {
+                            Icon(painter = painterResource(R.drawable.ic_shuffle), contentDescription = null)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Shuffle")
+                        }
                     }
                 }
             }
+
+            if (songs.isEmpty()) {
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_playlist_play),
+                            contentDescription = null,
+                            modifier = Modifier.size(56.dp),
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Playlist is empty",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Add songs to this playlist from the Songs or Favorites screen.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else {
+                itemsIndexed(
+                    items = songs,
+                    key = { _, song -> song.id }
+                ) { index, song ->
+                    PlaylistSongItem(
+                        index = index,
+                        song = song,
+                        totalCount = songs.size,
+                        onClick = { playbackViewModel.playSong(song, songs) },
+                        onPlayNext = { playbackViewModel.addSongsToQueue(listOf(song)) },
+                        onRemove = { viewModel.removeSong(song.id) },
+                        onMoveUp = { if (index > 0) viewModel.moveSong(index, index - 1) },
+                        onMoveDown = { if (index < songs.lastIndex) viewModel.moveSong(index, index + 1) }
+                    )
+                }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(32.dp))
+            }
         }
+    }
+
+    if (showEditDescriptionDialog) {
+        var descriptionText by remember(playlist?.description) { mutableStateOf(playlist?.description.orEmpty()) }
+
+        AlertDialog(
+            onDismissRequest = { showEditDescriptionDialog = false },
+            title = { Text("Playlist Description") },
+            text = {
+                OutlinedTextField(
+                    value = descriptionText,
+                    onValueChange = { descriptionText = it },
+                    label = { Text("Description") },
+                    placeholder = { Text("Add notes, mood, or context...") },
+                    singleLine = false,
+                    maxLines = 3,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.updateDescription(descriptionText.trim().ifEmpty { null })
+                        showEditDescriptionDialog = false
+                    }
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditDescriptionDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
@@ -203,22 +357,14 @@ private fun PlaylistSongItem(
             modifier = Modifier.width(28.dp)
         )
 
-        // Thumbnail
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(6.dp))
-        ) {
-            AsyncImage(
-                model = song.albumArtUri,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-                placeholder = painterResource(R.drawable.ic_music_placeholder),
-                error = painterResource(R.drawable.ic_music_placeholder),
-                fallback = painterResource(R.drawable.ic_music_placeholder)
-            )
-        }
+        // MelofyArtwork
+        MelofyArtwork(
+            artworkUri = song.albumArtUri,
+            title = song.title,
+            artist = song.artistName,
+            modifier = Modifier.size(44.dp),
+            cornerRadius = 8.dp
+        )
 
         Spacer(modifier = Modifier.width(12.dp))
 
@@ -261,6 +407,7 @@ private fun PlaylistSongItem(
                     modifier = Modifier.size(20.dp)
                 )
             }
+
             DropdownMenu(
                 expanded = showMenu,
                 onDismissRequest = { showMenu = false }
@@ -278,6 +425,9 @@ private fun PlaylistSongItem(
                 if (index > 0) {
                     DropdownMenuItem(
                         text = { Text("Move Up") },
+                        leadingIcon = {
+                            Icon(painter = painterResource(R.drawable.ic_arrow_back), contentDescription = null)
+                        },
                         onClick = {
                             showMenu = false
                             onMoveUp()
@@ -287,6 +437,9 @@ private fun PlaylistSongItem(
                 if (index < totalCount - 1) {
                     DropdownMenuItem(
                         text = { Text("Move Down") },
+                        leadingIcon = {
+                            Icon(painter = painterResource(R.drawable.ic_expand_more), contentDescription = null)
+                        },
                         onClick = {
                             showMenu = false
                             onMoveDown()

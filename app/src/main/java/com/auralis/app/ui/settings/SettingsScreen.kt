@@ -47,6 +47,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.auralis.app.R
 import com.auralis.app.core.ui.theme.MelofyElevation
 import com.auralis.app.core.ui.theme.MelofyShapes
+import com.auralis.app.core.ui.theme.MelofyAccent
+import com.auralis.app.core.ui.theme.MelofyAnimationMode
 import com.auralis.app.core.ui.theme.MelofySpacing
 import com.auralis.app.domain.model.LibraryTab
 import com.auralis.app.domain.model.LibraryViewMode
@@ -218,6 +220,110 @@ private fun PersonalizationAndAboutContent(
                     Switch(
                         checked = preferences.amoledBlack,
                         onCheckedChange = { viewModel.setAmoledBlack(it) }
+                    )
+                }
+
+                // Accent Color
+                Spacer(modifier = Modifier.height(MelofySpacing.md))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Spacer(modifier = Modifier.height(MelofySpacing.md))
+
+                Text(
+                    text = "Accent Color",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(MelofySpacing.sm))
+
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(MelofySpacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(MelofySpacing.xs)
+                ) {
+                    MelofyAccent.entries.forEach { accent ->
+                        FilterChip(
+                            selected = preferences.accentColor == accent,
+                            onClick = { viewModel.setAccentColor(accent) },
+                            label = {
+                                Text(
+                                    when (accent) {
+                                        MelofyAccent.EMERALD -> "Emerald"
+                                        MelofyAccent.VIOLET -> "Electric Violet"
+                                        MelofyAccent.BLUE -> "Cyan Blue"
+                                        MelofyAccent.CORAL -> "Sunset Coral"
+                                        MelofyAccent.AMBER -> "Warm Amber"
+                                    }
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                            )
+                        )
+                    }
+                }
+
+                // Motion & Animations
+                Spacer(modifier = Modifier.height(MelofySpacing.md))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Spacer(modifier = Modifier.height(MelofySpacing.md))
+
+                Text(
+                    text = "Motion & Animations",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(MelofySpacing.sm))
+
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(MelofySpacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(MelofySpacing.xs)
+                ) {
+                    MelofyAnimationMode.entries.forEach { animMode ->
+                        FilterChip(
+                            selected = preferences.animationMode == animMode,
+                            onClick = { viewModel.setAnimationMode(animMode) },
+                            label = {
+                                Text(
+                                    when (animMode) {
+                                        MelofyAnimationMode.FULL -> "Fluid Motion"
+                                        MelofyAnimationMode.REDUCED -> "Subtle Transitions"
+                                        MelofyAnimationMode.OFF -> "Off (Battery Saver)"
+                                    }
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                            )
+                        )
+                    }
+                }
+
+                // Audio Quality Badges
+                Spacer(modifier = Modifier.height(MelofySpacing.md))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Spacer(modifier = Modifier.height(MelofySpacing.md))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = MelofySpacing.md)) {
+                        Text(
+                            text = "Show Audio Quality Badges",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Displays FLAC, WAV, and 320k badges on track list items.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = preferences.showQualityBadges,
+                        onCheckedChange = { viewModel.setShowQualityBadges(it) }
                     )
                 }
             }

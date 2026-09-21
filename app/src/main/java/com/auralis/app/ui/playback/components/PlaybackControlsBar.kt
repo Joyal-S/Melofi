@@ -1,19 +1,22 @@
 package com.auralis.app.ui.playback.components
 
-import androidx.compose.foundation.background
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledIconButton
@@ -24,24 +27,26 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
 import com.auralis.app.R
 import com.auralis.app.core.ui.theme.MelofyElevation
+import com.auralis.app.core.ui.theme.MelofyMotion
 import com.auralis.app.core.ui.theme.MelofyShapes
 import com.auralis.app.core.ui.theme.MelofySpacing
 import com.auralis.app.playback.model.PlaybackState
+import com.auralis.app.ui.components.MelofyArtwork
 
 /**
- * Polished, sleek persistent playback controls bar (mini player).
- * Tapping the bar expands into the full Now Playing screen.
+ * Premium persistent playback controls bar (mini player).
+ * Features rounded artwork with deterministic fallback, draw-phase decoupled progress indicator,
+ * animated play/pause state morph, spring-animated favorite interaction, and natural expansion to Now Playing.
  */
 @Composable
 fun PlaybackControlsBar(
@@ -60,26 +65,32 @@ fun PlaybackControlsBar(
 ) {
     val song = playbackState.currentSong ?: return
 
+    val heartScale by animateFloatAsState(
+        targetValue = if (isFavorite) 1.2f else 1.0f,
+        animationSpec = MelofyMotion.springBouncy(),
+        label = "miniPlayerFavoriteBounce"
+    )
+
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = MelofySpacing.sm, vertical = MelofySpacing.xxs)
+            .padding(horizontal = MelofySpacing.md, vertical = MelofySpacing.xs)
             .clickable(enabled = onClick != null) { onClick?.invoke() },
-        shape = MelofyShapes.large,
+        shape = MelofyShapes.card,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = MelofyElevation.medium)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Sleek top progress indicator (rendered in draw phase via lambda provider)
+            // Subtle top progress indicator (rendered in draw phase via lambda provider)
             LinearProgressIndicator(
                 progress = progressProvider,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(3.dp),
                 color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
+                trackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f)
             )
 
             // Content row
@@ -89,24 +100,14 @@ fun PlaybackControlsBar(
                     .padding(horizontal = MelofySpacing.md, vertical = MelofySpacing.sm),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Album Art Thumbnail
-                Box(
-                    modifier = Modifier
-                        .size(46.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surface),
-                    contentAlignment = Alignment.Center
-                ) {
-                    AsyncImage(
-                        model = song.albumArtUri,
-                        contentDescription = "Artwork for ${song.title}",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                        placeholder = painterResource(R.drawable.ic_music_placeholder),
-                        error = painterResource(R.drawable.ic_music_placeholder),
-                        fallback = painterResource(R.drawable.ic_music_placeholder)
-                    )
-                }
+                // Album Art Thumbnail with deterministic gradient fallback
+                MelofyArtwork(
+                    artworkUri = song.albumArtUri,
+                    title = song.title,
+                    artist = song.artistName,
+                    modifier = Modifier.size(46.dp),
+                    cornerRadius = 10.dp
+                )
 
                 Spacer(modifier = Modifier.width(MelofySpacing.md))
 
@@ -133,11 +134,13 @@ fun PlaybackControlsBar(
                     )
                 }
 
-                // Favorite Toggle (if provided)
+                // Favorite Toggle (Accessible 44dp touch target)
                 if (onToggleFavorite != null) {
                     IconButton(
                         onClick = onToggleFavorite,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier
+                            .size(44.dp)
+                            .scale(heartScale)
                     ) {
                         Icon(
                             painter = painterResource(
@@ -150,7 +153,7 @@ fun PlaybackControlsBar(
                     }
                 }
 
-                // Play / Pause Button
+                // Play / Pause Button with animated state transition
                 FilledIconButton(
                     onClick = onTogglePlayPause,
                     modifier = Modifier.size(44.dp),
@@ -160,13 +163,23 @@ fun PlaybackControlsBar(
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
-                    Icon(
-                        painter = painterResource(
-                            if (playbackState.isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow
-                        ),
-                        contentDescription = if (playbackState.isPlaying) "Pause" else "Play",
-                        modifier = Modifier.size(24.dp)
-                    )
+                    AnimatedContent(
+                        targetState = playbackState.isPlaying,
+                        transitionSpec = {
+                            (scaleIn(MelofyMotion.springBouncy<Float>()) + fadeIn()).togetherWith(
+                                scaleOut(MelofyMotion.springBouncy<Float>()) + fadeOut()
+                            )
+                        },
+                        label = "miniPlayerPlayPauseMorph"
+                    ) { isPlaying ->
+                        Icon(
+                            painter = painterResource(
+                                if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow
+                            ),
+                            contentDescription = if (isPlaying) "Pause" else "Play",
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
 
                 // Next Button

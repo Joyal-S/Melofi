@@ -47,7 +47,9 @@ class MainActivity : ComponentActivity() {
 
             AuralisTheme(
                 darkTheme = isDark,
-                amoledBlack = userPreferences.amoledBlack
+                amoledBlack = userPreferences.amoledBlack,
+                accent = userPreferences.accentColor,
+                animationMode = userPreferences.animationMode
             ) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     val notificationPermissionLauncher = rememberLauncherForActivityResult(

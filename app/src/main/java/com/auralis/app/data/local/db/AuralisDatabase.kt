@@ -35,7 +35,7 @@ import com.auralis.app.data.local.db.entity.SongEntity
         PlaybackHistoryEntity::class,
         com.auralis.app.data.local.db.entity.SearchHistoryEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 abstract class AuralisDatabase : RoomDatabase() {
@@ -134,6 +134,13 @@ abstract class AuralisDatabase : RoomDatabase() {
                 )
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_search_history_query` ON `search_history` (`query`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_search_history_searchedAt` ON `search_history` (`searchedAt`)")
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `playlists` ADD COLUMN `customCoverUri` TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE `playlists` ADD COLUMN `description` TEXT DEFAULT NULL")
             }
         }
     }

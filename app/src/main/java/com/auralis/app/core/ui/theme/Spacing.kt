@@ -1,11 +1,13 @@
 package com.auralis.app.core.ui.theme
 
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * Centralized spacing, elevation, and shape tokens for Melofy's design system.
+ * Centralized design tokens for Melofy's design system:
+ * Spacing, Elevation, Shapes, and Icon sizes.
  * Eliminates ad-hoc arbitrary values and guarantees visual cohesion.
  */
 object MelofySpacing {
@@ -14,9 +16,11 @@ object MelofySpacing {
     val sm: Dp = 8.dp
     val md: Dp = 12.dp
     val lg: Dp = 16.dp
-    val xl: Dp = 24.dp
-    val xxl: Dp = 32.dp
-    val xxxl: Dp = 48.dp
+    val xl: Dp = 20.dp
+    val xxl: Dp = 24.dp
+    val xxxl: Dp = 32.dp
+    val massive: Dp = 40.dp
+    val giant: Dp = 48.dp
 }
 
 object MelofyElevation {
@@ -31,8 +35,20 @@ object MelofyShapes {
     val extraSmall = RoundedCornerShape(4.dp)
     val small = RoundedCornerShape(8.dp)
     val medium = RoundedCornerShape(12.dp)
+    val card = RoundedCornerShape(16.dp)
     val large = RoundedCornerShape(16.dp)
+    val surface = RoundedCornerShape(20.dp)
     val extraLarge = RoundedCornerShape(24.dp)
-    val card = RoundedCornerShape(14.dp)
+    val pill = CircleShape
     val bottomSheet = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+}
+
+object MelofyIconSize {
+    val micro: Dp = 14.dp
+    val small: Dp = 18.dp
+    val medium: Dp = 24.dp
+    val large: Dp = 28.dp
+    val extraLarge: Dp = 32.dp
+    val hero: Dp = 48.dp
+    val giant: Dp = 64.dp
 }

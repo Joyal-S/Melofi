@@ -77,4 +77,18 @@ class PlaylistDetailViewModel @Inject constructor(
             reorderPlaylistSongsUseCase(playlistId, mutableList)
         }
     }
+
+    fun updateCover(customCoverUri: String?) {
+        val playlistId = _playlistId.value ?: return
+        viewModelScope.launch {
+            playlistRepository.updatePlaylistCover(playlistId, customCoverUri)
+        }
+    }
+
+    fun updateDescription(description: String?) {
+        val playlistId = _playlistId.value ?: return
+        viewModelScope.launch {
+            playlistRepository.updatePlaylistDescription(playlistId, description)
+        }
+    }
 }

@@ -49,6 +49,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.auralis.app.R
 import com.auralis.app.domain.model.Song
+import com.auralis.app.ui.components.MelofyArtwork
 import com.auralis.app.ui.library.components.SongListItem
 import com.auralis.app.ui.playback.PlaybackViewModel
 
@@ -225,23 +226,13 @@ fun ArtistDetailScreen(
                                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                         ) {
                                             Column(modifier = Modifier.padding(8.dp)) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(114.dp)
-                                                        .clip(RoundedCornerShape(8.dp))
-                                                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    AsyncImage(
-                                                        model = album.artUri,
-                                                        contentDescription = album.name,
-                                                        modifier = Modifier.size(114.dp),
-                                                        contentScale = ContentScale.Crop,
-                                                        placeholder = painterResource(R.drawable.ic_music_placeholder),
-                                                        error = painterResource(R.drawable.ic_music_placeholder),
-                                                        fallback = painterResource(R.drawable.ic_music_placeholder)
-                                                    )
-                                                }
+                                                MelofyArtwork(
+                                                    artworkUri = album.artUri,
+                                                    title = album.name,
+                                                    artist = artist.name,
+                                                    modifier = Modifier.size(114.dp),
+                                                    cornerRadius = 8.dp
+                                                )
 
                                                 Spacer(modifier = Modifier.height(6.dp))
 

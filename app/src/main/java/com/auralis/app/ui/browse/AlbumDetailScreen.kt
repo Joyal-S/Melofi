@@ -39,7 +39,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil3.compose.AsyncImage
+import com.auralis.app.core.util.TimeUtils
+import com.auralis.app.ui.components.MelofyArtwork
 import com.auralis.app.R
 import com.auralis.app.domain.model.Song
 import com.auralis.app.ui.library.components.SongListItem
@@ -117,23 +118,13 @@ fun AlbumDetailScreen(
                                 .padding(16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(180.dp)
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                AsyncImage(
-                                    model = album.artUri,
-                                    contentDescription = album.name,
-                                    modifier = Modifier.size(180.dp),
-                                    contentScale = ContentScale.Crop,
-                                    placeholder = painterResource(R.drawable.ic_music_placeholder),
-                                    error = painterResource(R.drawable.ic_music_placeholder),
-                                    fallback = painterResource(R.drawable.ic_music_placeholder)
-                                )
-                            }
+                            MelofyArtwork(
+                                artworkUri = album.artUri,
+                                title = album.name,
+                                artist = album.artistName,
+                                modifier = Modifier.size(180.dp),
+                                cornerRadius = 16.dp
+                            )
 
                             Spacer(modifier = Modifier.height(16.dp))
 
@@ -151,12 +142,16 @@ fun AlbumDetailScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
 
+                            val totalDurationMs = songs.sumOf { it.duration }
                             Text(
                                 text = buildString {
                                     if (album.year != null && album.year > 0) {
                                         append("${album.year} • ")
                                     }
                                     append("${songs.size} tracks")
+                                    if (totalDurationMs > 0) {
+                                        append(" • ${TimeUtils.formatDuration(totalDurationMs)}")
+                                    }
                                 },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant

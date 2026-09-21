@@ -2,7 +2,10 @@ package com.auralis.app.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.auralis.app.core.ui.theme.MelofyAccent
+import com.auralis.app.core.ui.theme.MelofyAnimationMode
 import com.auralis.app.data.local.preferences.UserPreferencesRepository
+import com.auralis.app.domain.model.ArtworkCornerStyle
 import com.auralis.app.domain.model.LibraryTab
 import com.auralis.app.domain.model.LibraryViewMode
 import com.auralis.app.domain.model.SongSortOrder
@@ -36,6 +39,30 @@ class SettingsViewModel @Inject constructor(
     fun setAmoledBlack(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setAmoledBlack(enabled)
+        }
+    }
+
+    fun setAccentColor(accent: MelofyAccent) {
+        viewModelScope.launch {
+            userPreferencesRepository.setAccentColor(accent)
+        }
+    }
+
+    fun setAnimationMode(mode: MelofyAnimationMode) {
+        viewModelScope.launch {
+            userPreferencesRepository.setAnimationMode(mode)
+        }
+    }
+
+    fun setShowQualityBadges(show: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setShowQualityBadges(show)
+        }
+    }
+
+    fun setArtworkCornerStyle(style: ArtworkCornerStyle) {
+        viewModelScope.launch {
+            userPreferencesRepository.setArtworkCornerStyle(style)
         }
     }
 

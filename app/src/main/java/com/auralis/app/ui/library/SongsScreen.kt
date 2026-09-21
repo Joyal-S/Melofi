@@ -37,10 +37,11 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -78,6 +79,7 @@ import com.auralis.app.domain.model.QualityFilter
 import com.auralis.app.domain.model.RecommendationSectionType
 import com.auralis.app.domain.model.Song
 import com.auralis.app.domain.model.SongSortOrder
+import com.auralis.app.ui.components.MelofyArtwork
 import com.auralis.app.ui.library.components.AddToPlaylistDialog
 import com.auralis.app.ui.library.components.FilterBottomSheet
 import com.auralis.app.ui.library.components.SongListItem
@@ -181,10 +183,12 @@ fun SongsScreen(
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
                 )
 
-                // Browsing Tabs (Tracks, Albums, Artists, Genres)
-                PrimaryTabRow(
+                // Browsing Tabs (Tracks, Albums, Artists, Genres) - Smooth scrollable row
+                ScrollableTabRow(
                     selectedTabIndex = selectedTab.ordinal,
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    edgePadding = 16.dp,
+                    divider = {}
                 ) {
                     LibraryTab.entries.forEach { tab ->
                         Tab(
@@ -501,24 +505,15 @@ fun SongsScreen(
                                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                         ) {
                                             Column(modifier = Modifier.padding(8.dp)) {
-                                                Box(
+                                                MelofyArtwork(
+                                                    artworkUri = song.albumArtUri,
+                                                    title = song.title,
+                                                    artist = song.artistName,
                                                     modifier = Modifier
                                                         .fillMaxWidth()
-                                                        .height(140.dp)
-                                                        .clip(RoundedCornerShape(8.dp))
-                                                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    AsyncImage(
-                                                        model = song.albumArtUri,
-                                                        contentDescription = song.title,
-                                                        modifier = Modifier.fillMaxSize(),
-                                                        contentScale = ContentScale.Crop,
-                                                        placeholder = painterResource(R.drawable.ic_music_placeholder),
-                                                        error = painterResource(R.drawable.ic_music_placeholder),
-                                                        fallback = painterResource(R.drawable.ic_music_placeholder)
-                                                    )
-                                                }
+                                                        .aspectRatio(1f),
+                                                    cornerRadius = 8.dp
+                                                )
                                                 Spacer(modifier = Modifier.height(6.dp))
                                                 Text(
                                                     text = song.title,
@@ -545,6 +540,7 @@ fun SongsScreen(
                                             song = song,
                                             onClick = { playbackViewModel.playSong(song, songs) },
                                             isFavorite = song.id in favoriteSongIds,
+                                            isCompact = viewMode == LibraryViewMode.COMPACT,
                                             onToggleFavorite = { viewModel.toggleFavorite(song.id) },
                                             onAddToPlaylist = { songForPlaylistDialog = song },
                                             onPlayNext = { playbackViewModel.addSongsToQueue(listOf(song)) },
@@ -579,24 +575,15 @@ fun SongsScreen(
                                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                 ) {
                                     Column(modifier = Modifier.padding(10.dp)) {
-                                        Box(
+                                        MelofyArtwork(
+                                            artworkUri = album.artUri,
+                                            title = album.name,
+                                            artist = album.artistName,
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .height(150.dp)
-                                                .clip(RoundedCornerShape(10.dp))
-                                                .background(MaterialTheme.colorScheme.surfaceVariant),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            AsyncImage(
-                                                model = album.artUri,
-                                                contentDescription = album.name,
-                                                modifier = Modifier.fillMaxSize(),
-                                                contentScale = ContentScale.Crop,
-                                                placeholder = painterResource(R.drawable.ic_music_placeholder),
-                                                error = painterResource(R.drawable.ic_music_placeholder),
-                                                fallback = painterResource(R.drawable.ic_music_placeholder)
-                                            )
-                                        }
+                                                .aspectRatio(1f),
+                                            cornerRadius = 10.dp
+                                        )
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Text(
                                             text = album.name,

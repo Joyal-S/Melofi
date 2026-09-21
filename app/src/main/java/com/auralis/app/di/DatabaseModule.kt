@@ -36,7 +36,8 @@ object DatabaseModule {
         .addMigrations(
             AuralisDatabase.MIGRATION_1_2,
             AuralisDatabase.MIGRATION_2_3,
-            AuralisDatabase.MIGRATION_3_4
+            AuralisDatabase.MIGRATION_3_4,
+            AuralisDatabase.MIGRATION_4_5
         )
         .addCallback(object : RoomDatabase.Callback() {
             override fun onOpen(db: SupportSQLiteDatabase) {

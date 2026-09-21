@@ -5,7 +5,7 @@ import com.auralis.app.domain.model.Song
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Domain repository interface for managing playlists, membership, and track ordering.
+ * Domain repository interface for managing playlists, membership, custom covers, and track ordering.
  */
 interface PlaylistRepository {
 
@@ -53,4 +53,14 @@ interface PlaylistRepository {
      * Reorders the playlist according to the provided list of song IDs.
      */
     suspend fun reorderPlaylistSongs(playlistId: Long, orderedSongIds: List<Long>): Result<Unit>
+
+    /**
+     * Updates the custom local cover URI for a playlist. Passing null removes/resets the cover.
+     */
+    suspend fun updatePlaylistCover(playlistId: Long, coverUri: String?): Result<Unit>
+
+    /**
+     * Updates the optional description for a playlist.
+     */
+    suspend fun updatePlaylistDescription(playlistId: Long, description: String?): Result<Unit>
 }

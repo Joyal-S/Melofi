@@ -33,7 +33,9 @@ class PlaylistRepositoryImpl @Inject constructor(
                         name = entity.name,
                         createdAt = entity.createdAt,
                         updatedAt = entity.updatedAt,
-                        songCount = entity.songCount
+                        songCount = entity.songCount,
+                        customCoverUri = entity.customCoverUri,
+                        description = entity.description
                     )
                 }
             }
@@ -48,7 +50,9 @@ class PlaylistRepositoryImpl @Inject constructor(
                         id = it.id,
                         name = it.name,
                         createdAt = it.createdAt,
-                        updatedAt = it.updatedAt
+                        updatedAt = it.updatedAt,
+                        customCoverUri = it.customCoverUri,
+                        description = it.description
                     )
                 }
             }
@@ -73,7 +77,14 @@ class PlaylistRepositoryImpl @Inject constructor(
 
     override suspend fun renamePlaylist(id: Long, name: String): Result<Unit> = withContext(ioDispatcher) {
         try {
-            val entity = PlaylistEntity(id = id, name = name, updatedAt = System.currentTimeMillis())
+            val existing = playlistDao.getPlaylistByName(name)
+            val entity = PlaylistEntity(
+                id = id,
+                name = name,
+                customCoverUri = existing?.customCoverUri,
+                description = existing?.description,
+                updatedAt = System.currentTimeMillis()
+            )
             playlistDao.updatePlaylist(entity)
             Result.success(Unit)
         } catch (e: Exception) {
@@ -111,6 +122,24 @@ class PlaylistRepositoryImpl @Inject constructor(
     override suspend fun reorderPlaylistSongs(playlistId: Long, orderedSongIds: List<Long>): Result<Unit> = withContext(ioDispatcher) {
         try {
             playlistDao.reorderSongs(playlistId, orderedSongIds)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun updatePlaylistCover(playlistId: Long, coverUri: String?): Result<Unit> = withContext(ioDispatcher) {
+        try {
+            playlistDao.updatePlaylistCover(playlistId, coverUri)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun updatePlaylistDescription(playlistId: Long, description: String?): Result<Unit> = withContext(ioDispatcher) {
+        try {
+            playlistDao.updatePlaylistDescription(playlistId, description)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

@@ -12,24 +12,26 @@ import com.auralis.app.data.local.db.entity.SongEntity
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Lightweight projection for playlists with active member song count.
+ * Lightweight projection for playlists with active member song count, custom cover, and description.
  */
 data class PlaylistWithCountEntity(
     val id: Long,
     val name: String,
     val createdAt: Long,
     val updatedAt: Long,
+    val customCoverUri: String? = null,
+    val description: String? = null,
     val songCount: Int
 )
 
 /**
- * Room DAO for playlists, membership, and deterministic ordering.
+ * Room DAO for playlists, membership, cover management, and deterministic ordering.
  */
 @Dao
 interface PlaylistDao {
 
     @Query("""
-        SELECT p.id, p.name, p.createdAt, p.updatedAt,
+        SELECT p.id, p.name, p.createdAt, p.updatedAt, p.customCoverUri, p.description,
                COUNT(ps.songId) AS songCount
         FROM playlists p
         LEFT JOIN playlist_songs ps ON p.id = ps.playlistId
@@ -60,6 +62,12 @@ interface PlaylistDao {
 
     @Update
     suspend fun updatePlaylist(playlist: PlaylistEntity)
+
+    @Query("UPDATE playlists SET customCoverUri = :coverUri, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun updatePlaylistCover(id: Long, coverUri: String?, updatedAt: Long = System.currentTimeMillis())
+
+    @Query("UPDATE playlists SET description = :description, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun updatePlaylistDescription(id: Long, description: String?, updatedAt: Long = System.currentTimeMillis())
 
     @Query("UPDATE playlists SET updatedAt = :updatedAt WHERE id = :id")
     suspend fun touchPlaylist(id: Long, updatedAt: Long = System.currentTimeMillis())
