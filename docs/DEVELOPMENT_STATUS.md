@@ -1,4 +1,4 @@
-# Auralis — Development Status
+# Melofy — Development Status
 
 > **Current Phase:** Phase 5 Complete (Audio Features & Advanced Controls)  
 > **Last Updated:** 2026-09-21  

@@ -1,12 +1,13 @@
-# Auralis
+# Melofy
 
+> "Your music. Your device. Your control."  
 > A local-first, offline Android music player focused on high-quality audio playback and a polished modern experience.
 
 ---
 
 ## Vision
 
-Auralis is a completely local music player for Android. It plays audio files stored on your device — no account, no backend, no subscription, no ads, no internet required.
+Melofy is a completely local music player for Android. It plays audio files stored on your device — no account, no backend, no subscription, no ads, no internet required.
 
 - **Privacy-first.** No analytics, no cloud sync, no tracking.
 - **High-quality audio.** Supports MP3, AAC, OGG, Opus, FLAC, WAV, and more. Preserves original files — never transcodes.
@@ -68,7 +69,7 @@ cd spotifly
 ## Project Structure
 
 ```
-auralis/
+melofy/
 ├── app/                          Main application module
 ├── gradle/
 │   ├── wrapper/                  Gradle Wrapper
