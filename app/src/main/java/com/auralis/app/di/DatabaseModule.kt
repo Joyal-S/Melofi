@@ -2,10 +2,14 @@ package com.auralis.app.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.RoomDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.auralis.app.data.local.db.AuralisDatabase
 import com.auralis.app.data.local.db.dao.AlbumDao
 import com.auralis.app.data.local.db.dao.ArtistDao
+import com.auralis.app.data.local.db.dao.FavoriteDao
 import com.auralis.app.data.local.db.dao.GenreDao
+import com.auralis.app.data.local.db.dao.PlaylistDao
 import com.auralis.app.data.local.db.dao.SongDao
 import dagger.Module
 import dagger.Provides
@@ -27,7 +31,15 @@ object DatabaseModule {
             context,
             AuralisDatabase::class.java,
             AuralisDatabase.DATABASE_NAME
-        ).build()
+        )
+        .addMigrations(AuralisDatabase.MIGRATION_1_2)
+        .addCallback(object : RoomDatabase.Callback() {
+            override fun onOpen(db: SupportSQLiteDatabase) {
+                super.onOpen(db)
+                db.setForeignKeyConstraintsEnabled(true)
+            }
+        })
+        .build()
     }
 
     @Provides
@@ -48,5 +60,15 @@ object DatabaseModule {
     @Provides
     fun provideGenreDao(database: AuralisDatabase): GenreDao {
         return database.genreDao()
+    }
+
+    @Provides
+    fun providePlaylistDao(database: AuralisDatabase): PlaylistDao {
+        return database.playlistDao()
+    }
+
+    @Provides
+    fun provideFavoriteDao(database: AuralisDatabase): FavoriteDao {
+        return database.favoriteDao()
     }
 }

@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.auralis.app.domain.model.SongSortOrder
 import com.auralis.app.domain.usecase.GetSongsUseCase
 import com.auralis.app.domain.usecase.ScanLibraryUseCase
+import com.auralis.app.domain.usecase.favorites.GetFavoriteSongIdsUseCase
+import com.auralis.app.domain.usecase.favorites.ToggleFavoriteUseCase
+import com.auralis.app.domain.usecase.playlists.AddSongToPlaylistUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,8 +31,18 @@ private data class SyncState(
 @HiltViewModel
 class SongsViewModel @Inject constructor(
     private val getSongsUseCase: GetSongsUseCase,
-    private val scanLibraryUseCase: ScanLibraryUseCase
+    private val scanLibraryUseCase: ScanLibraryUseCase,
+    private val getFavoriteSongIdsUseCase: GetFavoriteSongIdsUseCase,
+    private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
+    private val addSongToPlaylistUseCase: AddSongToPlaylistUseCase
 ) : ViewModel() {
+
+    val favoriteSongIds: StateFlow<Set<Long>> = getFavoriteSongIdsUseCase()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptySet()
+        )
 
     private val _sortOrder = MutableStateFlow(SongSortOrder.TITLE)
     private val _syncState = MutableStateFlow(SyncState())
@@ -108,5 +121,17 @@ class SongsViewModel @Inject constructor(
 
     fun clearError() {
         _syncState.update { it.copy(errorMessage = null) }
+    }
+
+    fun toggleFavorite(songId: Long) {
+        viewModelScope.launch {
+            toggleFavoriteUseCase(songId)
+        }
+    }
+
+    fun addSongToPlaylist(playlistId: Long, songId: Long) {
+        viewModelScope.launch {
+            addSongToPlaylistUseCase(playlistId, songId)
+        }
     }
 }

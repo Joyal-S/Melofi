@@ -11,11 +11,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.LaunchedEffect
 import androidx.core.content.ContextCompat
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.auralis.app.core.ui.theme.AuralisTheme
-import com.auralis.app.ui.library.SongsScreen
-import com.auralis.app.ui.library.SongsViewModel
-import com.auralis.app.ui.playback.PlaybackViewModel
+import com.auralis.app.ui.MainNavigationScreen
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
@@ -44,12 +41,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                val songsViewModel: SongsViewModel = hiltViewModel()
-                val playbackViewModel: PlaybackViewModel = hiltViewModel()
-                SongsScreen(
-                    viewModel = songsViewModel,
-                    playbackViewModel = playbackViewModel
-                )
+                MainNavigationScreen()
             }
         }
     }

@@ -3,7 +3,7 @@
 > **Working Name:** Auralis  
 > **Type:** Native Android Application  
 > **Vision:** A local-first, offline music player focused on high-quality audio playback and a polished modern user experience.  
-> **Status:** Phase 3 — Media3 Playback Engine & Background Playback Complete  
+> **Status:** Phase 4 — Playlists, Favorites & Persistent Queue Complete  
 > **Last Updated:** 2026-09-21
 
 ---
@@ -1148,8 +1148,8 @@ robolectric = { module = "org.robolectric:robolectric", version = "4.x" }
 | **Phase 1** | Android Foundation & Project Bootstrap | ✅ Complete |
 | **Phase 2** | Library: MediaStore scanner, songs, albums, artists, UI | ✅ Complete |
 | **Phase 3** | Playback Engine: Media3, ExoPlayer, background session, queue & controls | ✅ Complete |
-| **Phase 4** | Playlists, Favorites, Equalizer & Advanced Audio | ⬜ Next |
-| **Phase 5** | Polish: listening stats, history, widget & performance | ⬜ Planned |
+| **Phase 4** | Playlists, Favorites, Membership, Ordering & Queue Persistence | ✅ Complete |
+| **Phase 5** | Audio Features & Polish (Equalizer, ReplayGain, Sleep Timer, Stats) | ⬜ Next |
 
 ---
 

@@ -51,7 +51,10 @@ import androidx.core.app.ActivityCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.auralis.app.R
 import com.auralis.app.core.util.PermissionUtils
+import com.auralis.app.domain.model.Playlist
+import com.auralis.app.domain.model.Song
 import com.auralis.app.domain.model.SongSortOrder
+import com.auralis.app.ui.library.components.AddToPlaylistDialog
 import com.auralis.app.ui.library.components.SongListItem
 import com.auralis.app.ui.playback.PlaybackViewModel
 import com.auralis.app.ui.playback.components.PlaybackControlsBar
@@ -61,11 +64,16 @@ import com.auralis.app.ui.playback.components.PlaybackControlsBar
 fun SongsScreen(
     viewModel: SongsViewModel,
     playbackViewModel: PlaybackViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    playlists: List<Playlist> = emptyList(),
+    onCreatePlaylistAndAdd: ((String, Long) -> Unit)? = null,
+    showBottomBar: Boolean = true
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val playbackState by playbackViewModel.playbackState.collectAsStateWithLifecycle()
+    val favoriteSongIds by viewModel.favoriteSongIds.collectAsStateWithLifecycle()
+    var songForPlaylistDialog by remember { mutableStateOf<Song?>(null) }
     val requiredPermission = remember { PermissionUtils.getRequiredStoragePermission() }
 
     // Launcher for runtime media permissions
@@ -167,7 +175,7 @@ fun SongsScreen(
             }
         },
         bottomBar = {
-            if (playbackState.currentSong != null) {
+            if (showBottomBar && playbackState.currentSong != null) {
                 PlaybackControlsBar(
                     playbackState = playbackState,
                     onTogglePlayPause = { playbackViewModel.togglePlayPause() },
@@ -236,13 +244,33 @@ fun SongsScreen(
                                 song = song,
                                 onClick = {
                                     playbackViewModel.playSong(song, state.songs)
-                                }
+                                },
+                                isFavorite = favoriteSongIds.contains(song.id),
+                                onToggleFavorite = { viewModel.toggleFavorite(song.id) },
+                                onAddToPlaylist = { songForPlaylistDialog = song },
+                                onPlayNext = { playbackViewModel.addSongsToQueue(listOf(song)) }
                             )
                         }
                     }
                 }
             }
         }
+    }
+
+    songForPlaylistDialog?.let { song ->
+        AddToPlaylistDialog(
+            song = song,
+            playlists = playlists,
+            onDismiss = { songForPlaylistDialog = null },
+            onAddToPlaylist = { playlistId ->
+                viewModel.addSongToPlaylist(playlistId, song.id)
+                songForPlaylistDialog = null
+            },
+            onCreateAndAdd = { name ->
+                onCreatePlaylistAndAdd?.invoke(name, song.id)
+                songForPlaylistDialog = null
+            }
+        )
     }
 }
 

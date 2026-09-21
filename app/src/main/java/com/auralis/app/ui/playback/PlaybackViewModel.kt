@@ -23,6 +23,14 @@ class PlaybackViewModel @Inject constructor(
         playbackController.playSongs(allSongs, index)
     }
 
+    fun playSongs(songs: List<Song>, startIndex: Int = 0) {
+        playbackController.playSongs(songs, startIndex)
+    }
+
+    fun addSongsToQueue(songs: List<Song>) {
+        playbackController.addSongsToQueue(songs)
+    }
+
     fun play() {
         playbackController.play()
     }

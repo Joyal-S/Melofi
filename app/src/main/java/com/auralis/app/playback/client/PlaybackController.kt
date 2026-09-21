@@ -109,6 +109,17 @@ class PlaybackController @Inject constructor(
         }
     }
 
+    fun addSongsToQueue(songs: List<Song>) {
+        if (songs.isEmpty()) return
+
+        playbackQueue.addToQueue(songs)
+        val mediaItems = MediaItemMapper.toMediaItemList(songs)
+
+        ensureController { controller ->
+            controller.addMediaItems(mediaItems)
+        }
+    }
+
     fun play() {
         ensureController { it.play() }
     }

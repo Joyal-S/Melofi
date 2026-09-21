@@ -1,6 +1,10 @@
 package com.auralis.app.di
 
+import com.auralis.app.data.repository.FavoriteRepositoryImpl
+import com.auralis.app.data.repository.PlaylistRepositoryImpl
 import com.auralis.app.data.repository.SongRepositoryImpl
+import com.auralis.app.domain.repository.FavoriteRepository
+import com.auralis.app.domain.repository.PlaylistRepository
 import com.auralis.app.domain.repository.SongRepository
 import dagger.Binds
 import dagger.Module
@@ -17,4 +21,16 @@ abstract class RepositoryModule {
     abstract fun bindSongRepository(
         songRepositoryImpl: SongRepositoryImpl
     ): SongRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindFavoriteRepository(
+        favoriteRepositoryImpl: FavoriteRepositoryImpl
+    ): FavoriteRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindPlaylistRepository(
+        playlistRepositoryImpl: PlaylistRepositoryImpl
+    ): PlaylistRepository
 }
