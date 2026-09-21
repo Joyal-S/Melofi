@@ -1,13 +1,22 @@
 package com.auralis.app
 
 import android.app.Application
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.SingletonImageLoader
+import coil3.memory.MemoryCache
 import dagger.hilt.android.HiltAndroidApp
 
-/**
- * Auralis application entry point.
- *
- * Annotated with @HiltAndroidApp to trigger Hilt code generation
- * and provide the application-level dependency container.
- */
 @HiltAndroidApp
-class AuralisApplication : Application()
+class AuralisApplication : Application(), SingletonImageLoader.Factory {
+
+    override fun newImageLoader(context: PlatformContext): ImageLoader {
+        return ImageLoader.Builder(context)
+            .memoryCache {
+                MemoryCache.Builder()
+                    .maxSizePercent(context, 0.20)
+                    .build()
+            }
+            .build()
+    }
+}

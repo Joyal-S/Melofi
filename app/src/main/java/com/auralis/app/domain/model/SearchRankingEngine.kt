@@ -10,6 +10,7 @@ import java.util.Locale
  */
 object SearchRankingEngine {
 
+    private val MARK_REGEX = Regex("""\p{M}""")
     private val PUNCTUATION_REGEX = Regex("""[^\p{L}\p{Nd}\s]""")
     private val MULTI_SPACE_REGEX = Regex("""\s+""")
 
@@ -19,13 +20,24 @@ object SearchRankingEngine {
      */
     fun normalize(input: String?): String {
         if (input.isNullOrBlank()) return ""
-        val decomposed = java.text.Normalizer.normalize(input, java.text.Normalizer.Form.NFD)
-            .replace(Regex("""\p{M}"""), "")
+        val decomposed = if (isPureAscii(input)) {
+            input
+        } else {
+            java.text.Normalizer.normalize(input, java.text.Normalizer.Form.NFD)
+                .replace(MARK_REGEX, "")
+        }
         return decomposed
             .replace(PUNCTUATION_REGEX, " ")
             .replace(MULTI_SPACE_REGEX, " ")
             .trim()
             .lowercase(Locale.ROOT)
+    }
+
+    private fun isPureAscii(s: String): Boolean {
+        for (i in 0 until s.length) {
+            if (s[i].code >= 128) return false
+        }
+        return true
     }
 
     /**
@@ -93,7 +105,7 @@ object SearchRankingEngine {
             }
             .sortedWith(
                 compareByDescending<Pair<Song, Int>> { it.second }
-                    .thenBy { it.first.title.lowercase(Locale.ROOT) }
+                    .thenBy(String.CASE_INSENSITIVE_ORDER) { it.first.title }
             )
             .map { it.first }
     }
@@ -128,7 +140,7 @@ object SearchRankingEngine {
             }
             .sortedWith(
                 compareByDescending<Pair<Album, Int>> { it.second }
-                    .thenBy { it.first.name.lowercase(Locale.ROOT) }
+                    .thenBy(String.CASE_INSENSITIVE_ORDER) { it.first.name }
             )
             .map { it.first }
     }
@@ -156,7 +168,7 @@ object SearchRankingEngine {
             }
             .sortedWith(
                 compareByDescending<Pair<Artist, Int>> { it.second }
-                    .thenBy { it.first.name.lowercase(Locale.ROOT) }
+                    .thenBy(String.CASE_INSENSITIVE_ORDER) { it.first.name }
             )
             .map { it.first }
     }
@@ -184,7 +196,7 @@ object SearchRankingEngine {
             }
             .sortedWith(
                 compareByDescending<Pair<Genre, Int>> { it.second }
-                    .thenBy { it.first.name.lowercase(Locale.ROOT) }
+                    .thenBy(String.CASE_INSENSITIVE_ORDER) { it.first.name }
             )
             .map { it.first }
     }

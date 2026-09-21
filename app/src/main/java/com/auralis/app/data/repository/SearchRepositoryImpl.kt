@@ -140,7 +140,7 @@ class SearchRepositoryImpl @Inject constructor(
             }
 
         // 4. Song matches
-        val songs = songDao.getAllSongsList()
+        val songs = songDao.searchSongs(clean).first()
         songs
             .filter { SearchRankingEngine.normalize(it.title).contains(qNorm) }
             .take(5)

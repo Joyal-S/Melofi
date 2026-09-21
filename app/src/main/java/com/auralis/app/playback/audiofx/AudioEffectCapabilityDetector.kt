@@ -14,8 +14,12 @@ import javax.inject.Singleton
 @Singleton
 class AudioEffectCapabilityDetector @Inject constructor() {
 
+    @Volatile
+    private var cachedCapabilities: AudioEffectCapability? = null
+
     fun detectCapabilities(): AudioEffectCapability {
-        return try {
+        cachedCapabilities?.let { return it }
+        val detected = try {
             val descriptors = AudioEffect.queryEffects() ?: emptyArray()
             var eqSupported = false
             var bbSupported = false
@@ -35,13 +39,15 @@ class AudioEffectCapabilityDetector @Inject constructor() {
                 isVirtualizerSupported = virtSupported
             )
         } catch (e: Throwable) {
-            Log.e(TAG, "Failed to query system audio effects: ${e.message}", e)
+            runCatching { Log.e(TAG, "Failed to query system audio effects: ${e.message}", e) }
             AudioEffectCapability(
                 isEqualizerSupported = false,
                 isBassBoostSupported = false,
                 isVirtualizerSupported = false
             )
         }
+        cachedCapabilities = detected
+        return detected
     }
 
     companion object {

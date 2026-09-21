@@ -33,6 +33,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -76,12 +77,15 @@ fun NowPlayingScreen(
     val activeQueue by playbackViewModel.activeQueue.collectAsStateWithLifecycle()
     val song = playbackState.currentSong ?: return
 
-    var isUserSeeking by remember { mutableStateOf(false) }
-    var seekProgress by remember { mutableFloatStateOf(0f) }
+    DisposableEffect(Unit) {
+        playbackViewModel.setHighFrequencyTracking(true)
+        onDispose {
+            playbackViewModel.setHighFrequencyTracking(false)
+        }
+    }
+
     var showQueueSheet by remember { mutableStateOf(false) }
     val queueSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    val currentProgress = if (isUserSeeking) seekProgress else playbackState.progress
 
     // Heart bounce animation
     val heartScale by animateFloatAsState(
@@ -207,50 +211,11 @@ fun NowPlayingScreen(
 
             Spacer(modifier = Modifier.height(MelofySpacing.lg))
 
-            // 3. Scrub Slider & Time Row
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Slider(
-                    value = currentProgress,
-                    onValueChange = {
-                        isUserSeeking = true
-                        seekProgress = it
-                    },
-                    onValueChangeFinished = {
-                        val targetMs = (seekProgress * playbackState.durationMs).toLong()
-                        playbackViewModel.seekTo(targetMs)
-                        isUserSeeking = false
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = SliderDefaults.colors(
-                        thumbColor = MaterialTheme.colorScheme.primary,
-                        activeTrackColor = MaterialTheme.colorScheme.primary,
-                        inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)
-                    )
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    val positionMs = if (isUserSeeking) {
-                        (seekProgress * playbackState.durationMs).toLong()
-                    } else {
-                        playbackState.currentPositionMs
-                    }
-                    val remainingMs = (playbackState.durationMs - positionMs).coerceAtLeast(0L)
-
-                    Text(
-                        text = TimeUtils.formatDuration(positionMs),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "-${TimeUtils.formatDuration(remainingMs)}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+            // 3. Scrub Slider & Time Row (isolated to avoid recomposition of artwork, buttons, and top bar)
+            NowPlayingScrubber(
+                playbackViewModel = playbackViewModel,
+                durationMs = playbackState.durationMs
+            )
 
             Spacer(modifier = Modifier.height(MelofySpacing.lg))
 
@@ -375,6 +340,70 @@ fun NowPlayingScreen(
                 onSongSelect = { selectedSong, queue ->
                     playbackViewModel.playSong(selectedSong, queue)
                 }
+            )
+        }
+    }
+}
+
+/**
+ * Isolated scrubber composable that observes playbackProgress and playbackPositionMs.
+ * Confines high-frequency 500ms recompositions strictly to the slider and duration readouts,
+ * leaving artwork, top bar, titles, and transport controls undisturbed.
+ */
+@Composable
+private fun NowPlayingScrubber(
+    playbackViewModel: PlaybackViewModel,
+    durationMs: Long,
+    modifier: Modifier = Modifier
+) {
+    val progress by playbackViewModel.playbackProgress.collectAsStateWithLifecycle()
+    val positionMsState by playbackViewModel.playbackPositionMs.collectAsStateWithLifecycle()
+
+    var isUserSeeking by remember { mutableStateOf(false) }
+    var seekProgress by remember { mutableFloatStateOf(0f) }
+
+    val currentProgress = if (isUserSeeking) seekProgress else progress
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        Slider(
+            value = currentProgress,
+            onValueChange = {
+                isUserSeeking = true
+                seekProgress = it
+            },
+            onValueChangeFinished = {
+                val targetMs = (seekProgress * durationMs).toLong()
+                playbackViewModel.seekTo(targetMs)
+                isUserSeeking = false
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = SliderDefaults.colors(
+                thumbColor = MaterialTheme.colorScheme.primary,
+                activeTrackColor = MaterialTheme.colorScheme.primary,
+                inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)
+            )
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            val positionMs = if (isUserSeeking) {
+                (seekProgress * durationMs).toLong()
+            } else {
+                positionMsState
+            }
+            val remainingMs = (durationMs - positionMs).coerceAtLeast(0L)
+
+            Text(
+                text = TimeUtils.formatDuration(positionMs),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "-${TimeUtils.formatDuration(remainingMs)}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

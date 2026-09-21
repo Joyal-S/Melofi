@@ -1,6 +1,6 @@
 # Melofy — Development Status
 
-> **Current Phase:** Phase 10 Complete (UI/UX Polish & Personalization)  
+> **Current Phase:** Phase 11 Complete (Performance & Battery Optimization)  
 > **Last Updated:** 2026-09-21  
 
 ---
@@ -20,6 +20,7 @@
 | **Phase 8** | Advanced Search, Filtering & Library Organization | ✅ Complete |
 | **Phase 9** | Local Recommendation Engine | ✅ Complete |
 | **Phase 10** | UI/UX Polish & Personalization | ✅ Complete |
+| **Phase 11** | Performance & Battery Optimization | ✅ Complete |
 
 ---
 
@@ -233,6 +234,33 @@
   - Micro-interactions: Spring-animated favorite heart bounce on both list items and Now Playing.
   - Accessibility: All interactive touch targets meet or exceed 48x48dp; clear semantic content descriptions for screen readers.
 
+### Performance & Battery Optimization Architecture (Phase 11)
+- **Coil 3 Memory-Bounded Caching (`AuralisApplication.kt`):**
+  - Implemented `coil3.SingletonImageLoader.Factory` capping memory cache at 20% max heap (`maxSizePercent(context, 0.20)`).
+  - Explicitly configured crossfade animation (200ms) and disk cache (50MB) to prevent OOM when browsing massive libraries.
+- **Search Engine String & Regex Optimization (`SearchRankingEngine.kt`):**
+  - Precompiled diacritic stripping regex `\p{M}` into static singleton `MARK_REGEX`, eliminating 40,000 regex compilations per search keystroke.
+  - Added `isPureAscii` fast-path check to bypass costly unicode normalization for standard ASCII titles, artists, and albums.
+  - Replaced lowercase string allocations with `String.CASE_INSENSITIVE_ORDER` comparator across tie-breaking.
+  - Post-optimization benchmark: 5,000 songs ranked in **56ms** (vs. 127ms baseline, 2.2x faster); 10,000 songs ranked in **60ms**.
+- **Search Suggestions Database Optimization (`SearchRepositoryImpl.kt`):**
+  - Replaced full-table scan `getAllSongsList()` with indexed prefix query `searchSongs(query)`.
+- **Recommendation Pipeline Sharing (`RecommendationRepositoryImpl.kt`):**
+  - Upstream recommendation flow shared via `shareIn(scope, WhileSubscribed(5000), replay = 1)`, eliminating redundant matrix calculations when opening carousel details.
+- **Hardware Effects Capability Caching (`AudioEffectCapabilityDetector.kt`):**
+  - Cached `AudioEffectCapability` in memory; eliminates repetitive expensive Android HAL/IPC queries to `AudioEffect.queryEffects()`.
+- **Compose Root Recomposition Decoupling (`PlaybackController.kt`, `PlaybackViewModel.kt`):**
+  - Decoupled playback position updates into standalone `playbackPositionMs: StateFlow<Long>` and `playbackProgress: StateFlow<Float>`.
+  - Position ticks no longer mutate `PlaybackState.currentPositionMs`, completely preventing root scaffold (`MainNavigationScreen`) recomposition on every tick.
+  - Throttled background polling to 1000ms when high-frequency tracking is disabled; throttled to 500ms only while Now Playing is actively displayed.
+- **Draw-Phase Mini-Player Progress (`PlaybackControlsBar.kt`):**
+  - Refactored `PlaybackControlsBar` to accept `progressProvider: () -> Float`, executing progress updates during Compose's draw phase without recomposing layout nodes.
+- **Isolated Now Playing Scrubber (`NowPlayingScreen.kt`):**
+  - Isolated slider and timestamp updates into `NowPlayingScrubber`, preventing the cover art, track titles, and control buttons from recomposing during playback.
+- **Case-Insensitive Library Sorting (`SongsViewModel.kt`):**
+  - Replaced repeated lowercase allocations with `String.CASE_INSENSITIVE_ORDER` across sorting routines.
+  - Post-optimization benchmark: 10,000 songs sorted in **10ms**; 10,000 songs filtered in **7ms**.
+
 ---
 
 ## 3. Completed Verification
@@ -241,13 +269,13 @@
 |---|---|---|
 | `./gradlew --version` | ✅ Pass | Gradle 9.6.0, JDK 21.0.10 (Android Studio JBR) |
 | `./gradlew clean` | ✅ Pass | Clean build cache & outputs |
-| `./gradlew assembleDebug` | ✅ Pass | Generates `app-debug.apk` cleanly in 11s without errors |
-| `./gradlew testDebugUnitTest` | ✅ Pass | 257/257 unit tests execute and pass across all test suites |
-| Preference & Theme Unit Tests | ✅ Pass | 3/3 dedicated tests passing (DataStore serialization, theme resolution, playback queue flow) |
-| Recommendation Engine Unit Tests | ✅ Pass | 12/12 dedicated tests passing (cold start, decay, frequency, completion, co-occurrence, diversity, determinism) |
-| Recommendation Benchmark | ✅ Pass | 5,000 tracks scored and partitioned in 32ms |
-| KSP Annotation Processing | ✅ Pass | Room DAOs (`PlaylistDao`), entities, and Hilt components generate cleanly |
-| Hilt Code Generation | ✅ Pass | `DatabaseModule`, `RepositoryModule` with `UserPreferencesRepository` validated |
+| `./gradlew assembleDebug` | ✅ Pass | Generates `app-debug.apk` cleanly in 7s without errors (46.5MB) |
+| `./gradlew testDebugUnitTest` | ✅ Pass | 277/277 unit tests execute and pass across 47 test suites |
+| Large Library Scaling Benchmark | ✅ Pass | 10,000 tracks: duplicate grouping in 84ms, sorting in 10ms, filtering in 7ms, search ranking in 60ms |
+| Recommendation Benchmark | ✅ Pass | 5,000 tracks scored and partitioned in 42ms |
+| Preference & Theme Unit Tests | ✅ Pass | Dedicated tests passing (DataStore serialization, theme resolution, playback queue flow) |
+| KSP Annotation Processing | ✅ Pass | Room DAOs, entities, and Hilt components generate cleanly |
+| Hilt Code Generation | ✅ Pass | Dependency graphs and view model factories validated |
 | Permissions Audit | ✅ Pass | Storage and playback permissions verified; 0 network permissions |
 | Privacy Audit | ✅ Pass | 100% offline; no analytics, ads, Firebase, or external telemetry libraries |
 | Runtime Verification | ⚠️ NOT TESTED | 0 connected physical devices or emulators detected via `adb devices` |

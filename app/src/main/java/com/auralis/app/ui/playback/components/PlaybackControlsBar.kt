@@ -55,6 +55,7 @@ fun PlaybackControlsBar(
     onClick: (() -> Unit)? = null,
     isFavorite: Boolean = false,
     onToggleFavorite: (() -> Unit)? = null,
+    progressProvider: () -> Float = { playbackState.progress },
     modifier: Modifier = Modifier
 ) {
     val song = playbackState.currentSong ?: return
@@ -71,9 +72,9 @@ fun PlaybackControlsBar(
         elevation = CardDefaults.cardElevation(defaultElevation = MelofyElevation.medium)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Sleek top progress indicator
+            // Sleek top progress indicator (rendered in draw phase via lambda provider)
             LinearProgressIndicator(
-                progress = { playbackState.progress },
+                progress = progressProvider,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(3.dp),

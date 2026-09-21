@@ -186,20 +186,20 @@ class SongsViewModel @Inject constructor(
 
     private fun sortSongs(songs: List<Song>, sortOrder: SongSortOrder, recentIds: Set<Long>): List<Song> {
         return when (sortOrder) {
-            SongSortOrder.TITLE -> songs.sortedBy { it.title.lowercase(Locale.ROOT) }
-            SongSortOrder.TITLE_DESC -> songs.sortedByDescending { it.title.lowercase(Locale.ROOT) }
+            SongSortOrder.TITLE -> songs.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
+            SongSortOrder.TITLE_DESC -> songs.sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.title })
             SongSortOrder.ARTIST -> songs.sortedWith(
-                compareBy<Song> { it.artistName.lowercase(Locale.ROOT) }
-                    .thenBy { it.title.lowercase(Locale.ROOT) }
+                compareBy<Song, String>(String.CASE_INSENSITIVE_ORDER) { it.artistName }
+                    .thenBy(String.CASE_INSENSITIVE_ORDER) { it.title }
             )
             SongSortOrder.ARTIST_DESC -> songs.sortedWith(
-                compareByDescending<Song> { it.artistName.lowercase(Locale.ROOT) }
-                    .thenBy { it.title.lowercase(Locale.ROOT) }
+                compareByDescending<Song, String>(String.CASE_INSENSITIVE_ORDER) { it.artistName }
+                    .thenBy(String.CASE_INSENSITIVE_ORDER) { it.title }
             )
             SongSortOrder.ALBUM -> songs.sortedWith(
-                compareBy<Song> { it.albumName.lowercase(Locale.ROOT) }
+                compareBy<Song, String>(String.CASE_INSENSITIVE_ORDER) { it.albumName }
                     .thenBy { it.trackNumber ?: 0 }
-                    .thenBy { it.title.lowercase(Locale.ROOT) }
+                    .thenBy(String.CASE_INSENSITIVE_ORDER) { it.title }
             )
             SongSortOrder.DATE_ADDED -> songs.sortedByDescending { it.dateAdded }
             SongSortOrder.DATE_MODIFIED -> songs.sortedByDescending { it.dateModified }

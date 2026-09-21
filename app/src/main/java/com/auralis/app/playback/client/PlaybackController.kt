@@ -47,8 +47,21 @@ class PlaybackController @Inject constructor(
     private val _playbackState = MutableStateFlow(PlaybackState())
     val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
 
+    private val _playbackPositionMs = MutableStateFlow(0L)
+    val playbackPositionMs: StateFlow<Long> = _playbackPositionMs.asStateFlow()
+
+    private val _playbackProgress = MutableStateFlow(0f)
+    val playbackProgress: StateFlow<Float> = _playbackProgress.asStateFlow()
+
     private val _activeQueue = MutableStateFlow<List<Song>>(emptyList())
     val activeQueue: StateFlow<List<Song>> = _activeQueue.asStateFlow()
+
+    @Volatile
+    private var trackingIntervalMs: Long = 1000L
+
+    fun setHighFrequencyTracking(enabled: Boolean) {
+        trackingIntervalMs = if (enabled) 500L else 1000L
+    }
 
     private var mediaController: MediaController? = null
     private var positionUpdateJob: Job? = null
@@ -243,15 +256,14 @@ class PlaybackController @Inject constructor(
             while (isActive) {
                 mediaController?.let { controller ->
                     if (controller.isPlaying) {
-                        _playbackState.update {
-                            it.copy(
-                                currentPositionMs = controller.currentPosition.coerceAtLeast(0L),
-                                bufferedPositionMs = controller.bufferedPosition.coerceAtLeast(0L)
-                            )
-                        }
+                        val pos = controller.currentPosition.coerceAtLeast(0L)
+                        val dur = controller.duration.coerceAtLeast(0L)
+                        val prog = if (dur > 0L) (pos.toFloat() / dur.toFloat()).coerceIn(0f, 1f) else 0f
+                        _playbackPositionMs.value = pos
+                        _playbackProgress.value = prog
                     }
                 }
-                delay(500)
+                delay(trackingIntervalMs)
             }
         }
     }

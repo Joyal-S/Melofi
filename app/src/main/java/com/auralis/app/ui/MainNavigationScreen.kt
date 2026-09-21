@@ -148,7 +148,8 @@ fun MainNavigationScreen(
                         onCycleRepeat = { playbackViewModel.cycleRepeatMode() },
                         onClick = { showNowPlaying = true },
                         isFavorite = playbackState.currentSong?.id?.let { it in favoriteSongIds } == true,
-                        onToggleFavorite = { playbackState.currentSong?.let { favoritesViewModel.toggleFavorite(it.id) } }
+                        onToggleFavorite = { playbackState.currentSong?.let { favoritesViewModel.toggleFavorite(it.id) } },
+                        progressProvider = { playbackViewModel.playbackProgress.value }
                     )
                 }
 

@@ -17,7 +17,13 @@ class PlaybackViewModel @Inject constructor(
 ) : ViewModel() {
 
     val playbackState: StateFlow<PlaybackState> = playbackController.playbackState
+    val playbackPositionMs: StateFlow<Long> = playbackController.playbackPositionMs
+    val playbackProgress: StateFlow<Float> = playbackController.playbackProgress
     val activeQueue: StateFlow<List<Song>> = playbackController.activeQueue
+
+    fun setHighFrequencyTracking(enabled: Boolean) {
+        playbackController.setHighFrequencyTracking(enabled)
+    }
 
     fun playSong(song: Song, allSongs: List<Song>) {
         val index = allSongs.indexOfFirst { it.id == song.id }.coerceAtLeast(0)
