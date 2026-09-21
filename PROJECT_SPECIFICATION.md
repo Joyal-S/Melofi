@@ -3,7 +3,7 @@
 > **Working Name:** Auralis  
 > **Type:** Native Android Application  
 > **Vision:** A local-first, offline music player focused on high-quality audio playback and a polished modern user experience.  
-> **Status:** Phase 1 — Foundation & Project Bootstrap Complete  
+> **Status:** Phase 2 — Local Audio Discovery & Library Foundation Complete  
 > **Last Updated:** 2026-09-21
 
 ---
@@ -766,44 +766,128 @@ MainActivity (SingleActivity, @AndroidEntryPoint)
 
 ## 11. Local Audio Discovery & Import
 
-### Strategy: MediaStore Query
+### Strategy: MediaStore Query & Differential Synchronization
 
-Audio files are discovered via `ContentResolver` querying `MediaStore.Audio.Media`.
+Audio files are discovered exclusively via `ContentResolver` querying Android `MediaStore.Audio.Media.EXTERNAL_CONTENT_URI`. Auralis respects scoped storage (API 29+) and operates without raw filesystem traversal.
 
-### Discovery Flow
+### Discovery & Synchronization Pipeline
 
 ```
-App Launch / Manual Refresh
+User Action (Initial Scan / Manual Pull-to-Refresh)
         ↓
-MediaStoreScanner.scan()
+Permission Check (PermissionUtils)
         ↓
-ContentResolver.query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, ...)
+MediaStoreAudioScanner (ContentResolver query)
         ↓
-Map cursor rows → SongEntity list
+AudioMetadataNormalizer (pure Kotlin normalization)
         ↓
-Diff against existing Room data (insert new, update changed, soft-delete removed)
+LibrarySyncDiff (differential comparison against Room DB)
         ↓
-Room database updated → Flows emit → UI recomposes
+AuralisDatabase (Atomic @Transaction: insert, update, delete, sync)
+        ↓
+SongRepositoryImpl (emits updated Domain models)
+        ↓
+GetSongsUseCase (sorts by TITLE, ARTIST, ALBUM, DATE_ADDED)
+        ↓
+SongsViewModel (combines into SongsUiState StateFlow)
+        ↓
+SongsScreen (LazyColumn with stable item keys & Coil artwork)
 ```
 
-### Key Implementation Details
+### 11.1 Android Storage & Permission Matrix
 
-1. **Scoped Storage (API 29+):** Use `content://` URIs, not raw file paths. `MediaStore.Audio.Media.EXTERNAL_CONTENT_URI` is the correct authority.
+| Android OS Version | API Level | Storage Permission | Rationale |
+|---|---|---|---|
+| Android 10 | 29 | `READ_EXTERNAL_STORAGE` | Scoped storage baseline. |
+| Android 11 | 30 | `READ_EXTERNAL_STORAGE` | Scoped storage enforced; `DATA` column deprecated. |
+| Android 12 / 12L | 31 / 32 | `READ_EXTERNAL_STORAGE` | Pre-granular media permissions. |
+| Android 13 | 33 | `READ_MEDIA_AUDIO` | Granular media permissions introduced. |
+| Android 14 | 34 | `READ_MEDIA_AUDIO` | Granular audio access. |
+| Android 15 | 35 | `READ_MEDIA_AUDIO` | Granular audio access. |
+| Android 16+ | 36+ | `READ_MEDIA_AUDIO` | Granular audio access. |
 
-2. **Projections:** Query only needed columns for performance:
-   - `_ID`, `TITLE`, `ARTIST`, `ARTIST_ID`, `ALBUM`, `ALBUM_ID`, `DURATION`, `TRACK`, `YEAR`, `DATA` (path, for display only), `MIME_TYPE`, `SIZE`, `DATE_ADDED`, `DATE_MODIFIED`
+**Manifest Declarations:**
+```xml
+<uses-permission
+    android:name="android.permission.READ_EXTERNAL_STORAGE"
+    android:maxSdkVersion="32" />
+<uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+```
 
-3. **Album art:** Retrieved via `ContentUris.withAppendedId(MediaStore.Audio.Albums.EXTERNAL_CONTENT_URI, albumId)` or via the `MediaMetadataRetriever` for embedded art.
+**UX Rules:**
+- Permissions are never requested unprompted on app start.
+- Contextual rationale is presented explaining why storage access is needed.
+- If permanently denied, the UI directs the user cleanly to App Details Settings.
 
-4. **Extended metadata** (bitrate, sample rate, bit depth, channel count): Not always available from MediaStore. For accurate data, use `MediaMetadataRetriever` or Media3's `MetadataRetriever` on the content URI. This is expensive — run in a background coroutine, cache results in Room.
+### 11.2 MediaStore Query Strategy
 
-5. **Incremental scan:** Track `DATE_MODIFIED` to avoid re-scanning unchanged files. Store a `lastScanTimestamp` in DataStore.
+- **Target URI:** `MediaStore.Audio.Media.EXTERNAL_CONTENT_URI`
+- **Selection:** `${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= 1000` (filters out short notification, system, and click sounds).
+- **Projection Columns:**
+  - Mandatory: `_ID`, `TITLE`, `DISPLAY_NAME`, `ARTIST`, `ARTIST_ID`, `ALBUM`, `ALBUM_ID`, `DURATION`, `TRACK`, `YEAR`, `SIZE`, `MIME_TYPE`, `DATE_ADDED`, `DATE_MODIFIED`, `DATA`.
+  - Conditional (API 30+): `MediaStore.Audio.AudioColumns.GENRE`, `MediaStore.Audio.AudioColumns.BITRATE`.
+- **Resilience:** Errors in individual cursor rows are trapped and isolated; one corrupted audio file never halts the scan pass.
 
-6. **Supported formats:** MP3, AAC (M4A), OGG/Vorbis, Opus, FLAC, WAV, and anything MediaStore indexes + ExoPlayer can decode. No format filtering — let ExoPlayer handle decoding; gracefully report unsupported files.
+### 11.3 Content URI Design
 
-7. **Permissions:**
-   - API 29–32: `READ_EXTERNAL_STORAGE` (or `READ_MEDIA_AUDIO` on 33+)
-   - API 33+: `READ_MEDIA_AUDIO` (granular media permission)
+- Content URIs serve as the single stable, primary audio reference:
+  `content://media/external/audio/media/<mediaId>`
+- Raw filesystem paths (`/storage/emulated/0/...`) are never used for playback. Playback components (Phase 3+) will open content URIs directly via `ContentResolver` or Media3 `MediaItem.fromUri()`.
+
+### 11.4 Database Schema & Relationship Design
+
+Implemented in Room 2.8.5 (`AuralisDatabase`, version 1):
+
+1. **`SongEntity`** (table `songs`):
+   - `@PrimaryKey val id: Long` (MediaStore ID).
+   - Denormalized `artistName` and `albumName` for fast single-table queries.
+   - Indices on `artistId`, `albumId`, `genreId`, `title`, `artistName`, `dateAdded`, plus unique index on `contentUri`.
+2. **`AlbumEntity`** (table `albums`):
+   - `@PrimaryKey val id: Long` (MediaStore Album ID or synthetic fallback).
+   - Fields: `name`, `artistId`, `artistName`, `year`, `songCount`, `artUri`.
+3. **`ArtistEntity`** (table `artists`):
+   - `@PrimaryKey val id: Long` (MediaStore Artist ID or synthetic fallback).
+   - Fields: `name`, `albumCount`, `songCount`.
+4. **`GenreEntity`** (table `genres`):
+   - `@PrimaryKey val id: Long` (Deterministic hash of genre name).
+   - Fields: `name`, `songCount`.
+
+### 11.5 Rescan & Differential Synchronization Strategy
+
+Auralis avoids destructive database rebuilds. Synchronization uses `LibrarySyncDiff`:
+1. Query current database for all existing `id` and `dateModified` values.
+2. Compare against incoming MediaStore scan output:
+   - **`toInsert`**: Present in MediaStore, absent in Room.
+   - **`toUpdate`**: Present in both, but `scanned.dateModified != db.dateModified`.
+   - **`toDelete`**: Present in Room, absent in MediaStore.
+   - **`unchanged`**: Present in both with matching `dateModified` (skipped for speed).
+3. Execute all writes in a single atomic Room `@Transaction`:
+   - Delete stale entries.
+   - Insert new songs.
+   - Update modified songs.
+   - Atomically synchronize derived albums, artists, and genres.
+
+**Guarantees:**
+- 100% duplicate prevention on repeated scans.
+- Linear execution time proportional to diff size.
+- Automatic cleanup of externally deleted or moved files.
+
+### 11.6 Song Identity Strategy
+
+- **Primary Identity:** MediaStore `_ID` is the unique persistent key.
+- **Handling Edge Cases:**
+  - **Renamed files:** Handled by MediaStore ID. MediaStore updates `DISPLAY_NAME` / `DATA` and bumps `DATE_MODIFIED`; diff engine detects modification and updates record in-place.
+  - **Moved files:** Handled by MediaStore ID without losing database identity.
+  - **Replaced files:** Detected via `DATE_MODIFIED` mismatch and updated.
+  - **Duplicate physical files:** Each file receives a distinct MediaStore `_ID` and content URI, allowing both to coexist correctly in the library.
+  - **Identical titles across different albums:** Disambiguated by distinct `id` and `albumId`.
+
+### 11.7 Local Artwork Strategy
+
+- Artwork URIs are formatted as `content://media/external/audio/albumart/<albumId>`.
+- Loaded via Coil 3 (`AsyncImage`) strictly for local content schemes.
+- Built-in fallback: `R.drawable.ic_music_placeholder` vector drawable is displayed if artwork is missing or inaccessible.
+- Zero network requests. No `INTERNET` permission in manifest.
 
 ---
 
@@ -1062,8 +1146,8 @@ robolectric = { module = "org.robolectric:robolectric", version = "4.x" }
 |---|---|---|
 | **Phase 0** | Architecture, project setup, specification | ✅ Complete |
 | **Phase 1** | Android Foundation & Project Bootstrap | ✅ Complete |
-| **Phase 2** | Library: MediaStore scanner, songs, albums, artists, UI | ⬜ Next |
-| **Phase 3** | Queue, playlists, favorites, shuffle/repeat, history | ⬜ Planned |
+| **Phase 2** | Library: MediaStore scanner, songs, albums, artists, UI | ✅ Complete |
+| **Phase 3** | Queue, playlists, favorites, shuffle/repeat, history | ⬜ Next |
 | **Phase 4** | Audio controls: EQ, bass boost, crossfade, gapless, sleep timer | ⬜ Planned |
 | **Phase 5** | Polish: metadata display, stats, smart playlists, widget | ⬜ Planned |
 

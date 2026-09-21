@@ -1,3 +1,21 @@
 <resources>
     <string name="app_name">Auralis</string>
+    <string name="nav_songs">Songs</string>
+    <string name="permission_storage_title">Access Your Music</string>
+    <string name="permission_storage_description">Auralis is a 100% offline player that plays audio files directly from your device storage. To discover and organize your music library, Auralis needs permission to read audio files.</string>
+    <string name="permission_grant_button">Grant Access</string>
+    <string name="permission_denied_permanent_description">Storage permission was previously declined. Please open app settings and enable audio/storage access to scan your music library.</string>
+    <string name="permission_open_settings">Open Settings</string>
+    <string name="empty_songs_title">No Music Found</string>
+    <string name="empty_songs_description">No audio tracks were detected on your device. Add music files to your device storage or run a scan.</string>
+    <string name="action_scan">Scan Music</string>
+    <string name="action_rescan">Rescan</string>
+    <string name="action_sort">Sort by</string>
+    <string name="sort_title">Title</string>
+    <string name="sort_artist">Artist</string>
+    <string name="sort_album">Album</string>
+    <string name="sort_date_added">Date Added</string>
+    <string name="unknown_artist">Unknown Artist</string>
+    <string name="unknown_album">Unknown Album</string>
+    <string name="unknown_title">Unknown Title</string>
 </resources>

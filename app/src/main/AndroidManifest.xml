@@ -4,8 +4,13 @@
     <!-- No INTERNET permission — this is an offline-only application -->
     <!-- No location, contacts, or other unnecessary permissions -->
 
+    <!-- Storage permissions for local audio discovery -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+
     <!-- Future phases will add:
-         READ_MEDIA_AUDIO (API 33+) / READ_EXTERNAL_STORAGE (API 29-32)
          FOREGROUND_SERVICE + FOREGROUND_SERVICE_MEDIA_PLAYBACK
          POST_NOTIFICATIONS (API 33+)
          WAKE_LOCK
