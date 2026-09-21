@@ -43,6 +43,8 @@ import com.auralis.app.ui.playlists.detail.PlaylistDetailScreen
 import com.auralis.app.ui.playlists.detail.PlaylistDetailViewModel
 import com.auralis.app.ui.playlists.smart.SmartPlaylistDetailScreen
 import com.auralis.app.ui.playlists.smart.SmartPlaylistDetailViewModel
+import com.auralis.app.ui.recommendations.RecommendationDetailScreen
+import com.auralis.app.ui.recommendations.RecommendationViewModel
 import com.auralis.app.ui.search.SearchScreen
 import com.auralis.app.ui.search.SearchViewModel
 import com.auralis.app.ui.settings.AudioSettingsScreen
@@ -60,7 +62,7 @@ enum class MainTab {
  * Top-level navigation host coordinating library tabs, playlist details,
  * listening statistics, smart playlists, metadata inspection, duplicates,
  * advanced search, category browsing (albums, artists, genres),
- * and the persistent Media3 playback controls bar.
+ * on-device recommendations, and the persistent Media3 playback controls bar.
  */
 @Composable
 fun MainNavigationScreen(
@@ -76,6 +78,7 @@ fun MainNavigationScreen(
     albumDetailViewModel: AlbumDetailViewModel = hiltViewModel(),
     artistDetailViewModel: ArtistDetailViewModel = hiltViewModel(),
     genreDetailViewModel: GenreDetailViewModel = hiltViewModel(),
+    recommendationViewModel: RecommendationViewModel = hiltViewModel(),
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(MainTab.SONGS) }
@@ -84,6 +87,7 @@ fun MainNavigationScreen(
     var selectedSongDetailsId by remember { mutableStateOf<Long?>(null) }
     var showDuplicateScreen by remember { mutableStateOf(false) }
     var showSearchScreen by remember { mutableStateOf(false) }
+    var showRecommendationDetail by remember { mutableStateOf(false) }
     var selectedAlbumId by remember { mutableStateOf<Long?>(null) }
     var selectedArtistId by remember { mutableStateOf<Long?>(null) }
     var selectedGenreId by remember { mutableStateOf<Long?>(null) }
@@ -97,6 +101,7 @@ fun MainNavigationScreen(
             selectedSongDetailsId != null ||
             showDuplicateScreen ||
             showSearchScreen ||
+            showRecommendationDetail ||
             selectedAlbumId != null ||
             selectedArtistId != null ||
             selectedGenreId != null
@@ -105,6 +110,7 @@ fun MainNavigationScreen(
         when {
             selectedSongDetailsId != null -> selectedSongDetailsId = null
             showDuplicateScreen -> showDuplicateScreen = false
+            showRecommendationDetail -> showRecommendationDetail = false
             selectedAlbumId != null -> selectedAlbumId = null
             selectedArtistId != null -> selectedArtistId = null
             selectedGenreId != null -> selectedGenreId = null
@@ -264,6 +270,16 @@ fun MainNavigationScreen(
                 onAddToPlaylistClick = { song -> songForPlaylistDialog = song },
                 modifier = screenModifier
             )
+        } else if (showRecommendationDetail) {
+            RecommendationDetailScreen(
+                viewModel = recommendationViewModel,
+                playbackViewModel = playbackViewModel,
+                onBackClick = { showRecommendationDetail = false },
+                onSongClick = { song, list -> playbackViewModel.playSong(song, list) },
+                onSongDetailsClick = { song -> selectedSongDetailsId = song.id },
+                onAddToPlaylistClick = { song -> songForPlaylistDialog = song },
+                modifier = screenModifier
+            )
         } else if (showSearchScreen) {
             SearchScreen(
                 viewModel = searchViewModel,
@@ -299,6 +315,7 @@ fun MainNavigationScreen(
                     SongsScreen(
                         viewModel = songsViewModel,
                         playbackViewModel = playbackViewModel,
+                        recommendationViewModel = recommendationViewModel,
                         playlists = playlists,
                         onCreatePlaylistAndAdd = { name, songId ->
                             playlistsViewModel.createPlaylist(name) { newId ->
@@ -311,6 +328,7 @@ fun MainNavigationScreen(
                         onAlbumClick = { albumId -> selectedAlbumId = albumId },
                         onArtistClick = { artistId -> selectedArtistId = artistId },
                         onGenreClick = { genreId -> selectedGenreId = genreId },
+                        onRecommendationSectionClick = { showRecommendationDetail = true },
                         showBottomBar = false,
                         modifier = screenModifier
                     )

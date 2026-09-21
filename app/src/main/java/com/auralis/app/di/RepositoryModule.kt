@@ -61,4 +61,10 @@ abstract class RepositoryModule {
     abstract fun bindLibraryBrowserRepository(
         libraryBrowserRepositoryImpl: com.auralis.app.data.repository.LibraryBrowserRepositoryImpl
     ): com.auralis.app.domain.repository.LibraryBrowserRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindRecommendationRepository(
+        recommendationRepositoryImpl: com.auralis.app.data.repository.RecommendationRepositoryImpl
+    ): com.auralis.app.domain.repository.RecommendationRepository
 }

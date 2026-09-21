@@ -63,6 +63,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.auralis.app.R
@@ -73,18 +74,23 @@ import com.auralis.app.domain.model.LibraryViewMode
 import com.auralis.app.domain.model.PlaybackFilter
 import com.auralis.app.domain.model.Playlist
 import com.auralis.app.domain.model.QualityFilter
+import com.auralis.app.domain.model.RecommendationSectionType
 import com.auralis.app.domain.model.Song
 import com.auralis.app.domain.model.SongSortOrder
 import com.auralis.app.ui.library.components.AddToPlaylistDialog
 import com.auralis.app.ui.library.components.FilterBottomSheet
 import com.auralis.app.ui.library.components.SongListItem
 import com.auralis.app.ui.playback.PlaybackViewModel
+import com.auralis.app.ui.recommendations.RecommendationSectionRow
+import com.auralis.app.ui.recommendations.RecommendationUiState
+import com.auralis.app.ui.recommendations.RecommendationViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SongsScreen(
     viewModel: SongsViewModel,
     playbackViewModel: PlaybackViewModel,
+    recommendationViewModel: RecommendationViewModel = hiltViewModel(),
     modifier: Modifier = Modifier,
     playlists: List<Playlist> = emptyList(),
     onCreatePlaylistAndAdd: ((String, Long) -> Unit)? = null,
@@ -94,6 +100,7 @@ fun SongsScreen(
     onAlbumClick: ((Long) -> Unit)? = null,
     onArtistClick: ((Long) -> Unit)? = null,
     onGenreClick: ((Long) -> Unit)? = null,
+    onRecommendationSectionClick: ((RecommendationSectionType) -> Unit)? = null,
     showBottomBar: Boolean = true
 ) {
     val context = LocalContext.current
@@ -195,6 +202,16 @@ fun SongsScreen(
                 .padding(innerPadding)
         ) {
             when (selectedTab) {
+                LibraryTab.FOR_YOU -> {
+                    RecommendationsTabContent(
+                        recommendationViewModel = recommendationViewModel,
+                        playbackViewModel = playbackViewModel,
+                        onRecommendationSectionClick = onRecommendationSectionClick,
+                        onSongDetailsClick = onSongDetailsClick,
+                        onAddToPlaylistClick = { songForPlaylistDialog = it },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
                 LibraryTab.TRACKS -> {
                     // Tracks Controls Bar (Filters button with badge, Sort button, ViewMode switcher)
                     Row(
@@ -719,5 +736,121 @@ fun SongsScreen(
                 songForPlaylistDialog = null
             }
         )
+    }
+}
+
+@Composable
+private fun RecommendationsTabContent(
+    recommendationViewModel: RecommendationViewModel,
+    playbackViewModel: PlaybackViewModel,
+    onRecommendationSectionClick: ((RecommendationSectionType) -> Unit)?,
+    onSongDetailsClick: ((Song) -> Unit)?,
+    onAddToPlaylistClick: (Song) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val uiState by recommendationViewModel.uiState.collectAsStateWithLifecycle()
+
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 24.dp)
+    ) {
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "For You",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "100% on-device & private",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                IconButton(onClick = { recommendationViewModel.refresh() }) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_refresh),
+                        contentDescription = "Refresh Recommendations"
+                    )
+                }
+            }
+        }
+
+        when (val state = uiState) {
+            is RecommendationUiState.Loading -> {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+            }
+            is RecommendationUiState.Empty -> {
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_music_placeholder),
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Build your listening history",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Recommendations will appear as you play songs and add favorites to your collection.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
+                }
+            }
+            is RecommendationUiState.Success -> {
+                items(state.sections, key = { it.type.id }) { section ->
+                    RecommendationSectionRow(
+                        section = section,
+                        onItemClick = { item ->
+                            playbackViewModel.playSong(item.song, section.items.map { it.song })
+                        },
+                        onItemPlayClick = { item ->
+                            playbackViewModel.playSong(item.song, section.items.map { it.song })
+                        },
+                        onSeeAllClick = {
+                            recommendationViewModel.selectSection(section.type)
+                            onRecommendationSectionClick?.invoke(section.type)
+                        },
+                        onPlayAllClick = {
+                            val songs = section.items.map { it.song }
+                            if (songs.isNotEmpty()) {
+                                playbackViewModel.playSong(songs.first(), songs)
+                            }
+                        },
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                }
+            }
+        }
     }
 }

@@ -37,6 +37,7 @@ import java.util.Locale
 import javax.inject.Inject
 
 enum class LibraryTab(val displayName: String) {
+    FOR_YOU("For You"),
     TRACKS("Tracks"),
     ALBUMS("Albums"),
     ARTISTS("Artists"),

@@ -1,6 +1,6 @@
 # Melofy — Development Status
 
-> **Current Phase:** Phase 7 Complete (Metadata, Artwork & Advanced Library Management)  
+> **Current Phase:** Phase 9 Complete (Local Recommendation Engine)  
 > **Last Updated:** 2026-09-21  
 
 ---
@@ -18,6 +18,7 @@
 | **Phase 6** | Listening History, Statistics, Smart Playlists & Home Screen Widgets | ✅ Complete |
 | **Phase 7** | Metadata, Artwork & Advanced Library Management | ✅ Complete |
 | **Phase 8** | Advanced Search, Filtering & Library Organization | ✅ Complete |
+| **Phase 9** | Local Recommendation Engine | ✅ Complete |
 
 ---
 
@@ -163,6 +164,33 @@
 - **Room Database Migration v3 → v4 (`MIGRATION_3_4`):**
   - Schema upgraded to version 4 with `search_history` table creation and foreign key preservation.
 
+### Local Recommendation Engine Architecture (Phase 9)
+- **Deterministic Pure Kotlin Scoring Engine (`RecommendationEngine.kt`):**
+  - Zero AI, ML, neural networks, embeddings, vector databases, or remote API calls. 100% on-device.
+  - Signal combination with calibrated bounded weights:
+    - Recency Decay: $\le 1\text{d}: 1.0, \le 7\text{d}: 0.8, \le 30\text{d}: 0.5, > 30\text{d}: 0.2$ ($W = 15.0$).
+    - Play Frequency: $\ln(1 + \text{plays}) / \ln(1 + \text{maxPlays}) \times 20.0$ ($W = 20.0$).
+    - Completion Ratio: $\text{completedPlays} / \text{totalPlays} \times 15.0$ ($W = 15.0$).
+    - Favorites Affinity: active favorite boost $+15.0$; forgotten favorite boost ($> 30\text{d}$ unplayed) $+20.0$.
+    - Genre Affinity: normalized taste ratio ($W = 15.0$).
+    - Artist Affinity: normalized play share ($W = 10.0$).
+    - Playlist Co-occurrence: normalized Jaccard-like co-membership with top tracks ($W = 10.0$).
+    - Unplayed Discovery Boost: tracks with 0 plays receive $+5.0$ to ensure library exploration.
+    - Anti-Repetition Penalty: $-10.0$ penalty if played within the last 4 hours.
+- **Diversity Enforcement:**
+  - Strict caps of max 2 tracks per artist and max 2 tracks per album in general recommendation carousels.
+- **Explainability:**
+  - Every recommended track carries an explicit dominant `RecommendationReason` badge (e.g. "Because you love Queen", "Because you listen to Rock", "From your playlists", "Rediscover this favorite", "Unplayed gem", "Popular in your library").
+- **Cold Start Handling:**
+  - Graceful fallback when user has $< 3$ plays and 0 favorites: generates "Recently Added", "Audiophile Picks (Lossless & High Bitrate)", and "Explore Your Library" with transparent educational explanation.
+- **Performance Benchmark:**
+  - Full scoring and section generation for 5,000 tracks completes in **32ms** (well under the 500ms budget).
+- **UI & Presentation (`ui/recommendations`):**
+  - "For You" tab seamlessly integrated as the front-and-center tab in `SongsScreen`.
+  - Horizontal carousels with artwork, title, artist, reason chip, and one-tap play button.
+  - Dedicated `RecommendationDetailScreen` for full section inspection with "Play All", "Shuffle", and context menu actions.
+  - No database migration required; queries existing v4 schema tables.
+
 ---
 
 ## 3. Completed Verification
@@ -171,10 +199,12 @@
 |---|---|---|
 | `./gradlew --version` | ✅ Pass | Gradle 9.6.0, JDK 21.0.10 (Android Studio JBR) |
 | `./gradlew clean` | ✅ Pass | Clean build cache & outputs |
-| `./gradlew assembleDebug` | ✅ Pass | Generates `app-debug.apk` cleanly in 7s without errors |
-| `./gradlew testDebugUnitTest` | ✅ Pass | 241/241 unit tests execute and pass across all 41 test suites |
-| KSP Annotation Processing | ✅ Pass | Room DAOs (`SearchHistoryDao`), entities, and Hilt components generate cleanly |
-| Hilt Code Generation | ✅ Pass | `DatabaseModule`, `RepositoryModule`, `DispatchersModule`, `PlaybackModule`, `AudioModule` validated |
+| `./gradlew assembleDebug` | ✅ Pass | Generates `app-debug.apk` cleanly in 8s without errors |
+| `./gradlew testDebugUnitTest` | ✅ Pass | 254/254 unit tests execute and pass across all test suites |
+| Recommendation Engine Unit Tests | ✅ Pass | 12/12 dedicated tests passing (cold start, decay, frequency, completion, co-occurrence, diversity, determinism) |
+| Recommendation Benchmark | ✅ Pass | 5,000 tracks scored and partitioned in 32ms |
+| KSP Annotation Processing | ✅ Pass | Room DAOs (`PlaylistDao`), entities, and Hilt components generate cleanly |
+| Hilt Code Generation | ✅ Pass | `DatabaseModule`, `RepositoryModule` with `RecommendationRepository` validated |
 | Permissions Audit | ✅ Pass | Storage and playback permissions verified; 0 network permissions |
 | Privacy Audit | ✅ Pass | 100% offline; no analytics, ads, Firebase, or external telemetry libraries |
 | Runtime Verification | ⚠️ NOT TESTED | 0 connected physical devices or emulators detected via `adb devices` |

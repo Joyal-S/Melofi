@@ -18,9 +18,9 @@ Melofy is a completely local music player for Android. It plays audio files stor
 
 ## Status
 
-**Phase 8 Complete — Advanced Search, Filtering & Library Organization**
+**Phase 9 Complete — Local Recommendation Engine**
 
-Melofy features a complete local-first music library with Media3 background playback, custom playlists, reactive favorites, hardware-accelerated audio effects (Equalizer, Bass Boost, Virtualizer, ReplayGain), listening history, statistics, home screen widget, deep on-demand metadata inspection, safe metadata editing, offline artwork management with custom overrides, multi-signal duplicate detection, multi-field local search with deterministic ranking, persistent search history, dynamic suggestions, categorized results, advanced multi-filter engine with strict AND semantics, 15 sorting modes, and library organization across Tracks, Albums, Artists, and Genres. See [docs/DEVELOPMENT_STATUS.md](docs/DEVELOPMENT_STATUS.md) and [PROJECT_SPECIFICATION.md](PROJECT_SPECIFICATION.md) for full technical documentation.
+Melofy features a complete local-first music library with Media3 background playback, custom playlists, reactive favorites, hardware-accelerated audio effects (Equalizer, Bass Boost, Virtualizer, ReplayGain), listening history, statistics, home screen widget, deep on-demand metadata inspection, safe metadata editing, offline artwork management with custom overrides, multi-signal duplicate detection, multi-field local search with deterministic ranking, persistent search history, dynamic suggestions, categorized results, advanced multi-filter engine with strict AND semantics, 15 sorting modes, library organization across Tracks, Albums, Artists, and Genres, and a 100% on-device deterministic recommendation engine with zero AI/ML, cold start handling, explainable recommendations, and "For You" carousels. See [docs/DEVELOPMENT_STATUS.md](docs/DEVELOPMENT_STATUS.md) and [PROJECT_SPECIFICATION.md](PROJECT_SPECIFICATION.md) for full technical documentation.
 
 ---
 
