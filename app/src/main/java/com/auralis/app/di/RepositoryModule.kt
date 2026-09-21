@@ -49,4 +49,16 @@ abstract class RepositoryModule {
     abstract fun bindSmartPlaylistRepository(
         smartPlaylistRepositoryImpl: SmartPlaylistRepositoryImpl
     ): SmartPlaylistRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSearchRepository(
+        searchRepositoryImpl: com.auralis.app.data.repository.SearchRepositoryImpl
+    ): com.auralis.app.domain.repository.SearchRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindLibraryBrowserRepository(
+        libraryBrowserRepositoryImpl: com.auralis.app.data.repository.LibraryBrowserRepositoryImpl
+    ): com.auralis.app.domain.repository.LibraryBrowserRepository
 }

@@ -17,6 +17,7 @@
 | **Phase 5** | Audio Features & Advanced Controls (Equalizer, ReplayGain, Sleep Timer) | ✅ Complete |
 | **Phase 6** | Listening History, Statistics, Smart Playlists & Home Screen Widgets | ✅ Complete |
 | **Phase 7** | Metadata, Artwork & Advanced Library Management | ✅ Complete |
+| **Phase 8** | Advanced Search, Filtering & Library Organization | ✅ Complete |
 
 ---
 
@@ -131,6 +132,37 @@
   - Quality filters: High Quality (≥ 320 kbps or Lossless).
   - Real-time offline search bar operating against title, artist, album, and genre with instant UI updates.
 
+### Advanced Search, Filtering & Library Organization Architecture (Phase 8)
+- **Multi-Field Local Search & Deterministic Ranking Engine (`SearchRankingEngine.kt`):**
+  - Evaluates relevance based on metadata fields: Title (1000/500/300/200), Artist (400/250/150/100), Album (250/150/100/80), Genre (100/70/40).
+  - Normalization: lowercases, diacritics stripping via `java.text.Normalizer` NFD decomposition, punctuation replacement, whitespace collapsing for accent- and case-insensitive matching.
+  - Deterministic tie-breaking: ties resolved alphabetically by lowercase title.
+  - 100% offline, zero cloud models or external queries.
+- **Local Search History & Pruning (`SearchHistoryEntity.kt`, `SearchHistoryDao.kt`, `SearchRepositoryImpl.kt`):**
+  - Room table `search_history` with unique query index and `searchedAt` timestamp index.
+  - Automatic deduplication: re-searching an existing query updates its timestamp to current time.
+  - Capacity pruning: automatically trims search history to the 20 most recent entries.
+  - Safe deletion of individual queries and one-tap history clearing.
+- **Search Suggestions & Categorized Results (`SearchViewModel.kt`, `SearchScreen.kt`):**
+  - Dynamic suggestions derived from recent history and matching artists, albums, and genres.
+  - Categorized result display grouping Songs, Artists, Albums, and Genres with instant audition playback and deep navigation.
+- **Advanced Multi-Filter Engine with Strict AND Semantics (`SongFilter.kt`, `FilterBottomSheet.kt`):**
+  - Format filters: All, Lossless, FLAC, MP3, WAV, AAC, ALAC, OGG, Opus.
+  - Quality filters: All, Lossless, Lossy, High Quality (≥ 320 kbps).
+  - Duration filters: All, Short (< 3 min), Medium (3–6 min), Long (> 6 min).
+  - Playback filters: All, Favorites, Played, Never Played, Recently Played.
+  - Metadata filters: All, Has Artwork, Missing Artwork, Missing Album, Missing Artist.
+  - Library filters: All Time, Added in last 30d, Modified in last 30d.
+  - Live active filter count badge on the filter trigger button; one-tap "Reset All" action.
+- **15 Sorting Modes (`SongSortOrder.kt`):**
+  - Title (A→Z, Z→A), Artist (A→Z, Z→A), Album (A→Z with track # ordering), Date Added (Newest, Oldest), Date Modified, Duration (Shortest, Longest), File Size (Smallest, Largest), Bitrate (Highest, Lowest), Most Played, Recently Played.
+- **Library Organization & Browsing Tabs (`SongsScreen.kt`, `ui/browse`):**
+  - 4 library browsing tabs: Tracks, Albums, Artists, Genres.
+  - Dedicated detail screens for Album (`AlbumDetailScreen`), Artist (`ArtistDetailScreen`), and Genre (`GenreDetailScreen`) with shuffle/play all, song selection, and add to playlist.
+  - 3 view modes: Standard List, Compact List, and 2-column Grid.
+- **Room Database Migration v3 → v4 (`MIGRATION_3_4`):**
+  - Schema upgraded to version 4 with `search_history` table creation and foreign key preservation.
+
 ---
 
 ## 3. Completed Verification
@@ -139,11 +171,11 @@
 |---|---|---|
 | `./gradlew --version` | ✅ Pass | Gradle 9.6.0, JDK 21.0.10 (Android Studio JBR) |
 | `./gradlew clean` | ✅ Pass | Clean build cache & outputs |
-| `./gradlew assembleDebug` | ✅ Pass | Generates `app-debug.apk` cleanly in 9s without errors |
-| `./gradlew testDebugUnitTest` | ✅ Pass | 207/207 unit tests execute and pass across all 35 test suites |
-| KSP Annotation Processing | ✅ Pass | Room DAOs, entities, and Hilt components generate cleanly |
+| `./gradlew assembleDebug` | ✅ Pass | Generates `app-debug.apk` cleanly in 7s without errors |
+| `./gradlew testDebugUnitTest` | ✅ Pass | 241/241 unit tests execute and pass across all 41 test suites |
+| KSP Annotation Processing | ✅ Pass | Room DAOs (`SearchHistoryDao`), entities, and Hilt components generate cleanly |
 | Hilt Code Generation | ✅ Pass | `DatabaseModule`, `RepositoryModule`, `DispatchersModule`, `PlaybackModule`, `AudioModule` validated |
-| Permissions Audit | ✅ Pass | Storage and playback permissions verified; `ACCESS_NETWORK_STATE` explicitly removed via `tools:node="remove"`; 0 network permissions |
+| Permissions Audit | ✅ Pass | Storage and playback permissions verified; 0 network permissions |
 | Privacy Audit | ✅ Pass | 100% offline; no analytics, ads, Firebase, or external telemetry libraries |
 | Runtime Verification | ⚠️ NOT TESTED | 0 connected physical devices or emulators detected via `adb devices` |
 
@@ -163,4 +195,5 @@
 - UI theme customization (custom color schemes, AMOLED pure black theme).
 - Android Auto / MediaBrowserService export.
 - Embedded lyrics display (LRC synchronized parser).
+
 

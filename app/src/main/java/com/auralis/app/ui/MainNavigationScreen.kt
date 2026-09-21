@@ -21,6 +21,12 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.auralis.app.R
 import com.auralis.app.domain.model.SmartPlaylistType
+import com.auralis.app.ui.browse.AlbumDetailScreen
+import com.auralis.app.ui.browse.AlbumDetailViewModel
+import com.auralis.app.ui.browse.ArtistDetailScreen
+import com.auralis.app.ui.browse.ArtistDetailViewModel
+import com.auralis.app.ui.browse.GenreDetailScreen
+import com.auralis.app.ui.browse.GenreDetailViewModel
 import com.auralis.app.ui.details.SongDetailsScreen
 import com.auralis.app.ui.details.SongDetailsViewModel
 import com.auralis.app.ui.duplicates.DuplicateDetectionScreen
@@ -37,6 +43,8 @@ import com.auralis.app.ui.playlists.detail.PlaylistDetailScreen
 import com.auralis.app.ui.playlists.detail.PlaylistDetailViewModel
 import com.auralis.app.ui.playlists.smart.SmartPlaylistDetailScreen
 import com.auralis.app.ui.playlists.smart.SmartPlaylistDetailViewModel
+import com.auralis.app.ui.search.SearchScreen
+import com.auralis.app.ui.search.SearchViewModel
 import com.auralis.app.ui.settings.AudioSettingsScreen
 import com.auralis.app.ui.stats.StatisticsScreen
 
@@ -51,6 +59,7 @@ enum class MainTab {
 /**
  * Top-level navigation host coordinating library tabs, playlist details,
  * listening statistics, smart playlists, metadata inspection, duplicates,
+ * advanced search, category browsing (albums, artists, genres),
  * and the persistent Media3 playback controls bar.
  */
 @Composable
@@ -63,6 +72,10 @@ fun MainNavigationScreen(
     songDetailsViewModel: SongDetailsViewModel = hiltViewModel(),
     duplicateDetectionViewModel: DuplicateDetectionViewModel = hiltViewModel(),
     playbackViewModel: PlaybackViewModel = hiltViewModel(),
+    searchViewModel: SearchViewModel = hiltViewModel(),
+    albumDetailViewModel: AlbumDetailViewModel = hiltViewModel(),
+    artistDetailViewModel: ArtistDetailViewModel = hiltViewModel(),
+    genreDetailViewModel: GenreDetailViewModel = hiltViewModel(),
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(MainTab.SONGS) }
@@ -70,6 +83,10 @@ fun MainNavigationScreen(
     var selectedSmartPlaylistType by remember { mutableStateOf<SmartPlaylistType?>(null) }
     var selectedSongDetailsId by remember { mutableStateOf<Long?>(null) }
     var showDuplicateScreen by remember { mutableStateOf(false) }
+    var showSearchScreen by remember { mutableStateOf(false) }
+    var selectedAlbumId by remember { mutableStateOf<Long?>(null) }
+    var selectedArtistId by remember { mutableStateOf<Long?>(null) }
+    var selectedGenreId by remember { mutableStateOf<Long?>(null) }
     var songForPlaylistDialog by remember { mutableStateOf<com.auralis.app.domain.model.Song?>(null) }
 
     val playbackState by playbackViewModel.playbackState.collectAsStateWithLifecycle()
@@ -78,16 +95,24 @@ fun MainNavigationScreen(
     val isSubScreen = selectedPlaylistId != null ||
             selectedSmartPlaylistType != null ||
             selectedSongDetailsId != null ||
-            showDuplicateScreen
+            showDuplicateScreen ||
+            showSearchScreen ||
+            selectedAlbumId != null ||
+            selectedArtistId != null ||
+            selectedGenreId != null
 
     BackHandler(enabled = isSubScreen) {
-        if (selectedSongDetailsId != null) {
-            selectedSongDetailsId = null
-        } else if (showDuplicateScreen) {
-            showDuplicateScreen = false
-        } else {
-            selectedPlaylistId = null
-            selectedSmartPlaylistType = null
+        when {
+            selectedSongDetailsId != null -> selectedSongDetailsId = null
+            showDuplicateScreen -> showDuplicateScreen = false
+            selectedAlbumId != null -> selectedAlbumId = null
+            selectedArtistId != null -> selectedArtistId = null
+            selectedGenreId != null -> selectedGenreId = null
+            showSearchScreen -> showSearchScreen = false
+            else -> {
+                selectedPlaylistId = null
+                selectedSmartPlaylistType = null
+            }
         }
     }
 
@@ -180,6 +205,9 @@ fun MainNavigationScreen(
         val activePlaylistId = selectedPlaylistId
         val activeSmartPlaylistType = selectedSmartPlaylistType
         val activeSongDetailsId = selectedSongDetailsId
+        val activeAlbumId = selectedAlbumId
+        val activeArtistId = selectedArtistId
+        val activeGenreId = selectedGenreId
 
         if (activeSongDetailsId != null) {
             SongDetailsScreen(
@@ -200,6 +228,53 @@ fun MainNavigationScreen(
                 viewModel = duplicateDetectionViewModel,
                 onBackClick = { showDuplicateScreen = false },
                 onPlaySong = { song -> playbackViewModel.playSong(song, listOf(song)) },
+                modifier = screenModifier
+            )
+        } else if (activeAlbumId != null) {
+            AlbumDetailScreen(
+                albumId = activeAlbumId,
+                viewModel = albumDetailViewModel,
+                playbackViewModel = playbackViewModel,
+                onBackClick = { selectedAlbumId = null },
+                onSongClick = { song, list -> playbackViewModel.playSong(song, list) },
+                onSongDetailsClick = { song -> selectedSongDetailsId = song.id },
+                onAddToPlaylistClick = { song -> songForPlaylistDialog = song },
+                modifier = screenModifier
+            )
+        } else if (activeArtistId != null) {
+            ArtistDetailScreen(
+                artistId = activeArtistId,
+                viewModel = artistDetailViewModel,
+                playbackViewModel = playbackViewModel,
+                onBackClick = { selectedArtistId = null },
+                onAlbumClick = { albumId -> selectedAlbumId = albumId },
+                onSongClick = { song, list -> playbackViewModel.playSong(song, list) },
+                onSongDetailsClick = { song -> selectedSongDetailsId = song.id },
+                onAddToPlaylistClick = { song -> songForPlaylistDialog = song },
+                modifier = screenModifier
+            )
+        } else if (activeGenreId != null) {
+            GenreDetailScreen(
+                genreId = activeGenreId,
+                viewModel = genreDetailViewModel,
+                playbackViewModel = playbackViewModel,
+                onBackClick = { selectedGenreId = null },
+                onSongClick = { song, list -> playbackViewModel.playSong(song, list) },
+                onSongDetailsClick = { song -> selectedSongDetailsId = song.id },
+                onAddToPlaylistClick = { song -> songForPlaylistDialog = song },
+                modifier = screenModifier
+            )
+        } else if (showSearchScreen) {
+            SearchScreen(
+                viewModel = searchViewModel,
+                playbackViewModel = playbackViewModel,
+                onBackClick = { showSearchScreen = false },
+                onAlbumClick = { albumId -> selectedAlbumId = albumId },
+                onArtistClick = { artistId -> selectedArtistId = artistId },
+                onGenreClick = { genreId -> selectedGenreId = genreId },
+                onSongClick = { song, list -> playbackViewModel.playSong(song, list) },
+                onSongDetailsClick = { song -> selectedSongDetailsId = song.id },
+                onAddToPlaylistClick = { song -> songForPlaylistDialog = song },
                 modifier = screenModifier
             )
         } else if (activeSmartPlaylistType != null) {
@@ -232,6 +307,10 @@ fun MainNavigationScreen(
                         },
                         onSongDetailsClick = { selectedSongDetailsId = it.id },
                         onCheckDuplicatesClick = { showDuplicateScreen = true },
+                        onSearchClick = { showSearchScreen = true },
+                        onAlbumClick = { albumId -> selectedAlbumId = albumId },
+                        onArtistClick = { artistId -> selectedArtistId = artistId },
+                        onGenreClick = { genreId -> selectedGenreId = genreId },
                         showBottomBar = false,
                         modifier = screenModifier
                     )

@@ -37,6 +37,18 @@ interface SongDao {
     @Query("SELECT * FROM songs WHERE id = :id")
     fun getSongById(id: Long): Flow<SongEntity?>
 
+    @Query("SELECT * FROM songs WHERE (albumId IS NOT NULL AND albumId = :albumId) OR albumName = :albumName ORDER BY trackNumber ASC, title COLLATE NOCASE ASC")
+    fun getSongsByAlbum(albumId: Long, albumName: String): Flow<List<SongEntity>>
+
+    @Query("SELECT * FROM songs WHERE (artistId IS NOT NULL AND artistId = :artistId) OR artistName = :artistName ORDER BY year DESC, albumName COLLATE NOCASE ASC, trackNumber ASC, title COLLATE NOCASE ASC")
+    fun getSongsByArtist(artistId: Long, artistName: String): Flow<List<SongEntity>>
+
+    @Query("SELECT * FROM songs WHERE genreName = :genreName ORDER BY artistName COLLATE NOCASE ASC, title COLLATE NOCASE ASC")
+    fun getSongsByGenre(genreName: String): Flow<List<SongEntity>>
+
+    @Query("SELECT * FROM songs WHERE title LIKE '%' || :query || '%' OR artistName LIKE '%' || :query || '%' OR albumName LIKE '%' || :query || '%' OR genreName LIKE '%' || :query || '%'")
+    fun searchSongs(query: String): Flow<List<SongEntity>>
+
     @Query("SELECT * FROM songs")
     suspend fun getAllSongsList(): List<SongEntity>
 

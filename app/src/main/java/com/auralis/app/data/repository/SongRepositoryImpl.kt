@@ -55,6 +55,7 @@ class SongRepositoryImpl @Inject constructor(
             SongSortOrder.ARTIST -> songDao.getSongsSortedByArtist()
             SongSortOrder.ALBUM -> songDao.getSongsSortedByAlbum()
             SongSortOrder.DATE_ADDED -> songDao.getSongsSortedByDateAdded()
+            else -> songDao.getSongsSortedByTitle()
         }
         return flow.map { SongMapper.toDomainList(it) }
     }

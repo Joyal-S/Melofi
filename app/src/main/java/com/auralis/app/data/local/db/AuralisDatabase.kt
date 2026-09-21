@@ -33,8 +33,9 @@ import com.auralis.app.data.local.db.entity.SongEntity
         FavoriteEntity::class,
         PlaylistSongCrossRef::class,
         PlaybackHistoryEntity::class,
+        com.auralis.app.data.local.db.entity.SearchHistoryEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 abstract class AuralisDatabase : RoomDatabase() {
@@ -45,6 +46,7 @@ abstract class AuralisDatabase : RoomDatabase() {
     abstract fun playlistDao(): PlaylistDao
     abstract fun favoriteDao(): FavoriteDao
     abstract fun historyDao(): HistoryDao
+    abstract fun searchHistoryDao(): com.auralis.app.data.local.db.dao.SearchHistoryDao
 
     companion object {
         const val DATABASE_NAME = "auralis_database.db"
@@ -115,6 +117,23 @@ abstract class AuralisDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_playback_history_songId` ON `playback_history` (`songId`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_playback_history_playedAt` ON `playback_history` (`playedAt`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_playback_history_songId_playedAt` ON `playback_history` (`songId`, `playedAt`)")
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Create search_history table
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `search_history` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `query` TEXT NOT NULL,
+                        `searchedAt` INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_search_history_query` ON `search_history` (`query`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_search_history_searchedAt` ON `search_history` (`searchedAt`)")
             }
         }
     }

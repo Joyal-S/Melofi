@@ -2,13 +2,20 @@ package com.auralis.app.ui.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.auralis.app.domain.model.Album
+import com.auralis.app.domain.model.Artist
 import com.auralis.app.domain.model.BitrateFilter
 import com.auralis.app.domain.model.DurationFilter
 import com.auralis.app.domain.model.FormatFilter
+import com.auralis.app.domain.model.Genre
+import com.auralis.app.domain.model.LibraryViewMode
+import com.auralis.app.domain.model.PlaybackFilter
+import com.auralis.app.domain.model.QualityFilter
 import com.auralis.app.domain.model.Song
 import com.auralis.app.domain.model.SongFilterState
 import com.auralis.app.domain.model.SongSortOrder
 import com.auralis.app.domain.repository.HistoryRepository
+import com.auralis.app.domain.repository.LibraryBrowserRepository
 import com.auralis.app.domain.usecase.GetSongsUseCase
 import com.auralis.app.domain.usecase.ScanLibraryUseCase
 import com.auralis.app.domain.usecase.favorites.GetFavoriteSongIdsUseCase
@@ -22,10 +29,19 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.Locale
 import javax.inject.Inject
+
+enum class LibraryTab(val displayName: String) {
+    TRACKS("Tracks"),
+    ALBUMS("Albums"),
+    ARTISTS("Artists"),
+    GENRES("Genres")
+}
 
 private data class SyncState(
     val isScanning: Boolean = false,
@@ -42,8 +58,15 @@ class SongsViewModel @Inject constructor(
     private val getFavoriteSongIdsUseCase: GetFavoriteSongIdsUseCase,
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
     private val addSongToPlaylistUseCase: AddSongToPlaylistUseCase,
-    private val historyRepository: HistoryRepository
+    private val historyRepository: HistoryRepository,
+    private val browserRepository: LibraryBrowserRepository
 ) : ViewModel() {
+
+    private val _selectedTab = MutableStateFlow(LibraryTab.TRACKS)
+    val selectedTab: StateFlow<LibraryTab> = _selectedTab.asStateFlow()
+
+    private val _viewMode = MutableStateFlow(LibraryViewMode.LIST)
+    val viewMode: StateFlow<LibraryViewMode> = _viewMode.asStateFlow()
 
     val favoriteSongIds: StateFlow<Set<Long>> = getFavoriteSongIdsUseCase()
         .stateIn(
@@ -52,7 +75,36 @@ class SongsViewModel @Inject constructor(
             initialValue = emptySet()
         )
 
-    val recentlyPlayed: StateFlow<List<Song>> = historyRepository.getRecentlyPlayedSongs(limit = 10)
+    val recentlyPlayed: StateFlow<List<Song>> = historyRepository.getRecentlyPlayedSongs(limit = 20)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    private val recentlyPlayedIds: StateFlow<Set<Long>> = recentlyPlayed
+        .map { list -> list.map { it.id }.toSet() }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptySet()
+        )
+
+    val albums: StateFlow<List<Album>> = browserRepository.getAlbums()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    val artists: StateFlow<List<Artist>> = browserRepository.getArtists()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    val genres: StateFlow<List<Genre>> = browserRepository.getGenres()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -60,21 +112,32 @@ class SongsViewModel @Inject constructor(
         )
 
     private val _sortOrder = MutableStateFlow(SongSortOrder.TITLE)
-    private val _syncState = MutableStateFlow(SyncState())
-    private val _filterState = MutableStateFlow(com.auralis.app.domain.model.SongFilterState())
-    val filterState: StateFlow<com.auralis.app.domain.model.SongFilterState> = _filterState.asStateFlow()
+    val sortOrder: StateFlow<SongSortOrder> = _sortOrder.asStateFlow()
 
+    private val _syncState = MutableStateFlow(SyncState())
+    private val _filterState = MutableStateFlow(SongFilterState())
+    val filterState: StateFlow<SongFilterState> = _filterState.asStateFlow()
+
+    // Base query sorting delegation (falls back to Title query if custom sort is applied in-memory)
     private val _songsFlow = _sortOrder.flatMapLatest { order ->
-        getSongsUseCase(order)
+        val baseOrder = when (order) {
+            SongSortOrder.TITLE, SongSortOrder.TITLE_DESC -> SongSortOrder.TITLE
+            SongSortOrder.ARTIST, SongSortOrder.ARTIST_DESC -> SongSortOrder.ARTIST
+            SongSortOrder.ALBUM -> SongSortOrder.ALBUM
+            SongSortOrder.DATE_ADDED -> SongSortOrder.DATE_ADDED
+            else -> SongSortOrder.TITLE
+        }
+        getSongsUseCase(baseOrder)
     }
 
     val uiState: StateFlow<SongsUiState> = combine(
-        _songsFlow,
-        _sortOrder,
-        _syncState,
-        _filterState,
-        favoriteSongIds
-    ) { songs, sortOrder, syncState, filter, favIds ->
+        combine(_songsFlow, _sortOrder, _syncState) { songs, sortOrder, syncState ->
+            Triple(songs, sortOrder, syncState)
+        },
+        combine(_filterState, favoriteSongIds, recentlyPlayedIds) { filter, favIds, recentIds ->
+            Triple(filter, favIds, recentIds)
+        }
+    ) { (songs, sortOrder, syncState), (filter, favIds, recentIds) ->
         when {
             syncState.permissionGranted == false -> {
                 SongsUiState.PermissionRequired(isPermanentlyDenied = syncState.isPermanentlyDenied)
@@ -90,10 +153,18 @@ class SongsViewModel @Inject constructor(
             }
             else -> {
                 val filtered = songs.filter { song ->
-                    filter.matches(song, isFavorite = song.id in favIds)
+                    filter.matches(
+                        song = song,
+                        isFavorite = song.id in favIds,
+                        isPlayed = song.id in recentIds,
+                        isRecentlyPlayed = song.id in recentIds
+                    )
                 }
+
+                val sorted = sortSongs(filtered, sortOrder, recentIds)
+
                 SongsUiState.Success(
-                    songs = filtered,
+                    songs = sorted,
                     sortOrder = sortOrder,
                     isScanning = syncState.isScanning
                 )
@@ -105,19 +176,62 @@ class SongsViewModel @Inject constructor(
         initialValue = SongsUiState.Loading
     )
 
+    private fun sortSongs(songs: List<Song>, sortOrder: SongSortOrder, recentIds: Set<Long>): List<Song> {
+        return when (sortOrder) {
+            SongSortOrder.TITLE -> songs.sortedBy { it.title.lowercase(Locale.ROOT) }
+            SongSortOrder.TITLE_DESC -> songs.sortedByDescending { it.title.lowercase(Locale.ROOT) }
+            SongSortOrder.ARTIST -> songs.sortedWith(
+                compareBy<Song> { it.artistName.lowercase(Locale.ROOT) }
+                    .thenBy { it.title.lowercase(Locale.ROOT) }
+            )
+            SongSortOrder.ARTIST_DESC -> songs.sortedWith(
+                compareByDescending<Song> { it.artistName.lowercase(Locale.ROOT) }
+                    .thenBy { it.title.lowercase(Locale.ROOT) }
+            )
+            SongSortOrder.ALBUM -> songs.sortedWith(
+                compareBy<Song> { it.albumName.lowercase(Locale.ROOT) }
+                    .thenBy { it.trackNumber ?: 0 }
+                    .thenBy { it.title.lowercase(Locale.ROOT) }
+            )
+            SongSortOrder.DATE_ADDED -> songs.sortedByDescending { it.dateAdded }
+            SongSortOrder.DATE_MODIFIED -> songs.sortedByDescending { it.dateModified }
+            SongSortOrder.DURATION_ASC -> songs.sortedBy { it.duration }
+            SongSortOrder.DURATION_DESC -> songs.sortedByDescending { it.duration }
+            SongSortOrder.FILE_SIZE_ASC -> songs.sortedBy { it.size }
+            SongSortOrder.FILE_SIZE_DESC -> songs.sortedByDescending { it.size }
+            SongSortOrder.BITRATE_DESC -> songs.sortedByDescending { it.bitrate ?: 0 }
+            SongSortOrder.BITRATE_ASC -> songs.sortedBy { it.bitrate ?: 0 }
+            SongSortOrder.MOST_PLAYED, SongSortOrder.RECENTLY_PLAYED -> {
+                // Rank recently played tracks first
+                songs.sortedByDescending { it.id in recentIds }
+            }
+        }
+    }
+
     fun onPermissionStatus(granted: Boolean, permanentlyDenied: Boolean = false) {
         val wasPreviouslyGranted = _syncState.value.permissionGranted == true
         _syncState.update {
             it.copy(permissionGranted = granted, isPermanentlyDenied = permanentlyDenied)
         }
         if (granted && !wasPreviouslyGranted) {
-            // Automatically run initial scan upon first grant
             scanLibrary()
         }
     }
 
+    fun setLibraryTab(tab: LibraryTab) {
+        _selectedTab.value = tab
+    }
+
+    fun setViewMode(mode: LibraryViewMode) {
+        _viewMode.value = mode
+    }
+
     fun setSortOrder(sortOrder: SongSortOrder) {
         _sortOrder.value = sortOrder
+    }
+
+    fun setFilterState(newFilter: SongFilterState) {
+        _filterState.value = newFilter
     }
 
     fun scanLibrary() {
@@ -157,15 +271,23 @@ class SongsViewModel @Inject constructor(
         }
     }
 
-    fun setFormatFilter(formatFilter: com.auralis.app.domain.model.FormatFilter) {
+    fun setFormatFilter(formatFilter: FormatFilter) {
         _filterState.update { it.copy(formatFilter = formatFilter) }
     }
 
-    fun setDurationFilter(durationFilter: com.auralis.app.domain.model.DurationFilter) {
+    fun setQualityFilter(qualityFilter: QualityFilter) {
+        _filterState.update { it.copy(qualityFilter = qualityFilter) }
+    }
+
+    fun setDurationFilter(durationFilter: DurationFilter) {
         _filterState.update { it.copy(durationFilter = durationFilter) }
     }
 
-    fun setBitrateFilter(bitrateFilter: com.auralis.app.domain.model.BitrateFilter) {
+    fun setPlaybackFilter(playbackFilter: PlaybackFilter) {
+        _filterState.update { it.copy(playbackFilter = playbackFilter) }
+    }
+
+    fun setBitrateFilter(bitrateFilter: BitrateFilter) {
         _filterState.update { it.copy(bitrateFilter = bitrateFilter) }
     }
 
@@ -178,6 +300,6 @@ class SongsViewModel @Inject constructor(
     }
 
     fun resetFilters() {
-        _filterState.value = com.auralis.app.domain.model.SongFilterState()
+        _filterState.value = SongFilterState()
     }
 }

@@ -33,7 +33,11 @@ object DatabaseModule {
             AuralisDatabase::class.java,
             AuralisDatabase.DATABASE_NAME
         )
-        .addMigrations(AuralisDatabase.MIGRATION_1_2, AuralisDatabase.MIGRATION_2_3)
+        .addMigrations(
+            AuralisDatabase.MIGRATION_1_2,
+            AuralisDatabase.MIGRATION_2_3,
+            AuralisDatabase.MIGRATION_3_4
+        )
         .addCallback(object : RoomDatabase.Callback() {
             override fun onOpen(db: SupportSQLiteDatabase) {
                 super.onOpen(db)
@@ -76,5 +80,10 @@ object DatabaseModule {
     @Provides
     fun provideHistoryDao(database: AuralisDatabase): HistoryDao {
         return database.historyDao()
+    }
+
+    @Provides
+    fun provideSearchHistoryDao(database: AuralisDatabase): com.auralis.app.data.local.db.dao.SearchHistoryDao {
+        return database.searchHistoryDao()
     }
 }
