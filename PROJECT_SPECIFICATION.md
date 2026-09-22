@@ -1,11 +1,11 @@
-# Melofy — Project Specification
+# Melofi — Project Specification
 
-> **Product Name:** Melofy (formerly Auralis)  
+> **Product Name:** Melofi (formerly Melofy / Auralis)  
 > **Tagline:** "Your music. Your device. Your control."  
 > **Type:** Native Android Application  
 > **Vision:** A local-first, offline music player focused on high-quality audio playback and a polished modern user experience.  
 > **Status:** Phase 6 — Listening History, Statistics, Smart Playlists & Widgets Complete  
-> **Last Updated:** 2026-09-21
+> **Last Updated:** 2026-09-22
 
 ---
 
@@ -34,7 +34,7 @@
 
 ## 1. Product Vision
 
-Melofy is a completely local Android music player. It allows users to import and play audio files stored on their device. The application works without an account, backend, subscription, advertisements, or internet connection.
+Melofi is a completely local Android music player. It allows users to import and play audio files stored on their device. The application works without an account, backend, subscription, advertisements, or internet connection.
 
 ### Core Principles
 

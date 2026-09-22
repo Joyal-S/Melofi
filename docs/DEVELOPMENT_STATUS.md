@@ -1,7 +1,7 @@
-# Melofy — Development Status
+# Melofi — Development Status
 
 > **Current Phase:** Phase 12 Complete (Security / Privacy / Data Integrity Audit)  
-> **Last Updated:** 2026-09-21  
+> **Last Updated:** 2026-09-22  
 
 ---
 
@@ -229,8 +229,8 @@
     - Default startup library tab selector.
     - Default library view mode selector (Standard / Compact / Grid).
     - Default song sort order selector.
-    - Melofy Privacy Guarantee Card (100% offline, zero data collection).
-    - About Melofy (version, build info, local audio engine).
+    - Melofi Privacy Guarantee Card (100% offline, zero data collection).
+    - About Melofi (version, build info, local audio engine).
 - **Visual Polish, Micro-Interactions & Empty States:**
   - `EmptyStateView`: Reusable empty state component with contextual icons, explanatory title, body text, and optional call-to-action buttons. Applied to Favorites and empty library tabs.
   - Micro-interactions: Spring-animated favorite heart bounce on both list items and Now Playing.

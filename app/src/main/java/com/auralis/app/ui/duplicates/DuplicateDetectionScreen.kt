@@ -204,7 +204,7 @@ fun DuplicateDetectionScreen(
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "Melofy never deletes files automatically. Review duplicate candidates, listen to compare audio quality, and manually choose which file to keep.",
+                                    text = "Melofi never deletes files automatically. Review duplicate candidates, listen to compare audio quality, and manually choose which file to keep.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

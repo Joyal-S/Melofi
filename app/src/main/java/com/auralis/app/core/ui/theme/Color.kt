@@ -100,7 +100,7 @@ enum class MelofyAccent(
     val containerDark: Color
 ) {
     VIOLET(
-        displayName = "Melofy Violet",
+        displayName = "Melofi Violet",
         primaryLight = Color(0xFF7C3AED),
         primaryDark = Color(0xFFA78BFA),
         containerLight = Color(0xFFEDE9FE),

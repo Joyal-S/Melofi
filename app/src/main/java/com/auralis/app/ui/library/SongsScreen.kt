@@ -164,7 +164,7 @@ fun SongsScreen(
                 TopAppBar(
                     title = {
                         Text(
-                            text = "Melofy",
+                            text = "Melofi",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
@@ -434,7 +434,7 @@ fun SongsScreen(
                                         fontWeight = FontWeight.Bold
                                     )
                                     Text(
-                                        text = "Melofy needs permission to discover audio files on your device. Everything remains 100% offline.",
+                                        text = "Melofi needs permission to discover audio files on your device. Everything remains 100% offline.",
                                         style = MaterialTheme.typography.bodyMedium,
                                         textAlign = TextAlign.Center
                                     )

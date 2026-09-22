@@ -1,4 +1,4 @@
-# Melofy
+# Melofi
 
 > "Your music. Your device. Your control."  
 > A local-first, offline Android music player focused on high-quality audio playback and a polished modern experience.
@@ -7,7 +7,7 @@
 
 ## Vision
 
-Melofy is a completely local music player for Android. It plays audio files stored on your device — no account, no backend, no subscription, no ads, no internet required.
+Melofi is a completely local music player for Android. It plays audio files stored on your device — no account, no backend, no subscription, no ads, no internet required.
 
 - **Privacy-first.** No analytics, no cloud sync, no tracking.
 - **High-quality audio.** Supports MP3, AAC, OGG, Opus, FLAC, WAV, and more. Preserves original files — never transcodes.
@@ -20,7 +20,7 @@ Melofy is a completely local music player for Android. It plays audio files stor
 
 **Complete Local Music Import & Universal Artwork Customization**
 
-Melofy features a complete local-first music library with Storage Access Framework (SAF) local music import (single file, multiple files, and folder trees) copying bytes cleanly into `Music/Melofy/` without transcoding or re-encoding, pre-import duplicate detection with interactive conflict resolution, universal offline artwork customization across Songs, Albums, Artists, Genres, and Playlists with deterministic priority resolution and 2x2 playlist collages, Media3 background playback, custom playlists, reactive favorites, hardware-accelerated audio effects (Equalizer, Bass Boost, Virtualizer, ReplayGain), listening history, statistics, home screen widget, deep on-demand metadata inspection, safe metadata editing, multi-signal duplicate detection, multi-field local search with deterministic ranking, persistent search history, dynamic suggestions, categorized results, advanced multi-filter engine with strict AND semantics, 15 sorting modes, library organization across Tracks, Albums, Artists, and Genres, a 100% on-device deterministic recommendation engine with "For You" carousels, a refined design system (8dp grid, Material 3 elevations, pure AMOLED Black theme `#000000`), persistent local personalization, draw-phase decoupled playback progress tracking, bounded Coil image caching, benchmark-verified scaling to 10,000+ tracks, complete offline network isolation, disabled cloud backups (`allowBackup=false`), hardened ReplayGain calculation against NaN/Infinity, bounded metadata strings, clamped sleep timers, downsampled/validated custom artwork, and sanitized diagnostics. See [docs/DEVELOPMENT_STATUS.md](docs/DEVELOPMENT_STATUS.md) and [PROJECT_SPECIFICATION.md](PROJECT_SPECIFICATION.md) for full technical documentation.
+Melofi features a complete local-first music library with Storage Access Framework (SAF) local music import (single file, multiple files, and folder trees) copying bytes cleanly into `Music/Melofy/` without transcoding or re-encoding, pre-import duplicate detection with interactive conflict resolution, universal offline artwork customization across Songs, Albums, Artists, Genres, and Playlists with deterministic priority resolution and 2x2 playlist collages, Media3 background playback, custom playlists, reactive favorites, hardware-accelerated audio effects (Equalizer, Bass Boost, Virtualizer, ReplayGain), listening history, statistics, home screen widget, deep on-demand metadata inspection, safe metadata editing, multi-signal duplicate detection, multi-field local search with deterministic ranking, persistent search history, dynamic suggestions, categorized results, advanced multi-filter engine with strict AND semantics, 15 sorting modes, library organization across Tracks, Albums, Artists, and Genres, a 100% on-device deterministic recommendation engine with "For You" carousels, a refined design system (8dp grid, Material 3 elevations, pure AMOLED Black theme `#000000`), persistent local personalization, draw-phase decoupled playback progress tracking, bounded Coil image caching, benchmark-verified scaling to 10,000+ tracks, complete offline network isolation, disabled cloud backups (`allowBackup=false`), hardened ReplayGain calculation against NaN/Infinity, bounded metadata strings, clamped sleep timers, downsampled/validated custom artwork, and sanitized diagnostics. See [docs/DEVELOPMENT_STATUS.md](docs/DEVELOPMENT_STATUS.md) and [PROJECT_SPECIFICATION.md](PROJECT_SPECIFICATION.md) for full technical documentation.
 
 ---
 
@@ -69,7 +69,7 @@ cd spotifly
 ## Project Structure
 
 ```
-melofy/
+melofi/
 ├── app/                          Main application module
 ├── gradle/
 │   ├── wrapper/                  Gradle Wrapper

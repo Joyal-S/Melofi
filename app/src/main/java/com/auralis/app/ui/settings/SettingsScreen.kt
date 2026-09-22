@@ -59,7 +59,7 @@ import androidx.activity.compose.BackHandler
 
 /**
  * Unified Settings screen organizing Audio Effects (Equalizer, Bass Boost, ReplayGain, Lo-Fi + Reverb)
- * and Personalization (Theme, AMOLED black, Library defaults, Privacy, About Melofy).
+ * and Personalization (Theme, AMOLED black, Library defaults, Privacy, About Melofi).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -471,14 +471,14 @@ private fun PersonalizationAndAboutContent(
                 Spacer(modifier = Modifier.height(MelofySpacing.sm))
 
                 Text(
-                    text = "Melofy has ZERO network permissions. Your music, listening history, favorites, metadata edits, and recommendations are strictly on-device. No accounts, no cloud sync, no telemetry, no tracking, and no external advertising.",
+                    text = "Melofi has ZERO network permissions. Your music, listening history, favorites, metadata edits, and recommendations are strictly on-device. No accounts, no cloud sync, no telemetry, no tracking, and no external advertising.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
 
-        // 4. About Melofy Card
+        // 4. About Melofi Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = MelofyShapes.card,
@@ -487,7 +487,7 @@ private fun PersonalizationAndAboutContent(
         ) {
             Column(modifier = Modifier.padding(MelofySpacing.lg)) {
                 Text(
-                    text = "MELOFY",
+                    text = "MELOFI",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.primary

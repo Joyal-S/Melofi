@@ -1,8 +1,8 @@
 <resources>
-    <string name="app_name">Melofy</string>
+    <string name="app_name">Melofi</string>
     <string name="nav_songs">Songs</string>
     <string name="permission_storage_title">Access Your Music</string>
-    <string name="permission_storage_description">Melofy is a 100% offline player that plays audio files directly from your device storage. To discover and organize your music library, Melofy needs permission to read audio files.</string>
+    <string name="permission_storage_description">Melofi is a 100% offline player that plays audio files directly from your device storage. To discover and organize your music library, Melofi needs permission to read audio files.</string>
     <string name="permission_grant_button">Grant Access</string>
     <string name="permission_denied_permanent_description">Storage permission was previously declined. Please open app settings and enable audio/storage access to scan your music library.</string>
     <string name="permission_open_settings">Open Settings</string>
@@ -46,7 +46,7 @@
 
     <!-- Phase 6 Stats, Smart Playlists & Widget -->
     <string name="nav_stats">Stats</string>
-    <string name="widget_description">Melofy music player playback controls and current song display.</string>
+    <string name="widget_description">Melofi music player playback controls and current song display.</string>
     <string name="widget_no_music">No music playing</string>
     <string name="stats_title">Your Listening</string>
     <string name="stats_empty">No listening history yet. Start playing your music to view listening statistics.</string>
