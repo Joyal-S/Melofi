@@ -16,6 +16,11 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.auralis.app.data.repository.LocalArtworkRepository
+import com.auralis.app.domain.repository.PlaylistRepository
+import com.auralis.app.domain.usecase.playlists.GetPlaylistSongsUseCase
+import kotlinx.coroutines.flow.firstOrNull
+
 /**
  * ViewModel managing user playlists collection.
  */
@@ -24,7 +29,10 @@ class PlaylistsViewModel @Inject constructor(
     getPlaylistsUseCase: GetPlaylistsUseCase,
     private val createPlaylistUseCase: CreatePlaylistUseCase,
     private val renamePlaylistUseCase: RenamePlaylistUseCase,
-    private val deletePlaylistUseCase: DeletePlaylistUseCase
+    private val deletePlaylistUseCase: DeletePlaylistUseCase,
+    val localArtworkRepository: LocalArtworkRepository,
+    private val playlistRepository: PlaylistRepository,
+    private val getPlaylistSongsUseCase: GetPlaylistSongsUseCase
 ) : ViewModel() {
 
     val playlists: StateFlow<List<Playlist>> = getPlaylistsUseCase()
@@ -78,5 +86,35 @@ class PlaylistsViewModel @Inject constructor(
 
     fun clearError() {
         _actionError.value = null
+    }
+
+    fun setCustomArtwork(playlistId: Long, uri: android.net.Uri) {
+        viewModelScope.launch {
+            val result = localArtworkRepository.setCustomArtwork(com.auralis.app.domain.model.ArtworkEntityType.PLAYLIST, playlistId.toString(), uri)
+            result.getOrNull()?.let { localUri ->
+                playlistRepository.updatePlaylistCover(playlistId, localUri)
+            }
+        }
+    }
+
+    fun clearCustomArtwork(playlistId: Long) {
+        viewModelScope.launch {
+            localArtworkRepository.clearCustomArtwork(com.auralis.app.domain.model.ArtworkEntityType.PLAYLIST, playlistId.toString())
+            playlistRepository.updatePlaylistCover(playlistId, null)
+        }
+    }
+
+    fun getPlaylistArtworkUri(playlist: Playlist): String? {
+        return localArtworkRepository.getPlaylistArtworkUri(playlist.id, playlist.customCoverUri)
+    }
+
+    fun playPlaylist(playlistId: Long, shuffle: Boolean, onPlay: (List<com.auralis.app.domain.model.Song>) -> Unit) {
+        viewModelScope.launch {
+            val songs = getPlaylistSongsUseCase(playlistId).firstOrNull().orEmpty()
+            if (songs.isNotEmpty()) {
+                val ordered = if (shuffle) songs.shuffled() else songs
+                onPlay(ordered)
+            }
+        }
     }
 }

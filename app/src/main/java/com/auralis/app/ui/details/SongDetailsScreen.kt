@@ -201,73 +201,19 @@ fun SongDetailsScreen(
                 }
 
                 if (showArtworkDialog) {
-                    androidx.compose.material3.AlertDialog(
-                        onDismissRequest = { showArtworkDialog = false },
-                        title = { Text("Album Artwork", fontWeight = FontWeight.Bold) },
-                        text = {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(220.dp)
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    AsyncImage(
-                                        model = details.technicalInfo.albumArtUri,
-                                        contentDescription = "Full Artwork",
-                                        modifier = Modifier.size(220.dp),
-                                        contentScale = ContentScale.Crop,
-                                        placeholder = painterResource(R.drawable.ic_music_placeholder),
-                                        error = painterResource(R.drawable.ic_music_placeholder),
-                                        fallback = painterResource(R.drawable.ic_music_placeholder)
-                                    )
-                                }
-                                if (state.hasCustomArtwork) {
-                                    Text(
-                                        text = "Custom local artwork override is active.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                                Text(
-                                    text = "Artwork is kept 100% offline. You can choose a local picture from your device or restore default artwork.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    textAlign = TextAlign.Center
-                                )
-                            }
+                    com.auralis.app.ui.components.ArtworkCustomizationDialog(
+                        entityType = com.auralis.app.domain.model.ArtworkEntityType.SONG,
+                        entityId = songId.toString(),
+                        entityName = details.basicInfo.title,
+                        currentArtworkUri = details.technicalInfo.albumArtUri,
+                        onDismiss = { showArtworkDialog = false },
+                        onSave = { uri ->
+                            showArtworkDialog = false
+                            viewModel.setCustomArtwork(uri)
                         },
-                        confirmButton = {
-                            androidx.compose.material3.TextButton(
-                                onClick = {
-                                    showArtworkDialog = false
-                                    imagePickerLauncher.launch("image/*")
-                                }
-                            ) {
-                                Text("Choose Image", fontWeight = FontWeight.Bold)
-                            }
-                        },
-                        dismissButton = {
-                            Row {
-                                if (state.hasCustomArtwork) {
-                                    androidx.compose.material3.TextButton(
-                                        onClick = {
-                                            viewModel.clearCustomArtwork()
-                                            showArtworkDialog = false
-                                        }
-                                    ) {
-                                        Text("Restore Default", color = MaterialTheme.colorScheme.error)
-                                    }
-                                }
-                                androidx.compose.material3.TextButton(onClick = { showArtworkDialog = false }) {
-                                    Text("Close")
-                                }
-                            }
+                        onReset = {
+                            showArtworkDialog = false
+                            viewModel.clearCustomArtwork()
                         }
                     )
                 }

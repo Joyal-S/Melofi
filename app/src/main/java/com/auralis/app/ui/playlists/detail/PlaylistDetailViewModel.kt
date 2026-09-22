@@ -20,6 +20,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.auralis.app.data.repository.LocalArtworkRepository
+import com.auralis.app.domain.usecase.playlists.DeletePlaylistUseCase
+
 /**
  * ViewModel managing the contents and actions of an active playlist.
  */
@@ -30,6 +33,8 @@ class PlaylistDetailViewModel @Inject constructor(
     private val getPlaylistSongsUseCase: GetPlaylistSongsUseCase,
     private val removeSongFromPlaylistUseCase: RemoveSongFromPlaylistUseCase,
     private val reorderPlaylistSongsUseCase: ReorderPlaylistSongsUseCase,
+    private val deletePlaylistUseCase: DeletePlaylistUseCase,
+    val localArtworkRepository: LocalArtworkRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -89,6 +94,33 @@ class PlaylistDetailViewModel @Inject constructor(
         val playlistId = _playlistId.value ?: return
         viewModelScope.launch {
             playlistRepository.updatePlaylistDescription(playlistId, description)
+        }
+    }
+
+    fun setCustomArtwork(uri: android.net.Uri) {
+        val playlistId = _playlistId.value ?: return
+        viewModelScope.launch {
+            val result = localArtworkRepository.setCustomArtwork(com.auralis.app.domain.model.ArtworkEntityType.PLAYLIST, playlistId.toString(), uri)
+            result.getOrNull()?.let { localUri ->
+                playlistRepository.updatePlaylistCover(playlistId, localUri)
+            }
+        }
+    }
+
+    fun clearCustomArtwork() {
+        val playlistId = _playlistId.value ?: return
+        viewModelScope.launch {
+            localArtworkRepository.clearCustomArtwork(com.auralis.app.domain.model.ArtworkEntityType.PLAYLIST, playlistId.toString())
+            playlistRepository.updatePlaylistCover(playlistId, null)
+        }
+    }
+
+    fun deletePlaylist(onDeleted: () -> Unit) {
+        val playlistId = _playlistId.value ?: return
+        viewModelScope.launch {
+            deletePlaylistUseCase(playlistId).onSuccess {
+                onDeleted()
+            }
         }
     }
 }

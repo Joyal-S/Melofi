@@ -46,6 +46,15 @@ import com.auralis.app.domain.model.Song
 import com.auralis.app.ui.library.components.SongListItem
 import com.auralis.app.ui.playback.PlaybackViewModel
 
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.auralis.app.domain.model.ArtworkEntityType
+import com.auralis.app.ui.components.ArtworkCustomizationDialog
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlbumDetailScreen(
@@ -60,6 +69,8 @@ fun AlbumDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val favoriteSongIds by viewModel.favoriteSongIds.collectAsStateWithLifecycle()
+    var showArtworkDialog by remember { mutableStateOf(false) }
+    var showOverflowMenu by remember { mutableStateOf(false) }
 
     LaunchedEffect(albumId) {
         viewModel.loadAlbum(albumId)
@@ -73,6 +84,53 @@ fun AlbumDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(painter = painterResource(R.drawable.ic_arrow_back), contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    Box {
+                        IconButton(onClick = { showOverflowMenu = true }) {
+                            Icon(painter = painterResource(R.drawable.ic_more_vert), contentDescription = "More options")
+                        }
+                        DropdownMenu(
+                            expanded = showOverflowMenu,
+                            onDismissRequest = { showOverflowMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Change Cover") },
+                                leadingIcon = { Icon(painter = painterResource(R.drawable.ic_image), contentDescription = null) },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    showArtworkDialog = true
+                                }
+                            )
+                            val songs = (uiState as? AlbumDetailUiState.Success)?.songs.orEmpty()
+                            if (songs.isNotEmpty()) {
+                                DropdownMenuItem(
+                                    text = { Text("Play All") },
+                                    leadingIcon = { Icon(painter = painterResource(R.drawable.ic_play_arrow), contentDescription = null) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        playbackViewModel.playSong(songs.first(), songs)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Shuffle") },
+                                    leadingIcon = { Icon(painter = painterResource(R.drawable.ic_shuffle), contentDescription = null) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        playbackViewModel.playSong(songs.shuffled().first(), songs.shuffled())
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Add to Queue") },
+                                    leadingIcon = { Icon(painter = painterResource(R.drawable.ic_queue_music), contentDescription = null) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        playbackViewModel.addSongsToQueue(songs)
+                                    }
+                                )
+                            }
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -122,7 +180,9 @@ fun AlbumDetailScreen(
                                 artworkUri = album.artUri,
                                 title = album.name,
                                 artist = album.artistName,
-                                modifier = Modifier.size(180.dp),
+                                modifier = Modifier
+                                    .size(180.dp)
+                                    .clickable { showArtworkDialog = true },
                                 cornerRadius = 16.dp
                             )
 
@@ -219,6 +279,27 @@ fun AlbumDetailScreen(
                     }
                 }
             }
+        }
+    }
+
+    if (showArtworkDialog) {
+        val currentAlbum = (uiState as? AlbumDetailUiState.Success)?.album
+        if (currentAlbum != null) {
+            ArtworkCustomizationDialog(
+                entityType = ArtworkEntityType.ALBUM,
+                entityId = currentAlbum.id.toString(),
+                entityName = currentAlbum.name,
+                currentArtworkUri = currentAlbum.artUri,
+                onDismiss = { showArtworkDialog = false },
+                onSave = { uri ->
+                    showArtworkDialog = false
+                    viewModel.setCustomArtwork(uri)
+                },
+                onReset = {
+                    showArtworkDialog = false
+                    viewModel.clearCustomArtwork()
+                }
+            )
         }
     }
 }

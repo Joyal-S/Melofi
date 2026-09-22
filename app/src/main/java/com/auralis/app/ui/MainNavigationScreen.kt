@@ -380,6 +380,7 @@ fun MainNavigationScreen(
                         playlistsViewModel = playlistsViewModel,
                         onPlaylistClick = { selectedPlaylistId = it },
                         onSmartPlaylistClick = { selectedSmartPlaylistType = it },
+                        playbackViewModel = playbackViewModel,
                         modifier = screenModifier
                     )
                 }

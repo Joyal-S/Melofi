@@ -79,10 +79,13 @@ import com.auralis.app.domain.model.QualityFilter
 import com.auralis.app.domain.model.RecommendationSectionType
 import com.auralis.app.domain.model.Song
 import com.auralis.app.domain.model.SongSortOrder
+import com.auralis.app.domain.model.ArtworkEntityType
+import com.auralis.app.ui.components.ArtworkCustomizationDialog
 import com.auralis.app.ui.components.MelofyArtwork
 import com.auralis.app.ui.library.components.AddToPlaylistDialog
 import com.auralis.app.ui.library.components.FilterBottomSheet
 import com.auralis.app.ui.library.components.SongListItem
+import com.auralis.app.ui.library.importmusic.ImportMusicDialog
 import com.auralis.app.ui.playback.PlaybackViewModel
 import com.auralis.app.ui.recommendations.RecommendationSectionRow
 import com.auralis.app.ui.recommendations.RecommendationUiState
@@ -119,6 +122,8 @@ fun SongsScreen(
     val genres by viewModel.genres.collectAsStateWithLifecycle()
 
     var songForPlaylistDialog by remember { mutableStateOf<Song?>(null) }
+    var songForArtworkDialog by remember { mutableStateOf<Song?>(null) }
+    var showImportDialog by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
     var showFilterSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -165,6 +170,11 @@ fun SongsScreen(
                         )
                     },
                     actions = {
+                        // Add Music Button
+                        IconButton(onClick = { showImportDialog = true }) {
+                            Icon(painter = painterResource(R.drawable.ic_add), contentDescription = "Add Music")
+                        }
+
                         // Search Button
                         IconButton(onClick = { onSearchClick?.invoke() }) {
                             Icon(painter = painterResource(R.drawable.ic_search), contentDescription = "Search Library")
@@ -477,7 +487,17 @@ fun SongsScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         textAlign = TextAlign.Center
                                     )
-                                    if (!filterState.isDefault) {
+                                    if (filterState.isDefault) {
+                                        Button(onClick = { showImportDialog = true }) {
+                                            Icon(
+                                                painter = painterResource(R.drawable.ic_add),
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Add Music")
+                                        }
+                                    } else {
                                         Button(onClick = { viewModel.resetFilters() }) {
                                             Text("Reset Filters")
                                         }
@@ -543,7 +563,11 @@ fun SongsScreen(
                                             isCompact = viewMode == LibraryViewMode.COMPACT,
                                             onToggleFavorite = { viewModel.toggleFavorite(song.id) },
                                             onAddToPlaylist = { songForPlaylistDialog = song },
+                                            onPlay = { playbackViewModel.playSong(song, songs) },
+                                            onAddToQueue = { playbackViewModel.addSongsToQueue(listOf(song)) },
                                             onPlayNext = { playbackViewModel.addSongsToQueue(listOf(song)) },
+                                            onChangeArtwork = { songForArtworkDialog = song },
+                                            onDelete = { viewModel.deleteSong(song.id) },
                                             onShowDetails = { onSongDetailsClick?.invoke(song) }
                                         )
                                     }
@@ -626,20 +650,13 @@ fun SongsScreen(
                                         .padding(horizontal = 16.dp, vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(52.dp)
-                                            .clip(CircleShape)
-                                            .background(MaterialTheme.colorScheme.primaryContainer),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = artist.name.take(1).uppercase(),
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                                        )
-                                    }
+                                    MelofyArtwork(
+                                        artworkUri = artist.artUri,
+                                        title = artist.name,
+                                        entityType = ArtworkEntityType.ARTIST,
+                                        modifier = Modifier.size(52.dp),
+                                        cornerRadius = 26.dp
+                                    )
                                     Spacer(modifier = Modifier.width(16.dp))
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
@@ -680,12 +697,15 @@ fun SongsScreen(
                                     shape = RoundedCornerShape(14.dp),
                                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f))
                                 ) {
-                                    Column(modifier = Modifier.padding(16.dp)) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.ic_tune),
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(32.dp)
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        MelofyArtwork(
+                                            artworkUri = genre.artUri,
+                                            title = genre.name,
+                                            entityType = ArtworkEntityType.GENRE,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .aspectRatio(1.2f),
+                                            cornerRadius = 10.dp
                                         )
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Text(
@@ -708,6 +728,35 @@ fun SongsScreen(
                 }
             }
         }
+    }
+
+    if (showImportDialog) {
+        ImportMusicDialog(
+            importManager = viewModel.importManager,
+            onDismiss = { showImportDialog = false },
+            onImportComplete = {
+                showImportDialog = false
+                viewModel.scanLibrary()
+            }
+        )
+    }
+
+    songForArtworkDialog?.let { song ->
+        ArtworkCustomizationDialog(
+            entityType = ArtworkEntityType.SONG,
+            entityId = song.id.toString(),
+            entityName = song.title,
+            currentArtworkUri = song.albumArtUri,
+            onDismiss = { songForArtworkDialog = null },
+            onSave = { uri ->
+                viewModel.setCustomArtwork(ArtworkEntityType.SONG, song.id.toString(), uri)
+                songForArtworkDialog = null
+            },
+            onReset = {
+                viewModel.clearCustomArtwork(ArtworkEntityType.SONG, song.id.toString())
+                songForArtworkDialog = null
+            }
+        )
     }
 
     songForPlaylistDialog?.let { song ->

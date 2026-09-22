@@ -33,7 +33,8 @@ sealed interface ArtistDetailUiState {
 @HiltViewModel
 class ArtistDetailViewModel @Inject constructor(
     private val browserRepository: LibraryBrowserRepository,
-    private val favoriteRepository: FavoriteRepository
+    private val favoriteRepository: FavoriteRepository,
+    val localArtworkRepository: com.auralis.app.data.repository.LocalArtworkRepository
 ) : ViewModel() {
 
     private val _artistId = MutableStateFlow<Long?>(null)
@@ -75,6 +76,24 @@ class ArtistDetailViewModel @Inject constructor(
     fun toggleFavorite(songId: Long) {
         viewModelScope.launch {
             favoriteRepository.toggleFavorite(songId)
+        }
+    }
+
+    fun setCustomArtwork(uri: android.net.Uri) {
+        val artist = (uiState.value as? ArtistDetailUiState.Success)?.artist ?: return
+        viewModelScope.launch {
+            localArtworkRepository.setCustomArtwork(com.auralis.app.domain.model.ArtworkEntityType.ARTIST, artist.id.toString(), uri)
+            _artistId.value = null
+            _artistId.value = artist.id
+        }
+    }
+
+    fun clearCustomArtwork() {
+        val artist = (uiState.value as? ArtistDetailUiState.Success)?.artist ?: return
+        viewModelScope.launch {
+            localArtworkRepository.clearCustomArtwork(com.auralis.app.domain.model.ArtworkEntityType.ARTIST, artist.id.toString())
+            _artistId.value = null
+            _artistId.value = artist.id
         }
     }
 }

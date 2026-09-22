@@ -22,6 +22,7 @@
 | **Phase 10** | UI/UX Polish & Personalization | ✅ Complete |
 | **Phase 11** | Performance & Battery Optimization | ✅ Complete |
 | **Phase 12** | Security / Privacy / Data Integrity Audit | ✅ Complete |
+| **Phase 13** | Local Music Import & Universal Artwork Customization | ✅ Complete |
 
 ---
 
@@ -319,6 +320,27 @@
   - `PlaylistsScreen.kt` & `PlaylistDetailScreen.kt`: Collage covers, custom image picker, and description editor.
   - `SettingsScreen.kt`: Accent color chips, motion mode selector, and quality badges toggle.
 
+### Local Music Import & Universal Artwork Architecture (Phase 13)
+- **Room Database Schema v6 & Migration (`AuralisDatabase.kt`, `ArtworkOverrideEntity.kt`):**
+  - Room DB upgraded to version 6 with deterministic `MIGRATION_5_6`.
+  - Added `artwork_overrides` table: `@PrimaryKey entityType_entityKey`, `entityType`, `entityKey`, `localPath`, `updatedAt`.
+  - Automated unit test in `DatabaseMigration5To6Test.kt`.
+- **Music Import Pipeline (`MusicImportManager.kt`):**
+  - Storage Access Framework (SAF) integration supporting single files, multiple files, and full folder tree traversal.
+  - Byte-perfect copy of audio streams to MediaStore `Music/Melofy/` using scoped storage (API 29+); zero transcoding, re-encoding, or resampling.
+  - Pre-import duplicate detection with user resolution options ("Already in Library", "Import Anyway", "Skip Duplicates", live progress reporting, and completion summary).
+- **Universal Artwork Customization Engine (`LocalArtworkRepository.kt`, `ArtworkCustomizationDialog.kt`):**
+  - Universal artwork customization for Songs, Albums, Artists, Genres, and Playlists.
+  - Priority hierarchy: `CUSTOM OVERRIDE -> EMBEDDED ARTWORK -> MEDIASTORE ARTWORK -> AUTOMATIC LOCAL FALLBACK`.
+  - Memory-bounded image downsampling (max 1024x1024) saved to app-private `custom_artwork/` directory.
+  - Fast in-memory cache mapping (`overrideCache`) for zero-latency scrolling.
+  - Automatic 2x2 collage generation for playlists without custom covers, with cache invalidation on membership change.
+- **UI & Context Actions:**
+  - `ImportMusicDialog.kt`: Polished modal dialog with single/batch/folder pickers, duplicate conflict prompt, progress bar, and summary stats.
+  - `SongListItem.kt`: Complete context menu (Play, Add to Queue, Add to Playlist, Favorite, Song Details, Edit Metadata, Change Artwork, Delete).
+  - Overflow menus across `AlbumDetailScreen`, `ArtistDetailScreen`, `GenreDetailScreen`, `PlaylistDetailScreen`, and `PlaylistsScreen`.
+  - Prominent playlist cards on `PlaylistsScreen` with covers and quick actions.
+
 ---
 
 ## 3. Completed Verification
@@ -327,8 +349,11 @@
 |---|---|---|
 | `./gradlew --version` | ✅ Pass | Gradle 9.6.0, JDK 21.0.10 (Android Studio JBR) |
 | `./gradlew clean` | ✅ Pass | Clean build cache & outputs |
-| `./gradlew assembleDebug` | ✅ Pass | Generates `app-debug.apk` cleanly in 11s without errors |
-| `./gradlew testDebugUnitTest` | ✅ Pass | 358/358 unit tests execute and pass across 54 test suites |
+| `./gradlew assembleDebug` | ✅ Pass | Generates `app-debug.apk` cleanly in 8s without errors |
+| `./gradlew test` | ✅ Pass | All unit tests execute and pass (including `MusicImportTest`, `UniversalArtworkTest`, and `DatabaseMigration5To6Test`) |
+| Room DB Migration 5 → 6 Test | ✅ Pass | Verified schema version 6 upgrade and `artwork_overrides` table creation |
+| Music Import & Duplicate Engine Tests | ✅ Pass | Verified duplicate detection, byte-perfect stream copying, and import cancellation |
+| Universal Artwork Resolution Tests | ✅ Pass | Verified custom override priority, embedded/MediaStore fallback, and downsampling |
 | Room DB Migration 4 → 5 Test | ✅ Pass | Verified schema version 5 upgrade and non-destructive column additions |
 | Security & Data Integrity Unit Tests | ✅ Pass | 8/8 dedicated tests passing (NaN/Infinity ReplayGain, string bounds, format blocking, timer clamping) |
 | Large Library Scaling Benchmark | ✅ Pass | 10,000 tracks: duplicate grouping in 84ms, sorting in 10ms, filtering in 7ms, search ranking in 60ms |

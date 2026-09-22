@@ -21,6 +21,7 @@ import javax.inject.Singleton
 @Singleton
 class PlaylistRepositoryImpl @Inject constructor(
     private val playlistDao: PlaylistDao,
+    private val localArtworkRepository: LocalArtworkRepository,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : PlaylistRepository {
 
@@ -28,13 +29,14 @@ class PlaylistRepositoryImpl @Inject constructor(
         return playlistDao.getPlaylistsWithCount()
             .map { list ->
                 list.map { entity ->
+                    val cover = entity.customCoverUri ?: localArtworkRepository.getPlaylistArtworkUri(entity.id)
                     Playlist(
                         id = entity.id,
                         name = entity.name,
                         createdAt = entity.createdAt,
                         updatedAt = entity.updatedAt,
                         songCount = entity.songCount,
-                        customCoverUri = entity.customCoverUri,
+                        customCoverUri = cover,
                         description = entity.description
                     )
                 }
@@ -46,12 +48,13 @@ class PlaylistRepositoryImpl @Inject constructor(
         return playlistDao.getPlaylistById(id)
             .map { entity ->
                 entity?.let {
+                    val cover = it.customCoverUri ?: localArtworkRepository.getPlaylistArtworkUri(it.id)
                     Playlist(
                         id = it.id,
                         name = it.name,
                         createdAt = it.createdAt,
                         updatedAt = it.updatedAt,
-                        customCoverUri = it.customCoverUri,
+                        customCoverUri = cover,
                         description = it.description
                     )
                 }
@@ -104,6 +107,7 @@ class PlaylistRepositoryImpl @Inject constructor(
     override suspend fun addSongToPlaylist(playlistId: Long, songId: Long): Result<Unit> = withContext(ioDispatcher) {
         try {
             playlistDao.addSongToEnd(playlistId, songId)
+            localArtworkRepository.invalidatePlaylistCollage(playlistId)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -113,6 +117,7 @@ class PlaylistRepositoryImpl @Inject constructor(
     override suspend fun removeSongFromPlaylist(playlistId: Long, songId: Long): Result<Unit> = withContext(ioDispatcher) {
         try {
             playlistDao.removeSongAndCompact(playlistId, songId)
+            localArtworkRepository.invalidatePlaylistCollage(playlistId)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -122,6 +127,7 @@ class PlaylistRepositoryImpl @Inject constructor(
     override suspend fun reorderPlaylistSongs(playlistId: Long, orderedSongIds: List<Long>): Result<Unit> = withContext(ioDispatcher) {
         try {
             playlistDao.reorderSongs(playlistId, orderedSongIds)
+            localArtworkRepository.invalidatePlaylistCollage(playlistId)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -131,6 +137,7 @@ class PlaylistRepositoryImpl @Inject constructor(
     override suspend fun updatePlaylistCover(playlistId: Long, coverUri: String?): Result<Unit> = withContext(ioDispatcher) {
         try {
             playlistDao.updatePlaylistCover(playlistId, coverUri)
+            localArtworkRepository.invalidatePlaylistCollage(playlistId)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

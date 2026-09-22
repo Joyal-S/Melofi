@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.auralis.app.R
-import com.auralis.app.core.ui.theme.MelofyShapes
+import com.auralis.app.domain.model.ArtworkEntityType
 import com.auralis.app.domain.model.Playlist
 import com.auralis.app.domain.model.Song
 import kotlin.math.abs
@@ -57,8 +57,9 @@ fun getDeterministicGradient(seed: String): Brush {
 }
 
 /**
- * Premium local artwork component.
- * Loads artwork via Coil with smooth clipping and provides a rich deterministic gradient/monogram fallback.
+ * Premium universal local artwork component.
+ * Loads artwork via Coil with smooth clipping and provides a rich deterministic gradient/monogram fallback
+ * tailored to the entity type (Song, Album, Artist, Genre, Playlist).
  */
 @Composable
 fun MelofyArtwork(
@@ -66,13 +67,27 @@ fun MelofyArtwork(
     title: String,
     modifier: Modifier = Modifier,
     artist: String? = null,
+    entityType: ArtworkEntityType? = null,
     cornerRadius: Dp = 12.dp,
     contentScale: ContentScale = ContentScale.Crop,
     showInitial: Boolean = true
 ) {
     val shape = remember(cornerRadius) { RoundedCornerShape(cornerRadius) }
     val gradient = remember(title, artist) { getDeterministicGradient(title + (artist ?: "")) }
-    val initial = remember(title) { title.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "♪" }
+    val initial = remember(title, entityType) {
+        val trimmed = title.trim()
+        if (trimmed.isNotEmpty()) {
+            trimmed.first().uppercaseChar().toString()
+        } else {
+            when (entityType) {
+                ArtworkEntityType.ARTIST -> "A"
+                ArtworkEntityType.ALBUM -> "O"
+                ArtworkEntityType.GENRE -> "G"
+                ArtworkEntityType.PLAYLIST -> "P"
+                else -> "♪"
+            }
+        }
+    }
 
     Box(
         modifier = modifier
@@ -96,7 +111,13 @@ fun MelofyArtwork(
             )
         } else {
             Icon(
-                painter = painterResource(R.drawable.ic_music_placeholder),
+                painter = painterResource(
+                    when (entityType) {
+                        ArtworkEntityType.PLAYLIST -> R.drawable.ic_playlist_play
+                        ArtworkEntityType.ARTIST -> R.drawable.ic_person
+                        else -> R.drawable.ic_music_placeholder
+                    }
+                ),
                 contentDescription = null,
                 tint = Color.White.copy(alpha = 0.7f)
             )

@@ -23,6 +23,7 @@ import android.net.Uri
 import android.provider.MediaStore
 import android.util.Log
 import com.auralis.app.data.local.metadata.SongMetadataInspector
+import com.auralis.app.domain.model.ArtworkEntityType
 import com.auralis.app.domain.model.DuplicateDetectionEngine
 import com.auralis.app.domain.model.DuplicateGroup
 import com.auralis.app.domain.model.SongDetails
@@ -57,11 +58,25 @@ class SongRepositoryImpl @Inject constructor(
             SongSortOrder.DATE_ADDED -> songDao.getSongsSortedByDateAdded()
             else -> songDao.getSongsSortedByTitle()
         }
-        return flow.map { SongMapper.toDomainList(it) }
+        return flow.map { list ->
+            list.map { entity ->
+                val domain = SongMapper.toDomain(entity)
+                val customArt = artworkRepository.getCustomArtworkUri(ArtworkEntityType.SONG, entity.id.toString())
+                    ?: (entity.albumId?.let { albId -> artworkRepository.getCustomArtworkUri(ArtworkEntityType.ALBUM, albId.toString()) })
+                if (customArt != null) domain.copy(albumArtUri = customArt) else domain
+            }
+        }
     }
 
     override fun getSongById(id: Long): Flow<Song?> {
-        return songDao.getSongById(id).map { it?.let { entity -> SongMapper.toDomain(entity) } }
+        return songDao.getSongById(id).map { entity ->
+            entity?.let {
+                val domain = SongMapper.toDomain(it)
+                val customArt = artworkRepository.getCustomArtworkUri(ArtworkEntityType.SONG, it.id.toString())
+                    ?: (it.albumId?.let { albId -> artworkRepository.getCustomArtworkUri(ArtworkEntityType.ALBUM, albId.toString()) })
+                if (customArt != null) domain.copy(albumArtUri = customArt) else domain
+            }
+        }
     }
 
     override suspend fun scanLibrary(): Result<ScanResult> = withContext(ioDispatcher) {

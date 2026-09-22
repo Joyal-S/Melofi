@@ -55,6 +55,11 @@ fun SongListItem(
     onToggleFavorite: (() -> Unit)? = null,
     onAddToPlaylist: (() -> Unit)? = null,
     onPlayNext: (() -> Unit)? = null,
+    onPlay: (() -> Unit)? = null,
+    onAddToQueue: (() -> Unit)? = null,
+    onChangeArtwork: (() -> Unit)? = null,
+    onEditMetadata: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
     onShowDetails: (() -> Unit)? = null
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -172,8 +177,8 @@ fun SongListItem(
             }
         }
 
-        // Context Actions Menu (Add to Playlist, Play Next, Song Details)
-        if (onAddToPlaylist != null || onPlayNext != null || onShowDetails != null) {
+        // Context Actions Menu (Play, Add to Queue, Add to Playlist, Favorite, Details, Edit, Change Artwork, Delete)
+        if (onPlay != null || onAddToQueue != null || onPlayNext != null || onAddToPlaylist != null || onShowDetails != null || onChangeArtwork != null || onEditMetadata != null || onDelete != null) {
             Box {
                 IconButton(
                     onClick = { showMenu = true },
@@ -191,9 +196,24 @@ fun SongListItem(
                     expanded = showMenu,
                     onDismissRequest = { showMenu = false }
                 ) {
-                    if (onPlayNext != null) {
+                    if (onPlay != null) {
                         DropdownMenuItem(
-                            text = { Text("Play Next") },
+                            text = { Text("Play") },
+                            leadingIcon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_play_arrow),
+                                    contentDescription = null
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                onPlay()
+                            }
+                        )
+                    }
+                    if (onAddToQueue != null || onPlayNext != null) {
+                        DropdownMenuItem(
+                            text = { Text("Add to Queue") },
                             leadingIcon = {
                                 Icon(
                                     painter = painterResource(R.drawable.ic_queue_music),
@@ -202,7 +222,7 @@ fun SongListItem(
                             },
                             onClick = {
                                 showMenu = false
-                                onPlayNext()
+                                (onAddToQueue ?: onPlayNext)?.invoke()
                             }
                         )
                     }
@@ -221,6 +241,22 @@ fun SongListItem(
                             }
                         )
                     }
+                    if (onToggleFavorite != null) {
+                        DropdownMenuItem(
+                            text = { Text(if (isFavorite) "Remove from Favorites" else "Favorite") },
+                            leadingIcon = {
+                                Icon(
+                                    painter = painterResource(if (isFavorite) R.drawable.ic_favorite else R.drawable.ic_favorite_border),
+                                    contentDescription = null,
+                                    tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                onToggleFavorite()
+                            }
+                        )
+                    }
                     if (onShowDetails != null) {
                         DropdownMenuItem(
                             text = { Text("Song Details") },
@@ -233,6 +269,52 @@ fun SongListItem(
                             onClick = {
                                 showMenu = false
                                 onShowDetails()
+                            }
+                        )
+                    }
+                    if (onEditMetadata != null) {
+                        DropdownMenuItem(
+                            text = { Text("Edit Metadata") },
+                            leadingIcon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_edit),
+                                    contentDescription = null
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                onEditMetadata()
+                            }
+                        )
+                    }
+                    if (onChangeArtwork != null) {
+                        DropdownMenuItem(
+                            text = { Text("Change Artwork") },
+                            leadingIcon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_image),
+                                    contentDescription = null
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                onChangeArtwork()
+                            }
+                        )
+                    }
+                    if (onDelete != null) {
+                        DropdownMenuItem(
+                            text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                            leadingIcon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_delete),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                onDelete()
                             }
                         )
                     }

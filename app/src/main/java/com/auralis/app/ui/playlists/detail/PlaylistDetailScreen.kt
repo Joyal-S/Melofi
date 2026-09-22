@@ -54,6 +54,8 @@ import com.auralis.app.domain.model.Song
 import com.auralis.app.ui.components.MelofyArtwork
 import com.auralis.app.ui.components.PlaylistCover
 import com.auralis.app.ui.playback.PlaybackViewModel
+import com.auralis.app.domain.model.ArtworkEntityType
+import com.auralis.app.ui.components.ArtworkCustomizationDialog
 
 /**
  * Screen displaying the ordered songs in a specific playlist with playback,
@@ -76,12 +78,9 @@ fun PlaylistDetailScreen(
     val songs by viewModel.songs.collectAsStateWithLifecycle()
 
     var showEditDescriptionDialog by remember { mutableStateOf(false) }
-
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri ->
-        uri?.let { viewModel.updateCover(it.toString()) }
-    }
+    var showArtworkDialog by remember { mutableStateOf(false) }
+    var showOverflowMenu by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -105,17 +104,58 @@ fun PlaylistDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showEditDescriptionDialog = true }) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_edit),
-                            contentDescription = "Edit playlist description"
-                        )
-                    }
-                    if (songs.isNotEmpty()) {
-                        IconButton(onClick = { playbackViewModel.addSongsToQueue(songs) }) {
+                    Box {
+                        IconButton(onClick = { showOverflowMenu = true }) {
                             Icon(
-                                painter = painterResource(R.drawable.ic_queue_music),
-                                contentDescription = "Add playlist to queue"
+                                painter = painterResource(R.drawable.ic_more_vert),
+                                contentDescription = "More options"
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showOverflowMenu,
+                            onDismissRequest = { showOverflowMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Change Cover") },
+                                leadingIcon = {
+                                    Icon(painter = painterResource(R.drawable.ic_image), contentDescription = null)
+                                },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    showArtworkDialog = true
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Edit Description") },
+                                leadingIcon = {
+                                    Icon(painter = painterResource(R.drawable.ic_edit), contentDescription = null)
+                                },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    showEditDescriptionDialog = true
+                                }
+                            )
+                            if (songs.isNotEmpty()) {
+                                DropdownMenuItem(
+                                    text = { Text("Add to Queue") },
+                                    leadingIcon = {
+                                        Icon(painter = painterResource(R.drawable.ic_queue_music), contentDescription = null)
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        playbackViewModel.addSongsToQueue(songs)
+                                    }
+                                )
+                            }
+                            DropdownMenuItem(
+                                text = { Text("Delete Playlist") },
+                                leadingIcon = {
+                                    Icon(painter = painterResource(R.drawable.ic_delete), contentDescription = null)
+                                },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    showDeleteDialog = true
+                                }
                             )
                         }
                     }
@@ -146,7 +186,7 @@ fun PlaylistDetailScreen(
                             title = playlist?.name ?: "Playlist",
                             modifier = Modifier
                                 .size(160.dp)
-                                .clickable { imagePickerLauncher.launch("image/*") },
+                                .clickable { showArtworkDialog = true },
                             cornerRadius = 16.dp
                         )
 
@@ -156,12 +196,12 @@ fun PlaylistDetailScreen(
                             shadowElevation = 4.dp,
                             modifier = Modifier
                                 .size(36.dp)
-                                .clickable { imagePickerLauncher.launch("image/*") }
+                                .clickable { showArtworkDialog = true }
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     painter = painterResource(R.drawable.ic_edit),
-                                    contentDescription = "Change cover image",
+                                    contentDescription = "Change cover",
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -326,6 +366,55 @@ fun PlaylistDetailScreen(
                 }
             }
         )
+    }
+
+    if (showArtworkDialog) {
+        val currentPlaylist = playlist
+        if (currentPlaylist != null) {
+            ArtworkCustomizationDialog(
+                entityType = ArtworkEntityType.PLAYLIST,
+                entityId = currentPlaylist.id.toString(),
+                entityName = currentPlaylist.name,
+                currentArtworkUri = currentPlaylist.customCoverUri,
+                onDismiss = { showArtworkDialog = false },
+                onSave = { uri ->
+                    showArtworkDialog = false
+                    viewModel.setCustomArtwork(uri)
+                },
+                onReset = {
+                    showArtworkDialog = false
+                    viewModel.clearCustomArtwork()
+                }
+            )
+        }
+    }
+
+    if (showDeleteDialog) {
+        val currentPlaylist = playlist
+        if (currentPlaylist != null) {
+            AlertDialog(
+                onDismissRequest = { showDeleteDialog = false },
+                title = { Text("Delete Playlist") },
+                text = { Text("Delete \"${currentPlaylist.name}\"? Tracks in your device library will not be deleted.") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showDeleteDialog = false
+                            viewModel.deletePlaylist {
+                                onBackClick()
+                            }
+                        }
+                    ) {
+                        Text("Delete")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
     }
 }
 

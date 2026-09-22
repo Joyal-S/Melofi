@@ -47,9 +47,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.auralis.app.R
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.style.TextOverflow
+import com.auralis.app.domain.model.ArtworkEntityType
 import com.auralis.app.domain.model.Playlist
 import com.auralis.app.domain.model.SmartPlaylistType
+import com.auralis.app.ui.components.ArtworkCustomizationDialog
 import com.auralis.app.ui.components.PlaylistCover
+import com.auralis.app.ui.playback.PlaybackViewModel
 
 /**
  * Screen displaying the user's playlists alongside local rule-based smart playlists.
@@ -60,6 +65,7 @@ fun PlaylistsScreen(
     playlistsViewModel: PlaylistsViewModel,
     onPlaylistClick: (Long) -> Unit,
     onSmartPlaylistClick: ((SmartPlaylistType) -> Unit)? = null,
+    playbackViewModel: PlaybackViewModel? = null,
     modifier: Modifier = Modifier
 ) {
     val playlists by playlistsViewModel.playlists.collectAsStateWithLifecycle()
@@ -69,6 +75,7 @@ fun PlaylistsScreen(
     var showCreateDialog by remember { mutableStateOf(false) }
     var playlistToRename by remember { mutableStateOf<Playlist?>(null) }
     var playlistToDelete by remember { mutableStateOf<Playlist?>(null) }
+    var playlistForArtwork by remember { mutableStateOf<Playlist?>(null) }
 
     LaunchedEffect(actionError) {
         actionError?.let {
@@ -190,15 +197,46 @@ fun PlaylistsScreen(
                     items = playlists,
                     key = { it.id }
                 ) { playlist ->
-                    PlaylistItemRow(
+                    PlaylistItemCard(
                         playlist = playlist,
+                        coverUri = playlistsViewModel.getPlaylistArtworkUri(playlist),
                         onClick = { onPlaylistClick(playlist.id) },
+                        onPlay = {
+                            playlistsViewModel.playPlaylist(playlist.id, shuffle = false) { songs ->
+                                playbackViewModel?.playSong(songs.first(), songs)
+                            }
+                        },
+                        onShuffle = {
+                            playlistsViewModel.playPlaylist(playlist.id, shuffle = true) { songs ->
+                                playbackViewModel?.playSong(songs.first(), songs)
+                            }
+                        },
                         onRename = { playlistToRename = playlist },
+                        onChangeCover = { playlistForArtwork = playlist },
                         onDelete = { playlistToDelete = playlist }
                     )
                 }
             }
         }
+    }
+
+    // Custom Artwork Dialog
+    playlistForArtwork?.let { playlist ->
+        ArtworkCustomizationDialog(
+            entityType = ArtworkEntityType.PLAYLIST,
+            entityId = playlist.id.toString(),
+            entityName = playlist.name,
+            currentArtworkUri = playlistsViewModel.getPlaylistArtworkUri(playlist),
+            onDismiss = { playlistForArtwork = null },
+            onSave = { uri ->
+                playlistsViewModel.setCustomArtwork(playlist.id, uri)
+                playlistForArtwork = null
+            },
+            onReset = {
+                playlistsViewModel.clearCustomArtwork(playlist.id)
+                playlistForArtwork = null
+            }
+        )
     }
 
     // Create Playlist Dialog
@@ -259,87 +297,129 @@ fun PlaylistsScreen(
 }
 
 @Composable
-private fun PlaylistItemRow(
+private fun PlaylistItemCard(
     playlist: Playlist,
+    coverUri: String?,
     onClick: () -> Unit,
+    onPlay: () -> Unit,
+    onShuffle: () -> Unit,
     onRename: () -> Unit,
+    onChangeCover: () -> Unit,
     onDelete: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
-    Row(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        PlaylistCover(
-            customCoverUri = playlist.customCoverUri,
-            memberArtUris = emptyList(),
-            title = playlist.name,
-            modifier = Modifier.size(48.dp),
-            cornerRadius = 10.dp
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         )
-        Column(
+    ) {
+        Row(
             modifier = Modifier
-                .weight(1f)
-                .padding(start = 16.dp)
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = playlist.name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
+            PlaylistCover(
+                customCoverUri = coverUri,
+                memberArtUris = emptyList(),
+                title = playlist.name,
+                modifier = Modifier.size(68.dp),
+                cornerRadius = 10.dp
             )
-            Text(
-                text = buildString {
-                    if (!playlist.description.isNullOrBlank()) {
-                        append("${playlist.description} • ")
-                    }
-                    append("${playlist.songCount} ${if (playlist.songCount == 1) "song" else "songs"}")
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
-            )
-        }
-        Box {
-            IconButton(onClick = { showMenu = true }) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_more_vert),
-                    contentDescription = "Playlist options"
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 14.dp)
+            ) {
+                Text(
+                    text = playlist.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = buildString {
+                        if (!playlist.description.isNullOrBlank()) {
+                            append("${playlist.description} • ")
+                        }
+                        append("${playlist.songCount} ${if (playlist.songCount == 1) "song" else "songs"}")
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
-            DropdownMenu(
-                expanded = showMenu,
-                onDismissRequest = { showMenu = false }
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Rename") },
-                    leadingIcon = {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_edit),
-                            contentDescription = null
-                        )
-                    },
-                    onClick = {
-                        showMenu = false
-                        onRename()
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text("Delete") },
-                    leadingIcon = {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_delete),
-                            contentDescription = null
-                        )
-                    },
-                    onClick = {
-                        showMenu = false
-                        onDelete()
-                    }
-                )
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_more_vert),
+                        contentDescription = "Playlist options"
+                    )
+                }
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Play") },
+                        leadingIcon = {
+                            Icon(painter = painterResource(R.drawable.ic_play_arrow), contentDescription = null)
+                        },
+                        onClick = {
+                            showMenu = false
+                            onPlay()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Shuffle") },
+                        leadingIcon = {
+                            Icon(painter = painterResource(R.drawable.ic_shuffle), contentDescription = null)
+                        },
+                        onClick = {
+                            showMenu = false
+                            onShuffle()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Edit Playlist") },
+                        leadingIcon = {
+                            Icon(painter = painterResource(R.drawable.ic_edit), contentDescription = null)
+                        },
+                        onClick = {
+                            showMenu = false
+                            onRename()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Change Cover") },
+                        leadingIcon = {
+                            Icon(painter = painterResource(R.drawable.ic_image), contentDescription = null)
+                        },
+                        onClick = {
+                            showMenu = false
+                            onChangeCover()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Delete") },
+                        leadingIcon = {
+                            Icon(painter = painterResource(R.drawable.ic_delete), contentDescription = null)
+                        },
+                        onClick = {
+                            showMenu = false
+                            onDelete()
+                        }
+                    )
+                }
             }
         }
     }

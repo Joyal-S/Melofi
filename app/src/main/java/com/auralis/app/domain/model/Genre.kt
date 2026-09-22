@@ -6,5 +6,6 @@ package com.auralis.app.domain.model
 data class Genre(
     val id: Long,
     val name: String,
-    val songCount: Int
+    val songCount: Int,
+    val artUri: String? = null
 )

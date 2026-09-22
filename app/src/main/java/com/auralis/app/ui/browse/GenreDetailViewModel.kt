@@ -31,7 +31,8 @@ sealed interface GenreDetailUiState {
 @HiltViewModel
 class GenreDetailViewModel @Inject constructor(
     private val browserRepository: LibraryBrowserRepository,
-    private val favoriteRepository: FavoriteRepository
+    private val favoriteRepository: FavoriteRepository,
+    val localArtworkRepository: com.auralis.app.data.repository.LocalArtworkRepository
 ) : ViewModel() {
 
     private val _genreId = MutableStateFlow<Long?>(null)
@@ -70,6 +71,24 @@ class GenreDetailViewModel @Inject constructor(
     fun toggleFavorite(songId: Long) {
         viewModelScope.launch {
             favoriteRepository.toggleFavorite(songId)
+        }
+    }
+
+    fun setCustomArtwork(uri: android.net.Uri) {
+        val genre = (uiState.value as? GenreDetailUiState.Success)?.genre ?: return
+        viewModelScope.launch {
+            localArtworkRepository.setCustomArtwork(com.auralis.app.domain.model.ArtworkEntityType.GENRE, genre.id.toString(), uri)
+            _genreId.value = null
+            _genreId.value = genre.id
+        }
+    }
+
+    fun clearCustomArtwork() {
+        val genre = (uiState.value as? GenreDetailUiState.Success)?.genre ?: return
+        viewModelScope.launch {
+            localArtworkRepository.clearCustomArtwork(com.auralis.app.domain.model.ArtworkEntityType.GENRE, genre.id.toString())
+            _genreId.value = null
+            _genreId.value = genre.id
         }
     }
 }

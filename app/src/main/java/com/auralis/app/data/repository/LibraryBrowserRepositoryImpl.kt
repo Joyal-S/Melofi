@@ -25,18 +25,31 @@ class LibraryBrowserRepositoryImpl @Inject constructor(
     private val artistDao: ArtistDao,
     private val genreDao: GenreDao,
     private val songDao: SongDao,
+    private val localArtworkRepository: LocalArtworkRepository,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : LibraryBrowserRepository {
 
     override fun getAlbums(): Flow<List<Album>> {
         return albumDao.getAllAlbums()
-            .map { LibraryMapper.toAlbumList(it) }
+            .map { list ->
+                list.map { entity ->
+                    val domain = LibraryMapper.toDomain(entity)
+                    val custom = localArtworkRepository.getAlbumArtworkUri(domain.id, domain.artUri)
+                    domain.copy(artUri = custom)
+                }
+            }
             .flowOn(ioDispatcher)
     }
 
     override fun getAlbumById(id: Long): Flow<Album?> {
         return albumDao.getAlbumById(id)
-            .map { it?.let { LibraryMapper.toDomain(it) } }
+            .map { entity ->
+                entity?.let {
+                    val domain = LibraryMapper.toDomain(it)
+                    val custom = localArtworkRepository.getAlbumArtworkUri(domain.id, domain.artUri)
+                    domain.copy(artUri = custom)
+                }
+            }
             .flowOn(ioDispatcher)
     }
 
@@ -48,13 +61,25 @@ class LibraryBrowserRepositoryImpl @Inject constructor(
 
     override fun getArtists(): Flow<List<Artist>> {
         return artistDao.getAllArtists()
-            .map { LibraryMapper.toArtistList(it) }
+            .map { list ->
+                list.map { entity ->
+                    val domain = LibraryMapper.toDomain(entity)
+                    val custom = localArtworkRepository.getArtistArtworkUri(domain.id)
+                    domain.copy(artUri = custom)
+                }
+            }
             .flowOn(ioDispatcher)
     }
 
     override fun getArtistById(id: Long): Flow<Artist?> {
         return artistDao.getArtistById(id)
-            .map { it?.let { LibraryMapper.toDomain(it) } }
+            .map { entity ->
+                entity?.let {
+                    val domain = LibraryMapper.toDomain(it)
+                    val custom = localArtworkRepository.getArtistArtworkUri(domain.id)
+                    domain.copy(artUri = custom)
+                }
+            }
             .flowOn(ioDispatcher)
     }
 
@@ -68,20 +93,36 @@ class LibraryBrowserRepositoryImpl @Inject constructor(
         return albumDao.getAllAlbums()
             .map { albums ->
                 albums.filter { it.artistId == artistId }
-                    .map { LibraryMapper.toDomain(it) }
+                    .map { entity ->
+                        val domain = LibraryMapper.toDomain(entity)
+                        val custom = localArtworkRepository.getAlbumArtworkUri(domain.id, domain.artUri)
+                        domain.copy(artUri = custom)
+                    }
             }
             .flowOn(ioDispatcher)
     }
 
     override fun getGenres(): Flow<List<Genre>> {
         return genreDao.getAllGenres()
-            .map { LibraryMapper.toGenreList(it) }
+            .map { list ->
+                list.map { entity ->
+                    val domain = LibraryMapper.toDomain(entity)
+                    val custom = localArtworkRepository.getGenreArtworkUri(domain.id)
+                    domain.copy(artUri = custom)
+                }
+            }
             .flowOn(ioDispatcher)
     }
 
     override fun getGenreById(id: Long): Flow<Genre?> {
         return genreDao.getGenreById(id)
-            .map { it?.let { LibraryMapper.toDomain(it) } }
+            .map { entity ->
+                entity?.let {
+                    val domain = LibraryMapper.toDomain(it)
+                    val custom = localArtworkRepository.getGenreArtworkUri(domain.id)
+                    domain.copy(artUri = custom)
+                }
+            }
             .flowOn(ioDispatcher)
     }
 

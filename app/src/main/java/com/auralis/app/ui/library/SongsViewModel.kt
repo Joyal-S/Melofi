@@ -57,7 +57,10 @@ class SongsViewModel @Inject constructor(
     private val addSongToPlaylistUseCase: AddSongToPlaylistUseCase,
     private val historyRepository: HistoryRepository,
     private val browserRepository: LibraryBrowserRepository,
-    private val userPreferencesRepository: UserPreferencesRepository
+    private val userPreferencesRepository: UserPreferencesRepository,
+    val importManager: com.auralis.app.data.local.importer.MusicImportManager,
+    val localArtworkRepository: com.auralis.app.data.repository.LocalArtworkRepository,
+    private val songRepository: com.auralis.app.domain.repository.SongRepository
 ) : ViewModel() {
 
     private val _selectedTab = MutableStateFlow(LibraryTab.FOR_YOU)
@@ -311,5 +314,23 @@ class SongsViewModel @Inject constructor(
 
     fun resetFilters() {
         _filterState.value = SongFilterState()
+    }
+
+    fun deleteSong(songId: Long) {
+        viewModelScope.launch {
+            songRepository.deleteSong(songId)
+        }
+    }
+
+    fun setCustomArtwork(entityType: com.auralis.app.domain.model.ArtworkEntityType, entityKey: String, uri: android.net.Uri) {
+        viewModelScope.launch {
+            localArtworkRepository.setCustomArtwork(entityType, entityKey, uri)
+        }
+    }
+
+    fun clearCustomArtwork(entityType: com.auralis.app.domain.model.ArtworkEntityType, entityKey: String) {
+        viewModelScope.launch {
+            localArtworkRepository.clearCustomArtwork(entityType, entityKey)
+        }
     }
 }
