@@ -56,6 +56,11 @@ import androidx.compose.ui.res.painterResource
 import com.auralis.app.playback.dsp.DspParameters
 import kotlin.math.roundToInt
 
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+
 /**
  * Material 3 Audio Settings screen providing direct control over native hardware effects,
  * ReplayGain loudness normalization, sleep timer, playback engine configurations,
@@ -66,24 +71,59 @@ import kotlin.math.roundToInt
 fun AudioSettingsScreen(
     modifier: Modifier = Modifier,
     viewModel: AudioSettingsViewModel = hiltViewModel(),
-    onNavigateToLoFiReverb: (() -> Unit)? = null
+    onNavigateToLoFiReverb: (() -> Unit)? = null,
+    onBackClick: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showCustomTimerDialog by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text(
-            text = stringResource(R.string.audio_settings_title),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
-        )
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        topBar = {
+            if (onBackClick != null) {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = stringResource(R.string.audio_settings_title),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(
+                            onClick = onBackClick,
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_arrow_back),
+                                contentDescription = "Navigate back to Settings",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                )
+            }
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            if (onBackClick == null) {
+                Text(
+                    text = stringResource(R.string.audio_settings_title),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+            }
 
         // 1. Equalizer Card
         EqualizerSection(
@@ -140,16 +180,17 @@ fun AudioSettingsScreen(
         )
 
         Spacer(modifier = Modifier.height(32.dp))
-    }
+        }
 
-    if (showCustomTimerDialog) {
-        CustomSleepTimerDialog(
-            onDismiss = { showCustomTimerDialog = false },
-            onConfirm = { minutes ->
-                viewModel.startSleepTimerMinutes(minutes)
-                showCustomTimerDialog = false
-            }
-        )
+        if (showCustomTimerDialog) {
+            CustomSleepTimerDialog(
+                onDismiss = { showCustomTimerDialog = false },
+                onConfirm = { minutes ->
+                    viewModel.startSleepTimerMinutes(minutes)
+                    showCustomTimerDialog = false
+                }
+            )
+        }
     }
 }
 

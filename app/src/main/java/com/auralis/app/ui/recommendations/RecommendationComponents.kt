@@ -65,44 +65,33 @@ fun RecommendationCard(
             Box(
                 modifier = Modifier
                     .size(144.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                    .clip(RoundedCornerShape(10.dp))
             ) {
-                if (item.song.albumArtUri != null) {
-                    AsyncImage(
-                        model = item.song.albumArtUri,
-                        contentDescription = item.song.title,
-                        modifier = Modifier.matchParentSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_music_placeholder),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .align(Alignment.Center),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                    )
-                }
+                com.auralis.app.ui.components.MelofyArtwork(
+                    artworkUri = item.song.albumArtUri,
+                    title = item.song.title,
+                    artist = item.song.artistName,
+                    modifier = Modifier.matchParentSize(),
+                    cornerRadius = 10.dp
+                )
 
-                // Quick play icon button
+                // Quick play icon button with subtle backdrop
                 IconButton(
                     onClick = onPlayClick,
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(4.dp)
-                        .size(36.dp)
+                        .padding(6.dp)
+                        .size(32.dp)
                         .background(
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            shape = RoundedCornerShape(18.dp)
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
+                            shape = RoundedCornerShape(16.dp)
                         )
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_play_arrow),
                         contentDescription = "Play",
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(20.dp)
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }

@@ -19,6 +19,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -46,9 +48,9 @@ import com.auralis.app.domain.model.ArtworkEntityType
  *
  * Provides:
  * - [ Choose Image ] — launches the system image picker (JPG, PNG, WebP)
- * - [ Preview ] — displays high-fidelity preview of chosen picture
+ * - [ Preview ] — displays high-fidelity preview of chosen picture with Crop vs Fit preview modes
  * - [ Save ] — persists image downsampled in app-private storage
- * - [ Reset ] — removes custom override, returning immediately to original embedded/fallback art
+ * - [ Reset ] — removes custom override with confirmation, returning immediately to original embedded/fallback art
  */
 @Composable
 fun ArtworkCustomizationDialog(
@@ -64,6 +66,8 @@ fun ArtworkCustomizationDialog(
     entityTitle: String = ""
 ) {
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
+    var isCropMode by remember { mutableStateOf(true) }
+    var showResetConfirmDialog by remember { mutableStateOf(false) }
 
     val displayTitle = title.ifBlank {
         entityName.ifBlank {
@@ -119,7 +123,7 @@ fun ArtworkCustomizationDialog(
                             model = previewUri,
                             contentDescription = "Artwork Preview",
                             modifier = Modifier.size(220.dp),
-                            contentScale = ContentScale.Crop
+                            contentScale = if (isCropMode) ContentScale.Crop else ContentScale.Fit
                         )
                     } else {
                         MelofyArtwork(
@@ -130,6 +134,43 @@ fun ArtworkCustomizationDialog(
                             cornerRadius = 16.dp
                         )
                     }
+                }
+
+                // Crop (Fill) vs Fit (Center) Preview Mode Selector
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilterChip(
+                        selected = isCropMode,
+                        onClick = { isCropMode = true },
+                        label = { Text("Crop (Fill)") },
+                        leadingIcon = if (isCropMode) {
+                            {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_check),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        } else null
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    FilterChip(
+                        selected = !isCropMode,
+                        onClick = { isCropMode = false },
+                        label = { Text("Fit (Center)") },
+                        leadingIcon = if (!isCropMode) {
+                            {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_check),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        } else null
+                    )
                 }
 
                 // Status message
@@ -207,15 +248,12 @@ fun ArtworkCustomizationDialog(
             ) {
                 if (hasCustomOverride) {
                     TextButton(
-                        onClick = {
-                            onReset()
-                            onDismiss()
-                        },
+                        onClick = { showResetConfirmDialog = true },
                         colors = ButtonDefaults.textButtonColors(
                             contentColor = MaterialTheme.colorScheme.error
                         )
                     ) {
-                        Text("Reset to Original")
+                        Text(if (entityType == ArtworkEntityType.PLAYLIST) "Reset to Automatic" else "Reset to Original")
                     }
                 }
                 TextButton(onClick = onDismiss) {
@@ -224,4 +262,38 @@ fun ArtworkCustomizationDialog(
             }
         }
     )
+
+    if (showResetConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirmDialog = false },
+            title = { Text(if (entityType == ArtworkEntityType.PLAYLIST) "Reset to Automatic Cover" else "Reset Artwork") },
+            text = {
+                Text(
+                    if (entityType == ArtworkEntityType.PLAYLIST)
+                        "Remove the custom playlist cover and restore the automatic collage?"
+                    else
+                        "Remove the custom artwork and restore the original image?"
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showResetConfirmDialog = false
+                        onReset()
+                        onDismiss()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Reset")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetConfirmDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }

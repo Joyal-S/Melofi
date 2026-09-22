@@ -25,6 +25,11 @@ interface PlaylistRepository {
     fun getPlaylistSongs(playlistId: Long): Flow<List<Song>>
 
     /**
+     * Emits a map of playlist ID to member song artwork URIs for automatic collages.
+     */
+    fun getPlaylistArtworkMappings(): Flow<Map<Long, List<String>>>
+
+    /**
      * Creates a new playlist with the validated name.
      */
     suspend fun createPlaylist(name: String): Result<Long>

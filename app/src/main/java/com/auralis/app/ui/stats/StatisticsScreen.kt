@@ -63,6 +63,7 @@ import com.auralis.app.domain.model.TopSongItem
 @Composable
 fun StatisticsScreen(
     viewModel: StatisticsViewModel = hiltViewModel(),
+    onBackClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val timeRange by viewModel.timeRange.collectAsStateWithLifecycle()
@@ -83,6 +84,16 @@ fun StatisticsScreen(
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
+                },
+                navigationIcon = {
+                    if (onBackClick != null) {
+                        IconButton(onClick = onBackClick) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_arrow_back),
+                                contentDescription = "Back"
+                            )
+                        }
+                    }
                 },
                 actions = {
                     if (stats.totalPlays > 0) {

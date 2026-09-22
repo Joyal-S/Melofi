@@ -24,6 +24,11 @@ data class PlaylistWithCountEntity(
     val songCount: Int
 )
 
+data class PlaylistArtMapping(
+    val playlistId: Long,
+    val albumArtUri: String
+)
+
 /**
  * Room DAO for playlists, membership, cover management, and deterministic ordering.
  */
@@ -39,6 +44,15 @@ interface PlaylistDao {
         ORDER BY p.updatedAt DESC
     """)
     fun getPlaylistsWithCount(): Flow<List<PlaylistWithCountEntity>>
+
+    @Query("""
+        SELECT ps.playlistId, s.albumArtUri
+        FROM playlist_songs ps
+        INNER JOIN songs s ON ps.songId = s.id
+        WHERE s.albumArtUri IS NOT NULL AND s.albumArtUri != ''
+        ORDER BY ps.playlistId, ps.position ASC
+    """)
+    fun getAllPlaylistArtworkMappings(): Flow<List<PlaylistArtMapping>>
 
     @Query("SELECT * FROM playlists WHERE id = :id")
     fun getPlaylistById(id: Long): Flow<PlaylistEntity?>

@@ -38,22 +38,23 @@ import kotlin.math.abs
 
 /**
  * Deterministic color palette generator for fallback artwork.
- * Produces rich, harmonious 3-color gradients based on metadata hash codes.
+ * Produces subtle, deep atmospheric gradients in harmony with Melofi's dark aesthetic.
+ * Low-contrast, non-distracting, and intentional.
  */
-private val FALLBACK_GRADIENT_PAIRS = listOf(
-    listOf(Color(0xFF4C1D95), Color(0xFF7C3AED), Color(0xFFC4B5FD)), // Deep Violet
-    listOf(Color(0xFF1E3A8A), Color(0xFF3B82F6), Color(0xFF93C5FD)), // Electric Blue
-    listOf(Color(0xFF064E3B), Color(0xFF10B981), Color(0xFF6EE7B7)), // Emerald
-    listOf(Color(0xFF881337), Color(0xFFF43F5E), Color(0xFFFDA4AF)), // Rose/Coral
-    listOf(Color(0xFF78350F), Color(0xFFF59E0B), Color(0xFFFDE68A)), // Amber/Sunset
-    listOf(Color(0xFF134E4A), Color(0xFF14B8A6), Color(0xFF99F6E4)), // Deep Teal
-    listOf(Color(0xFF701A75), Color(0xFFD946EF), Color(0xFFF0ABFC)), // Fuchsia
-    listOf(Color(0xFF312E81), Color(0xFF6366F1), Color(0xFFA5B4FC))  // Indigo
+private val FALLBACK_ATMOSPHERIC_PAIRS = listOf(
+    listOf(Color(0xFF161424), Color(0xFF1E1A33), Color(0xFF2B2446)), // Deep Melofi Violet Slate
+    listOf(Color(0xFF121726), Color(0xFF172036), Color(0xFF1F2D4A)), // Deep Indigo Obsidian
+    listOf(Color(0xFF111E1C), Color(0xFF172B28), Color(0xFF1F3A36)), // Deep Emerald Slate
+    listOf(Color(0xFF221419), Color(0xFF2E1922), Color(0xFF3F212E)), // Deep Crimson Slate
+    listOf(Color(0xFF201811), Color(0xFF2C2116), Color(0xFF3C2C1D)), // Deep Amber Slate
+    listOf(Color(0xFF111D1F), Color(0xFF16272A), Color(0xFF1E373A)), // Deep Teal Slate
+    listOf(Color(0xFF1A1524), Color(0xFF241C33), Color(0xFF312547)), // Atmospheric Midnight
+    listOf(Color(0xFF14141E), Color(0xFF1A1A2A), Color(0xFF24243B))  // Obsidian Slate
 )
 
 fun getDeterministicGradient(seed: String): Brush {
     val hash = abs(seed.hashCode())
-    val colors = FALLBACK_GRADIENT_PAIRS[hash % FALLBACK_GRADIENT_PAIRS.size]
+    val colors = FALLBACK_ATMOSPHERIC_PAIRS[hash % FALLBACK_ATMOSPHERIC_PAIRS.size]
     return Brush.linearGradient(
         colors = colors,
         start = androidx.compose.ui.geometry.Offset(0f, 0f),
@@ -64,7 +65,7 @@ fun getDeterministicGradient(seed: String): Brush {
 /**
  * Premium universal local artwork component.
  * Loads artwork via Coil with smooth crossfading, respecting user-selected ArtworkCornerStyle,
- * and provides a rich deterministic gradient/monogram fallback tailored to the entity type.
+ * and provides a refined, low-contrast atmospheric fallback tailored to the entity type.
  */
 @Composable
 fun MelofyArtwork(
@@ -75,7 +76,7 @@ fun MelofyArtwork(
     entityType: ArtworkEntityType? = null,
     cornerRadius: Dp? = null,
     contentScale: ContentScale = ContentScale.Crop,
-    showInitial: Boolean = true
+    showInitial: Boolean = false
 ) {
     val cornerStyle = LocalArtworkCornerStyle.current
     val animationMode = LocalAnimationMode.current
@@ -122,9 +123,9 @@ fun MelofyArtwork(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         text = initial,
-                        color = Color.White.copy(alpha = 0.95f),
+                        color = Color.White.copy(alpha = 0.75f),
                         fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
+                        fontSize = 18.sp
                     )
                 }
             } else {
@@ -138,7 +139,8 @@ fun MelofyArtwork(
                             }
                         ),
                         contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.75f)
+                        tint = Color.White.copy(alpha = 0.45f),
+                        modifier = Modifier.fillMaxSize(0.45f)
                     )
                 }
             }
@@ -147,7 +149,7 @@ fun MelofyArtwork(
 }
 
 /**
- * Playlist cover component with custom cover display and automatic 2x2 collage fallback.
+ * Playlist cover component with custom cover display and automatic multi-panel collage fallback.
  */
 @Composable
 fun PlaylistCover(
@@ -199,7 +201,7 @@ fun PlaylistCover(
 
             when {
                 distinctArts.size >= 4 -> {
-                    // 2x2 Artwork Grid Collage
+                    // 2x2 Artwork Grid Collage (4 items)
                     Column(modifier = Modifier.fillMaxSize()) {
                         Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
                             AsyncImage(
@@ -231,19 +233,60 @@ fun PlaylistCover(
                         }
                     }
                 }
-                distinctArts.isNotEmpty() -> {
-                    // Single or up to 3 covers: display primary cover
+                distinctArts.size == 3 -> {
+                    // Balanced 3-panel collage (top row 2 images, bottom row 1 spanning image)
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                            AsyncImage(
+                                model = distinctArts[0],
+                                contentDescription = null,
+                                modifier = Modifier.weight(1f).fillMaxHeight(),
+                                contentScale = ContentScale.Crop
+                            )
+                            AsyncImage(
+                                model = distinctArts[1],
+                                contentDescription = null,
+                                modifier = Modifier.weight(1f).fillMaxHeight(),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                        AsyncImage(
+                            model = distinctArts[2],
+                            contentDescription = null,
+                            modifier = Modifier.weight(1f).fillMaxWidth(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
+                distinctArts.size == 2 -> {
+                    // 2-panel split layout (side-by-side vertical panels)
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        AsyncImage(
+                            model = distinctArts[0],
+                            contentDescription = null,
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                            contentScale = ContentScale.Crop
+                        )
+                        AsyncImage(
+                            model = distinctArts[1],
+                            contentDescription = null,
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
+                distinctArts.size == 1 -> {
+                    // Single cover takes the full container
                     AsyncImage(
-                        model = distinctArts.first(),
+                        model = distinctArts[0],
                         contentDescription = "Cover for $title",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )
                 }
                 else -> {
-                    // Gradient + playlist monogram fallback
+                    // Subtle Melofi fallback with playlist symbol
                     val gradient = remember(title) { getDeterministicGradient(title) }
-                    val initial = remember(title) { title.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "P" }
 
                     Box(
                         modifier = Modifier
@@ -251,11 +294,11 @@ fun PlaylistCover(
                             .background(gradient),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = initial,
-                            color = Color.White.copy(alpha = 0.9f),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 32.sp
+                        Icon(
+                            painter = painterResource(R.drawable.ic_playlist_play),
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.45f),
+                            modifier = Modifier.fillMaxSize(0.42f)
                         )
                     }
                 }

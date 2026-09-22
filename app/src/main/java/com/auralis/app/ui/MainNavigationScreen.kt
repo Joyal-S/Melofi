@@ -15,12 +15,15 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -72,7 +75,6 @@ enum class MainTab {
     SONGS,
     FAVORITES,
     PLAYLISTS,
-    STATS,
     SETTINGS
 }
 
@@ -88,13 +90,14 @@ private sealed interface ScreenDestination {
     data object Search : ScreenDestination
     data class SmartPlaylist(val type: SmartPlaylistType) : ScreenDestination
     data class Playlist(val id: Long) : ScreenDestination
+    data object Statistics : ScreenDestination
 }
 
 /**
  * Top-level navigation host coordinating library tabs, playlist details,
- * listening statistics, smart playlists, metadata inspection, duplicates,
+ * smart playlists, metadata inspection, duplicates,
  * advanced search, category browsing (albums, artists, genres),
- * on-device recommendations, settings, and the persistent Media3 playback controls bar.
+ * on-device recommendations, settings, listening statistics, and the persistent Media3 playback controls bar.
  */
 @Composable
 fun MainNavigationScreen(
@@ -125,6 +128,7 @@ fun MainNavigationScreen(
     var showSearchScreen by remember { mutableStateOf(false) }
     var showRecommendationDetail by remember { mutableStateOf(false) }
     var showNowPlaying by remember { mutableStateOf(false) }
+    var showStatisticsScreen by remember { mutableStateOf(false) }
     var selectedAlbumId by remember { mutableStateOf<Long?>(null) }
     var selectedArtistId by remember { mutableStateOf<Long?>(null) }
     var selectedGenreId by remember { mutableStateOf<Long?>(null) }
@@ -135,6 +139,7 @@ fun MainNavigationScreen(
     val favoriteSongIds by songsViewModel.favoriteSongIds.collectAsStateWithLifecycle()
 
     val isSubScreen = showNowPlaying ||
+            showStatisticsScreen ||
             selectedPlaylistId != null ||
             selectedSmartPlaylistType != null ||
             selectedSongDetailsId != null ||
@@ -148,6 +153,7 @@ fun MainNavigationScreen(
     BackHandler(enabled = isSubScreen) {
         when {
             showNowPlaying -> showNowPlaying = false
+            showStatisticsScreen -> showStatisticsScreen = false
             selectedSongDetailsId != null -> selectedSongDetailsId = null
             showDuplicateScreen -> showDuplicateScreen = false
             showRecommendationDetail -> showRecommendationDetail = false
@@ -164,6 +170,7 @@ fun MainNavigationScreen(
 
     val currentDestination: ScreenDestination = remember(
         showNowPlaying,
+        showStatisticsScreen,
         selectedSongDetailsId,
         showDuplicateScreen,
         selectedAlbumId,
@@ -177,6 +184,7 @@ fun MainNavigationScreen(
     ) {
         when {
             showNowPlaying -> ScreenDestination.NowPlaying
+            showStatisticsScreen -> ScreenDestination.Statistics
             selectedSongDetailsId != null -> ScreenDestination.SongDetails(selectedSongDetailsId!!)
             showDuplicateScreen -> ScreenDestination.Duplicates
             selectedAlbumId != null -> ScreenDestination.Album(selectedAlbumId!!)
@@ -226,29 +234,46 @@ fun MainNavigationScreen(
                            else slideOutVertically(MelofyMotion.springSubtle()) { it } + fadeOut(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST))
                 ) {
                     NavigationBar(
-                        containerColor = MaterialTheme.colorScheme.surface
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        tonalElevation = 3.dp
                     ) {
                         NavigationBarItem(
                             selected = selectedTab == MainTab.SONGS,
                             onClick = { selectedTab = MainTab.SONGS },
                             icon = {
                                 Icon(
-                                    painter = painterResource(R.drawable.ic_music_placeholder),
-                                    contentDescription = "Songs"
+                                    painter = painterResource(R.drawable.ic_queue_music),
+                                    contentDescription = "Songs",
+                                    modifier = Modifier.size(24.dp)
                                 )
                             },
-                            label = { Text("Songs") }
+                            label = {
+                                Text(
+                                    text = "Songs",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (selectedTab == MainTab.SONGS) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
                         )
                         NavigationBarItem(
                             selected = selectedTab == MainTab.FAVORITES,
                             onClick = { selectedTab = MainTab.FAVORITES },
                             icon = {
                                 Icon(
-                                    painter = painterResource(R.drawable.ic_favorite),
-                                    contentDescription = "Favorites"
+                                    painter = painterResource(
+                                        if (selectedTab == MainTab.FAVORITES) R.drawable.ic_favorite else R.drawable.ic_favorite_border
+                                    ),
+                                    contentDescription = "Favorites",
+                                    modifier = Modifier.size(24.dp)
                                 )
                             },
-                            label = { Text("Favorites") }
+                            label = {
+                                Text(
+                                    text = "Favorites",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (selectedTab == MainTab.FAVORITES) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
                         )
                         NavigationBarItem(
                             selected = selectedTab == MainTab.PLAYLISTS,
@@ -256,21 +281,17 @@ fun MainNavigationScreen(
                             icon = {
                                 Icon(
                                     painter = painterResource(R.drawable.ic_playlist_play),
-                                    contentDescription = "Playlists"
+                                    contentDescription = "Playlists",
+                                    modifier = Modifier.size(24.dp)
                                 )
                             },
-                            label = { Text("Playlists") }
-                        )
-                        NavigationBarItem(
-                            selected = selectedTab == MainTab.STATS,
-                            onClick = { selectedTab = MainTab.STATS },
-                            icon = {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_insights),
-                                    contentDescription = "Stats"
+                            label = {
+                                Text(
+                                    text = "Playlists",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (selectedTab == MainTab.PLAYLISTS) FontWeight.Bold else FontWeight.Medium
                                 )
-                            },
-                            label = { Text("Stats") }
+                            }
                         )
                         NavigationBarItem(
                             selected = selectedTab == MainTab.SETTINGS,
@@ -278,10 +299,17 @@ fun MainNavigationScreen(
                             icon = {
                                 Icon(
                                     painter = painterResource(R.drawable.ic_settings),
-                                    contentDescription = "Settings"
+                                    contentDescription = "Settings",
+                                    modifier = Modifier.size(24.dp)
                                 )
                             },
-                            label = { Text("Settings") }
+                            label = {
+                                Text(
+                                    text = "Settings",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (selectedTab == MainTab.SETTINGS) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
                         )
                     }
                 }
@@ -450,6 +478,12 @@ fun MainNavigationScreen(
                         modifier = screenModifier
                     )
                 }
+                is ScreenDestination.Statistics -> {
+                    StatisticsScreen(
+                        onBackClick = { showStatisticsScreen = false },
+                        modifier = screenModifier
+                    )
+                }
                 is ScreenDestination.Main -> {
                     when (destination.tab) {
                         MainTab.SONGS -> {
@@ -499,15 +533,11 @@ fun MainNavigationScreen(
                                 modifier = screenModifier
                             )
                         }
-                        MainTab.STATS -> {
-                            StatisticsScreen(
-                                modifier = screenModifier
-                            )
-                        }
                         MainTab.SETTINGS -> {
                             SettingsScreen(
                                 settingsViewModel = settingsViewModel,
                                 audioViewModel = audioSettingsViewModel,
+                                onNavigateToStatistics = { showStatisticsScreen = true },
                                 modifier = screenModifier
                             )
                         }

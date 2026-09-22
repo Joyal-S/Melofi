@@ -80,6 +80,7 @@ fun PlaylistsScreen(
     modifier: Modifier = Modifier
 ) {
     val playlists by playlistsViewModel.playlists.collectAsStateWithLifecycle()
+    val playlistArtworkMap by playlistsViewModel.playlistArtworkMap.collectAsStateWithLifecycle()
     val actionError by playlistsViewModel.actionError.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -211,6 +212,7 @@ fun PlaylistsScreen(
                     PlaylistItemCard(
                         playlist = playlist,
                         coverUri = playlistsViewModel.getPlaylistArtworkUri(playlist),
+                        memberArtUris = playlistArtworkMap[playlist.id].orEmpty(),
                         onClick = { onPlaylistClick(playlist.id) },
                         onPlay = {
                             playlistsViewModel.playPlaylist(playlist.id, shuffle = false) { songs ->
@@ -311,6 +313,7 @@ fun PlaylistsScreen(
 private fun PlaylistItemCard(
     playlist: Playlist,
     coverUri: String?,
+    memberArtUris: List<String> = emptyList(),
     onClick: () -> Unit,
     onPlay: () -> Unit,
     onShuffle: () -> Unit,
@@ -355,7 +358,7 @@ private fun PlaylistItemCard(
         ) {
             PlaylistCover(
                 customCoverUri = coverUri,
-                memberArtUris = emptyList(),
+                memberArtUris = memberArtUris,
                 title = playlist.name,
                 modifier = Modifier.size(68.dp),
                 cornerRadius = 10.dp
@@ -526,9 +529,10 @@ private fun SmartPlaylistItemRow(
         label = "smartPlaylistScale"
     )
 
-    Row(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = MelofySpacing.lg, vertical = 4.dp)
             .graphicsLayer {
                 scaleX = rowScale
                 scaleY = rowScale
@@ -537,47 +541,54 @@ private fun SmartPlaylistItemRow(
                 interactionSource = interactionSource,
                 indication = androidx.compose.material3.ripple(),
                 onClick = onClick
-            )
-            .padding(horizontal = MelofySpacing.lg, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+            ),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+        )
     ) {
-        Surface(
-            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-            shape = CircleShape,
-            modifier = Modifier.size(44.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    painter = painterResource(type.iconRes),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                shape = CircleShape,
+                modifier = Modifier.size(42.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        painter = painterResource(type.iconRes),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = MelofySpacing.md)
+            ) {
+                Text(
+                    text = type.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = type.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-        }
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = MelofySpacing.md)
-        ) {
-            Text(
-                text = type.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = type.description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            Icon(
+                painter = painterResource(R.drawable.ic_chevron_right),
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
             )
         }
-        Icon(
-            painter = painterResource(R.drawable.ic_arrow_back),
-            contentDescription = null,
-            modifier = Modifier
-                .size(16.dp)
-                .rotate(180f),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-        )
     }
 }

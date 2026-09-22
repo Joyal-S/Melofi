@@ -218,7 +218,12 @@ fun SongsScreen(
                         Tab(
                             selected = selectedTab == tab,
                             onClick = { viewModel.setLibraryTab(tab) },
-                            text = { Text(tab.displayName, fontWeight = FontWeight.SemiBold) }
+                            text = {
+                                Text(
+                                    tab.displayName,
+                                    fontWeight = if (selectedTab == tab) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
                         )
                     }
                 }

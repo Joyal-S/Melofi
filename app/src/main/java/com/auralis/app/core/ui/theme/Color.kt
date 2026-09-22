@@ -133,5 +133,19 @@ enum class MelofyAccent(
         primaryDark = Color(0xFFFBBF24),
         containerLight = Color(0xFFFEF3C7),
         containerDark = Color(0xFF78350F)
+    ),
+    TEAL(
+        displayName = "Atmospheric Teal",
+        primaryLight = Color(0xFF0D9488),
+        primaryDark = Color(0xFF2DD4BF),
+        containerLight = Color(0xFFCCFBF1),
+        containerDark = Color(0xFF115E59)
+    ),
+    PINK(
+        displayName = "Rose Pink",
+        primaryLight = Color(0xFFDB2777),
+        primaryDark = Color(0xFFF472B6),
+        containerLight = Color(0xFFFCE7F3),
+        containerDark = Color(0xFF831843)
     )
 }

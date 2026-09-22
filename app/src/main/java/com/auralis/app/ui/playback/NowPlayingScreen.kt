@@ -2,6 +2,7 @@ package com.auralis.app.ui.playback
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -361,6 +362,11 @@ fun NowPlayingScreen(
                     animationSpec = MelofyMotion.springSubtle(),
                     label = "playPauseTactile"
                 )
+                val playPauseRotation by animateFloatAsState(
+                    targetValue = if (playbackState.isPlaying) 0f else -90f,
+                    animationSpec = MelofyMotion.springBouncy(),
+                    label = "nowPlayingPlayPauseRotation"
+                )
 
                 FilledIconButton(
                     onClick = { playbackViewModel.togglePlayPause() },
@@ -383,8 +389,8 @@ fun NowPlayingScreen(
                             if (animationMode == MelofyAnimationMode.OFF) {
                                 androidx.compose.animation.EnterTransition.None togetherWith androidx.compose.animation.ExitTransition.None
                             } else {
-                                (scaleIn(MelofyMotion.springBouncy<Float>()) + fadeIn()).togetherWith(
-                                    scaleOut(MelofyMotion.springBouncy<Float>()) + fadeOut()
+                                (scaleIn(initialScale = 0.65f, animationSpec = MelofyMotion.springBouncy<Float>()) + fadeIn(tween(180))).togetherWith(
+                                    scaleOut(targetScale = 0.65f, animationSpec = MelofyMotion.springSubtle<Float>()) + fadeOut(tween(140))
                                 )
                             }
                         },
@@ -395,7 +401,11 @@ fun NowPlayingScreen(
                                 if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow
                             ),
                             contentDescription = if (isPlaying) "Pause" else "Play",
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier
+                                .size(36.dp)
+                                .graphicsLayer {
+                                    rotationZ = if (animationMode != MelofyAnimationMode.OFF) playPauseRotation else 0f
+                                }
                         )
                     }
                 }

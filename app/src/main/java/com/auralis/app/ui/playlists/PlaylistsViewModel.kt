@@ -42,6 +42,13 @@ class PlaylistsViewModel @Inject constructor(
             initialValue = emptyList()
         )
 
+    val playlistArtworkMap: StateFlow<Map<Long, List<String>>> = playlistRepository.getPlaylistArtworkMappings()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyMap()
+        )
+
     private val _actionError = MutableStateFlow<String?>(null)
     val actionError: StateFlow<String?> = _actionError.asStateFlow()
 

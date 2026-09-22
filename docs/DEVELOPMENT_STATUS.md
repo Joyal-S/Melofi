@@ -367,15 +367,15 @@
   - Artist Detail: 150dp circular avatar, ambient shadow, cover editing badge, metadata pill, top 5 Popular Tracks ranked 1..5, and Albums carousel.
   - Album Detail: 190dp hero cover, ambient shadow, year/duration metadata pill, and unified action buttons (`Play All`, `Shuffle`, `Queue`).
   - Favorites: Hero action row (`Play All` filled button + `Shuffle` tonal button) with track count & total duration header.
-- **Personalization & Accessibility Settings (`SettingsScreen.kt`, `MelofyArtwork.kt`):**
-  - Added `ArtworkCornerStyle` filter chip selector (`Standard Rounded: 12dp`, `Subtle Sharp: 6dp`, `Squircle: 20dp`) injected via `LocalArtworkCornerStyle` for instant global artwork style updates.
-  - Respects all 3 animation modes: `FULL` (springs & slides), `REDUCED` (subtle fades only), `OFF` (instant transitions, no scales).
-- **Premium App Launch Experience (`MainActivity.kt`, `MelofiLaunchScreen.kt`, `themes.xml`):**
-  - Modern Android splash screen integration via `androidx.core:core-splashscreen` (`Theme.App.Starting`) eliminating cold start white flash and theme flickers.
-  - Original Melofi branded startup sequence: deep black / AMOLED background, musical emblem fade + subtle spring scale, "MELOFI" wordmark vertical reveal, and tagline ("Your music. Your device. Your control.") smooth fade.
-  - Coordinated dissolve transition into Home (~920ms total duration; ~380ms in Reduced Motion; instant 0ms when Off).
-  - Fully non-blocking architecture: `MainNavigationScreen` composes immediately underneath the launch overlay; asynchronous database flows and MediaStore loading occur concurrently without main-thread blocking.
-  - Lifecycle & start state awareness: `MainActivity.hasCompletedInitialLaunch` guarantees cold starts show the branded intro while warm starts (returning from background, recents, device rotation) resume immediately (~173ms) without repeating the splash.
+- **Phase 14 UI/UX Premium Refinement (`MainNavigationScreen.kt`, `SettingsScreen.kt`, `MelofyArtwork.kt`):**
+  - **4-Item Streamlined Navigation Bar:** Exactly 4 items (`Songs`, `Favorites`, `Playlists`, `Settings`) with `surfaceContainer` styling, 3dp tonal elevation, dynamic vector states (`ic_favorite` filled vs `ic_favorite_border` outline), and bold label typography for the active tab. No "Stats" in the bottom bar.
+  - **Unified 5-Section Settings Screen:** Replaced top tab bar with a unified, structured single-column scroll divided into `PLAYBACK` (Audio Effects & Equalizer sub-screen, Lo-Fi & Reverb Processor sub-screen, ReplayGain normalization mode), `APPEARANCE` (Theme Mode, AMOLED Black switch, Accent Color selector, Motion & Animation mode, Artwork Corner Style, Audio Quality Badges), `LIBRARY DEFAULTS` (Startup Tab, Default View Mode, Default Sort Order), `STATISTICS` (Listening Statistics row linking to full stats view), and `ABOUT & PRIVACY` (100% Offline Guarantee card and Melofi brand card).
+  - **Universal Artwork & Automatic Collages (`MelofyArtwork.kt`, `PlaylistDao.kt`):**
+    - Replaced random, loud pastel gradient fallbacks with subtle Melofi obsidian/slate atmospheric color pairs (`#1E1730` & `#0E0A1A`, `#1E293B` & `#0F172A`, `#261C3D` & `#130D24`, `#1F2430` & `#11141D`).
+    - Smart multi-panel playlist collages: 2x2 grid for 4+ tracks, balanced 3-panel split for 3 tracks, 2-panel split for 2 tracks, full cover for 1 track, and subtle Melofi emblem fallback for empty playlists.
+    - Reactive Room Flow `getAllPlaylistArtworkMappings()` delivers member track art automatically to `PlaylistItemCard`.
+    - Contextual "Reset to Automatic Cover" option for playlists in `ArtworkCustomizationDialog`.
+  - **Brand Mark & Launcher Icon:** Refined vector layers in `ic_launcher_foreground.xml` and `ic_melofi_brand_mark.xml` using deep indigo, violet, and purple hues (`#6D28D9`, `#7C3AED`, `#5B21B6`, `#8B5CF6`) against `#0E0A1A` obsidian background, preserving vector colors via `tint = Color.Unspecified`.
 
 ---
 
@@ -385,8 +385,8 @@
 |---|---|---|
 | `./gradlew --version` | ✅ Pass | Gradle 9.6.0, JDK 21.0.10 (Android Studio JBR) |
 | `./gradlew clean` | ✅ Pass | Clean build cache & outputs |
-| `./gradlew assembleDebug` | ✅ Pass | Generates `app-debug.apk` cleanly in 8s without errors |
-| `./gradlew test` | ✅ Pass | All unit tests execute and pass (including `MusicImportTest`, `UniversalArtworkTest`, and `DatabaseMigration5To6Test`) |
+| `./gradlew assembleDebug` | ✅ Pass | Generates `app-debug.apk` cleanly in 15s without errors |
+| `./gradlew test` | ✅ Pass | All 32 unit test suites execute and pass cleanly (code 0) |
 | Room DB Migration 5 → 6 Test | ✅ Pass | Verified schema version 6 upgrade and `artwork_overrides` table creation |
 | Music Import & Duplicate Engine Tests | ✅ Pass | Verified duplicate detection, byte-perfect stream copying, and import cancellation |
 | Universal Artwork Resolution Tests | ✅ Pass | Verified custom override priority, embedded/MediaStore fallback, and downsampling |
@@ -396,7 +396,7 @@
 | Recommendation Benchmark | ✅ Pass | 5,000 tracks scored and partitioned in 42ms |
 | Preference & Theme Unit Tests | ✅ Pass | Dedicated tests passing (DataStore serialization, accent theme resolution, motion mode) |
 | Permissions & Privacy Audit | ✅ Pass | 100% offline; zero network permissions; zero analytics, ads, Firebase, or external telemetry |
-| Runtime Verification | ✅ Pass | Verified on `emulator-5554` (Android 17 / API 37, 1080x2400); confirmed navigation, accent switching, dark mode, and UI flows |
+| Runtime Verification | ✅ Pass | Verified on `emulator-5554` (Pixel 8 / API 37, 1080x2400); verified cold launch brand mark, 4-item bottom bar, unified Settings sections, Audio Effects navigation, Lo-Fi + Reverb sub-screen, Statistics navigation, and library tabs |
 
 ---
 

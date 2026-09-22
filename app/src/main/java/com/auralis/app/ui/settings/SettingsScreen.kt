@@ -1,7 +1,9 @@
 package com.auralis.app.ui.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
@@ -56,11 +59,11 @@ import com.auralis.app.domain.model.LibraryViewMode
 import com.auralis.app.domain.model.SongSortOrder
 import com.auralis.app.domain.model.ThemeMode
 
+import com.auralis.app.playback.audiofx.ReplayGainMode
 import androidx.activity.compose.BackHandler
 
 /**
- * Unified Settings screen organizing Audio Effects (Equalizer, Bass Boost, ReplayGain, Lo-Fi + Reverb)
- * and Personalization (Theme, AMOLED black, Library defaults, Privacy, About Melofi).
+ * Unified Settings screen organizing Playback, Appearance, Library, Statistics, and About Melofi.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,14 +71,18 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     settingsViewModel: SettingsViewModel = hiltViewModel(),
     audioViewModel: AudioSettingsViewModel = hiltViewModel(),
-    initialTab: Int = 0
+    initialTab: Int = 0,
+    onNavigateToStatistics: () -> Unit = {}
 ) {
-    var selectedTabIndex by remember { mutableIntStateOf(initialTab) }
+    var showAudioEffectsScreen by remember { mutableStateOf(false) }
     var showLoFiReverbScreen by remember { mutableStateOf(false) }
-    val tabs = listOf("Audio Effects", "Personalization & About")
 
-    BackHandler(enabled = showLoFiReverbScreen) {
-        showLoFiReverbScreen = false
+    BackHandler(enabled = showLoFiReverbScreen || showAudioEffectsScreen) {
+        if (showLoFiReverbScreen) {
+            showLoFiReverbScreen = false
+        } else {
+            showAudioEffectsScreen = false
+        }
     }
 
     if (showLoFiReverbScreen) {
@@ -84,71 +91,64 @@ fun SettingsScreen(
             viewModel = audioViewModel,
             modifier = modifier.fillMaxSize()
         )
+    } else if (showAudioEffectsScreen) {
+        AudioSettingsScreen(
+            viewModel = audioViewModel,
+            onNavigateToLoFiReverb = { showLoFiReverbScreen = true },
+            onBackClick = { showAudioEffectsScreen = false },
+            modifier = modifier.fillMaxSize()
+        )
     } else {
         Scaffold(
             modifier = modifier.fillMaxSize(),
             topBar = {
-                Column {
-                    TopAppBar(
-                        title = {
-                            Text(
-                                text = "Settings",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
-                    )
-                    PrimaryTabRow(selectedTabIndex = selectedTabIndex) {
-                        tabs.forEachIndexed { index, title ->
-                            Tab(
-                                selected = selectedTabIndex == index,
-                                onClick = { selectedTabIndex = index },
-                                text = { Text(title, fontWeight = FontWeight.SemiBold) }
-                            )
-                        }
-                    }
-                }
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = "Settings",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+                )
             }
         ) { innerPadding ->
-            when (selectedTabIndex) {
-                0 -> {
-                    AudioSettingsScreen(
-                        viewModel = audioViewModel,
-                        onNavigateToLoFiReverb = { showLoFiReverbScreen = true },
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding)
-                    )
-                }
-                1 -> {
-                    PersonalizationAndAboutContent(
-                        viewModel = settingsViewModel,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding)
-                    )
-                }
-            }
+            SettingsMainContent(
+                settingsViewModel = settingsViewModel,
+                audioViewModel = audioViewModel,
+                onNavigateToAudioEffects = { showAudioEffectsScreen = true },
+                onNavigateToLoFiReverb = { showLoFiReverbScreen = true },
+                onNavigateToStatistics = onNavigateToStatistics,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            )
         }
     }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PersonalizationAndAboutContent(
-    viewModel: SettingsViewModel,
+private fun SettingsMainContent(
+    settingsViewModel: SettingsViewModel,
+    audioViewModel: AudioSettingsViewModel,
+    onNavigateToAudioEffects: () -> Unit,
+    onNavigateToLoFiReverb: () -> Unit,
+    onNavigateToStatistics: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val preferences by viewModel.preferences.collectAsStateWithLifecycle()
+    val preferences by settingsViewModel.preferences.collectAsStateWithLifecycle()
+    val audioUiState by audioViewModel.uiState.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
             .verticalScroll(rememberScrollState())
             .padding(MelofySpacing.lg),
-        verticalArrangement = Arrangement.spacedBy(MelofySpacing.lg)
+        verticalArrangement = Arrangement.spacedBy(MelofySpacing.md)
     ) {
-        // 1. Appearance Section
+        // 1. PLAYBACK
+        SettingsSectionHeader(title = "Playback")
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = MelofyShapes.card,
@@ -156,14 +156,172 @@ private fun PersonalizationAndAboutContent(
             elevation = CardDefaults.cardElevation(defaultElevation = MelofyElevation.low)
         ) {
             Column(modifier = Modifier.padding(MelofySpacing.lg)) {
-                Text(
-                    text = "Appearance",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                // Audio Effects Row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onNavigateToAudioEffects() }
+                        .padding(vertical = MelofySpacing.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_tune),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(MelofySpacing.md))
+                        Column {
+                            Text(
+                                text = "Audio Effects & Equalizer",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "5-band hardware EQ, Bass Boost, Virtualizer & Sleep Timer",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Icon(
+                        painter = painterResource(R.drawable.ic_chevron_right),
+                        contentDescription = "Open Audio Effects",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(MelofySpacing.md))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Spacer(modifier = Modifier.height(MelofySpacing.md))
 
+                // Lo-Fi + Reverb Row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onNavigateToLoFiReverb() }
+                        .padding(vertical = MelofySpacing.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_waves),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(MelofySpacing.md))
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Lo-Fi & Reverb Processor",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                if (audioUiState.dspParameters.isAnyActive) {
+                                    Spacer(modifier = Modifier.width(MelofySpacing.xs))
+                                    Text(
+                                        text = "• Active",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "Warm tape saturation, vinyl crackle & spatial reverb",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Icon(
+                        painter = painterResource(R.drawable.ic_chevron_right),
+                        contentDescription = "Open Lo-Fi & Reverb",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(MelofySpacing.md))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Spacer(modifier = Modifier.height(MelofySpacing.md))
+
+                // ReplayGain Loudness
+                Text(
+                    text = "ReplayGain Loudness Normalization",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "Normalizes perceived loudness across tracks using embedded gain tags.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(MelofySpacing.sm))
+
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(MelofySpacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(MelofySpacing.xs)
+                ) {
+                    listOf(
+                        ReplayGainMode.OFF to "Off",
+                        ReplayGainMode.TRACK to "Track Gain",
+                        ReplayGainMode.ALBUM to "Album Gain"
+                    ).forEach { (mode, label) ->
+                        FilterChip(
+                            selected = audioUiState.replayGainState.mode == mode,
+                            onClick = { audioViewModel.setReplayGainMode(mode) },
+                            label = { Text(label) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(MelofySpacing.xs))
+
+        // 2. APPEARANCE
+        SettingsSectionHeader(title = "Appearance")
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MelofyShapes.card,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            elevation = CardDefaults.cardElevation(defaultElevation = MelofyElevation.low)
+        ) {
+            Column(modifier = Modifier.padding(MelofySpacing.lg)) {
                 Text(
                     text = "Theme Mode",
                     style = MaterialTheme.typography.bodyMedium,
@@ -178,7 +336,7 @@ private fun PersonalizationAndAboutContent(
                     ThemeMode.entries.forEach { mode ->
                         FilterChip(
                             selected = preferences.themeMode == mode,
-                            onClick = { viewModel.setThemeMode(mode) },
+                            onClick = { settingsViewModel.setThemeMode(mode) },
                             label = {
                                 Text(
                                     when (mode) {
@@ -220,7 +378,7 @@ private fun PersonalizationAndAboutContent(
                     }
                     Switch(
                         checked = preferences.amoledBlack,
-                        onCheckedChange = { viewModel.setAmoledBlack(it) }
+                        onCheckedChange = { settingsViewModel.setAmoledBlack(it) }
                     )
                 }
 
@@ -243,18 +401,8 @@ private fun PersonalizationAndAboutContent(
                     MelofyAccent.entries.forEach { accent ->
                         FilterChip(
                             selected = preferences.accentColor == accent,
-                            onClick = { viewModel.setAccentColor(accent) },
-                            label = {
-                                Text(
-                                    when (accent) {
-                                        MelofyAccent.EMERALD -> "Emerald"
-                                        MelofyAccent.VIOLET -> "Electric Violet"
-                                        MelofyAccent.BLUE -> "Cyan Blue"
-                                        MelofyAccent.CORAL -> "Sunset Coral"
-                                        MelofyAccent.AMBER -> "Warm Amber"
-                                    }
-                                )
-                            },
+                            onClick = { settingsViewModel.setAccentColor(accent) },
+                            label = { Text(accent.displayName) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary,
                                 selectedLabelColor = MaterialTheme.colorScheme.onPrimary
@@ -282,7 +430,7 @@ private fun PersonalizationAndAboutContent(
                     MelofyAnimationMode.entries.forEach { animMode ->
                         FilterChip(
                             selected = preferences.animationMode == animMode,
-                            onClick = { viewModel.setAnimationMode(animMode) },
+                            onClick = { settingsViewModel.setAnimationMode(animMode) },
                             label = {
                                 Text(
                                     when (animMode) {
@@ -324,7 +472,7 @@ private fun PersonalizationAndAboutContent(
                     ArtworkCornerStyle.entries.forEach { cornerStyle ->
                         FilterChip(
                             selected = preferences.artworkCornerStyle == cornerStyle,
-                            onClick = { viewModel.setArtworkCornerStyle(cornerStyle) },
+                            onClick = { settingsViewModel.setArtworkCornerStyle(cornerStyle) },
                             label = {
                                 Text(
                                     when (cornerStyle) {
@@ -366,13 +514,16 @@ private fun PersonalizationAndAboutContent(
                     }
                     Switch(
                         checked = preferences.showQualityBadges,
-                        onCheckedChange = { viewModel.setShowQualityBadges(it) }
+                        onCheckedChange = { settingsViewModel.setShowQualityBadges(it) }
                     )
                 }
             }
         }
 
-        // 2. Library Personalization Defaults
+        Spacer(modifier = Modifier.height(MelofySpacing.xs))
+
+        // 3. LIBRARY DEFAULTS
+        SettingsSectionHeader(title = "Library Defaults")
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = MelofyShapes.card,
@@ -380,15 +531,7 @@ private fun PersonalizationAndAboutContent(
             elevation = CardDefaults.cardElevation(defaultElevation = MelofyElevation.low)
         ) {
             Column(modifier = Modifier.padding(MelofySpacing.lg)) {
-                Text(
-                    text = "Library Defaults",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(MelofySpacing.md))
-
-                // Default Tab
+                // Startup Library Tab
                 Text(
                     text = "Startup Library Tab",
                     style = MaterialTheme.typography.bodyMedium,
@@ -403,7 +546,7 @@ private fun PersonalizationAndAboutContent(
                     LibraryTab.entries.forEach { tab ->
                         FilterChip(
                             selected = preferences.defaultLibraryTab == tab,
-                            onClick = { viewModel.setDefaultLibraryTab(tab) },
+                            onClick = { settingsViewModel.setDefaultLibraryTab(tab) },
                             label = { Text(tab.displayName) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary,
@@ -432,7 +575,7 @@ private fun PersonalizationAndAboutContent(
                     LibraryViewMode.entries.forEach { viewMode ->
                         FilterChip(
                             selected = preferences.defaultViewMode == viewMode,
-                            onClick = { viewModel.setDefaultViewMode(viewMode) },
+                            onClick = { settingsViewModel.setDefaultViewMode(viewMode) },
                             label = {
                                 Text(
                                     when (viewMode) {
@@ -476,7 +619,7 @@ private fun PersonalizationAndAboutContent(
                     commonSorts.forEach { sort ->
                         FilterChip(
                             selected = preferences.defaultSortOrder == sort,
-                            onClick = { viewModel.setDefaultSortOrder(sort) },
+                            onClick = { settingsViewModel.setDefaultSortOrder(sort) },
                             label = { Text(sort.displayName) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary,
@@ -488,7 +631,73 @@ private fun PersonalizationAndAboutContent(
             }
         }
 
-        // 3. Privacy Guarantee Card
+        Spacer(modifier = Modifier.height(MelofySpacing.xs))
+
+        // 4. STATISTICS
+        SettingsSectionHeader(title = "Statistics")
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onNavigateToStatistics() },
+            shape = MelofyShapes.card,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            elevation = CardDefaults.cardElevation(defaultElevation = MelofyElevation.low)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(MelofySpacing.lg),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                shape = CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_insights),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(MelofySpacing.md))
+                    Column {
+                        Text(
+                            text = "Listening Statistics",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "View top tracks, artists, and listening history",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+                Icon(
+                    painter = painterResource(R.drawable.ic_chevron_right),
+                    contentDescription = "Open Statistics",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(MelofySpacing.xs))
+
+        // 5. ABOUT & PRIVACY
+        SettingsSectionHeader(title = "About & Privacy")
+        // Privacy Guarantee Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = MelofyShapes.card,
@@ -521,7 +730,7 @@ private fun PersonalizationAndAboutContent(
             }
         }
 
-        // 4. About Melofi Card
+        // About Melofi Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = MelofyShapes.card,
@@ -568,4 +777,15 @@ private fun PersonalizationAndAboutContent(
             }
         }
     }
+}
+
+@Composable
+private fun SettingsSectionHeader(title: String) {
+    Text(
+        text = title.uppercase(),
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = MelofySpacing.xs, top = MelofySpacing.xs)
+    )
 }

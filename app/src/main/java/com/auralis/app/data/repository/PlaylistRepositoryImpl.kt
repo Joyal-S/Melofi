@@ -68,6 +68,15 @@ class PlaylistRepositoryImpl @Inject constructor(
             .flowOn(ioDispatcher)
     }
 
+    override fun getPlaylistArtworkMappings(): Flow<Map<Long, List<String>>> {
+        return playlistDao.getAllPlaylistArtworkMappings()
+            .map { mappings ->
+                mappings.groupBy({ it.playlistId }, { it.albumArtUri })
+                    .mapValues { (_, uris) -> uris.distinct().take(4) }
+            }
+            .flowOn(ioDispatcher)
+    }
+
     override suspend fun createPlaylist(name: String): Result<Long> = withContext(ioDispatcher) {
         try {
             val entity = PlaylistEntity(name = name)

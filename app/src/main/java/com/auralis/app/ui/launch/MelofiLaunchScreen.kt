@@ -42,13 +42,13 @@ import kotlinx.coroutines.launch
  * Premium, calm, brand-authentic app launch experience for Melofi.
  *
  * Sequence:
- * 1. Deep black / AMOLED-compatible surface (or light surface if light theme).
- * 2. Musical emblem appears with subtle fade + physics-based scale.
- * 3. MELOFI wordmark smoothly reveals with slight upward settling.
- * 4. Tagline "Your music. Your device. Your control." fades in.
- * 5. Smooth continuous dissolve into Home screen.
+ * 0ms: Deep black / AMOLED-compatible surface (or light surface if light theme).
+ * ~100–250ms: Melofi musical emblem appears with subtle fade + physics-based scale.
+ * ~250–480ms: MELOFI wordmark smoothly reveals with slight upward settling.
+ * ~400–620ms: Tagline "Your music. Your device. Your control." fades in.
+ * ~550–900ms: Home content smoothly emerges through the brand transition (continuous alpha dissolve while brand subtly drifts upward).
+ * ~920ms: Home becomes fully interactive with zero abrupt cuts or layout shifts.
  *
- * Target duration: ~850-1000ms (or ~350ms in Reduced Motion, 0ms when Off).
  * Completely non-blocking to underlying library/database initialization.
  */
 @Composable
@@ -59,7 +59,7 @@ fun MelofiLaunchScreen(
     onLaunchComplete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Prevent back-press navigation from interrupting the 0.9s brand sequence
+    // Prevent back-press navigation from interrupting the brand sequence
     BackHandler { /* consume back press during initial launch */ }
 
     // Instant bypass if animations are disabled
@@ -79,56 +79,62 @@ fun MelofiLaunchScreen(
 
     // Animation drivers
     val logoAlpha = remember { Animatable(0f) }
-    val logoScale = remember { Animatable(if (animationMode == MelofyAnimationMode.REDUCED) 1f else 0.82f) }
+    val logoScale = remember { Animatable(if (animationMode == MelofyAnimationMode.REDUCED) 1f else 0.84f) }
     val wordmarkAlpha = remember { Animatable(0f) }
-    val wordmarkOffsetY = remember { Animatable(if (animationMode == MelofyAnimationMode.REDUCED) 0f else 14f) }
+    val wordmarkOffsetY = remember { Animatable(if (animationMode == MelofyAnimationMode.REDUCED) 0f else 12f) }
     val taglineAlpha = remember { Animatable(0f) }
     val exitAlpha = remember { Animatable(1f) }
-    val exitScale = remember { Animatable(1f) }
+    val contentDissolveOffsetY = remember { Animatable(0f) }
+    val haloExpansion = remember { Animatable(1f) }
 
     LaunchedEffect(animationMode) {
         if (animationMode == MelofyAnimationMode.REDUCED) {
-            // Reduced motion: simple fade, zero scale/translation, quick ~380ms total
-            launch { logoAlpha.animateTo(1f, tween(180, easing = FastOutSlowInEasing)) }
-            launch { wordmarkAlpha.animateTo(1f, tween(180, easing = FastOutSlowInEasing)) }
-            launch { taglineAlpha.animateTo(0.85f, tween(180, easing = FastOutSlowInEasing)) }
-            delay(260)
-            exitAlpha.animateTo(0f, tween(120, easing = FastOutSlowInEasing))
+            // Reduced motion: simple fade, zero scale/translation, quick ~360ms total
+            launch { logoAlpha.animateTo(1f, tween(160, easing = FastOutSlowInEasing)) }
+            launch { wordmarkAlpha.animateTo(1f, tween(160, easing = FastOutSlowInEasing)) }
+            launch { taglineAlpha.animateTo(0.85f, tween(160, easing = FastOutSlowInEasing)) }
+            delay(220)
+            exitAlpha.animateTo(0f, tween(140, easing = FastOutSlowInEasing))
             onLaunchComplete()
         } else {
-            // Full motion: coordinated brand reveal sequence (~920ms total)
+            // Full motion: coordinated brand reveal and seamless blending into Home (~920ms total)
 
-            // Step 1: Musical emblem appears with subtle spring scale and fade (0ms -> 340ms)
+            // Step 1: Musical emblem appears (0ms -> 280ms)
             launch {
-                logoAlpha.animateTo(1f, tween(300, easing = FastOutSlowInEasing))
+                logoAlpha.animateTo(1f, tween(260, easing = FastOutSlowInEasing))
             }
             launch {
                 logoScale.animateTo(1f, MelofyMotion.springSubtle())
             }
 
-            // Step 2: MELOFI wordmark reveals with slight vertical translation (140ms -> 460ms)
+            // Step 2: MELOFI wordmark reveals (140ms -> 420ms)
             delay(140)
             launch {
-                wordmarkAlpha.animateTo(1f, tween(280, easing = FastOutSlowInEasing))
+                wordmarkAlpha.animateTo(1f, tween(260, easing = FastOutSlowInEasing))
             }
             launch {
                 wordmarkOffsetY.animateTo(0f, MelofyMotion.springSubtle())
             }
 
-            // Step 3: Tagline fades in smoothly (280ms -> 560ms)
+            // Step 3: Tagline fades in smoothly (280ms -> 520ms)
             delay(140)
             launch {
-                taglineAlpha.animateTo(0.85f, tween(260, easing = LinearOutSlowInEasing))
+                taglineAlpha.animateTo(0.85f, tween(240, easing = LinearOutSlowInEasing))
             }
 
-            // Step 4: Settle and hold brand identity briefly
-            delay(360)
+            // Step 4: Settle briefly (520ms -> 580ms)
+            delay(240)
 
-            // Step 5: Continuous cinematic dissolve into Home (reveal underlying screen)
+            // Step 5: Continuous blend into Home:
+            // The overlay smoothly fades from 1f to 0f over 340ms, while the brand mark
+            // subtly drifts upward by -16dp, naturally unveiling the Home screen underneath.
             launch {
-                exitScale.animateTo(1.03f, tween(200, easing = LinearOutSlowInEasing))
+                contentDissolveOffsetY.animateTo(-16f, tween(340, easing = FastOutSlowInEasing))
             }
-            exitAlpha.animateTo(0f, tween(200, easing = FastOutSlowInEasing))
+            launch {
+                haloExpansion.animateTo(1.25f, tween(340, easing = LinearOutSlowInEasing))
+            }
+            exitAlpha.animateTo(0f, tween(340, easing = FastOutSlowInEasing))
 
             onLaunchComplete()
         }
@@ -137,14 +143,14 @@ fun MelofiLaunchScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .scale(exitScale.value)
             .alpha(exitAlpha.value)
             .background(backgroundColor),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.offset(y = contentDissolveOffsetY.value.dp)
         ) {
             // Ambient subtle back-glow behind the logo
             Box(
@@ -157,10 +163,11 @@ fun MelofiLaunchScreen(
                 Box(
                     modifier = Modifier
                         .size(110.dp)
+                        .scale(haloExpansion.value)
                         .background(
                             brush = Brush.radialGradient(
                                 colors = listOf(
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                                     Color.Transparent
                                 )
                             ),
@@ -172,7 +179,7 @@ fun MelofiLaunchScreen(
                 Icon(
                     painter = painterResource(R.drawable.ic_melofi_brand_mark),
                     contentDescription = "Melofi Logo",
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = Color.Unspecified,
                     modifier = Modifier.size(76.dp)
                 )
             }
