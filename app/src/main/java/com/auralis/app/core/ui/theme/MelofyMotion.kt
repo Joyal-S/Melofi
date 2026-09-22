@@ -3,6 +3,7 @@ package com.auralis.app.core.ui.theme
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.SpringSpec
@@ -28,10 +29,11 @@ val LocalAnimationMode = compositionLocalOf { MelofyAnimationMode.FULL }
  */
 object MelofyMotion {
     // Duration tokens (ms)
-    const val DURATION_FAST = 150
-    const val DURATION_NORMAL = 250
+    const val DURATION_MICRO = 150
+    const val DURATION_FAST = 200
+    const val DURATION_NORMAL = 280
     const val DURATION_MEDIUM = 350
-    const val DURATION_SLOW = 500
+    const val DURATION_SLOW = 450
 
     // Easing curves
     val standardEasing = FastOutSlowInEasing
@@ -40,6 +42,11 @@ object MelofyMotion {
     val emphasizeEasing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f)
 
     // Spring specs for micro-interactions
+    fun <T> springSubtle(): SpringSpec<T> = spring(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessMedium
+    )
+
     fun <T> springBouncy(): SpringSpec<T> = spring(
         dampingRatio = Spring.DampingRatioMediumBouncy,
         stiffness = Spring.StiffnessMedium
@@ -59,7 +66,7 @@ object MelofyMotion {
     fun <T> adaptiveTween(
         mode: MelofyAnimationMode,
         durationMillis: Int = DURATION_NORMAL
-    ): AnimationSpec<T> {
+    ): FiniteAnimationSpec<T> {
         return when (mode) {
             MelofyAnimationMode.OFF -> snap()
             MelofyAnimationMode.REDUCED -> tween(durationMillis = durationMillis / 2, easing = standardEasing)
@@ -67,3 +74,4 @@ object MelofyMotion {
         }
     }
 }
+

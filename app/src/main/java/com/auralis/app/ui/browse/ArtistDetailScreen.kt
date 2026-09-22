@@ -61,6 +61,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.auralis.app.domain.model.ArtworkEntityType
 import com.auralis.app.ui.components.ArtworkCustomizationDialog
+import com.auralis.app.core.ui.theme.MelofySpacing
+import com.auralis.app.core.ui.theme.MelofyElevation
+import androidx.compose.material3.Surface
+import androidx.compose.ui.draw.shadow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -171,123 +175,193 @@ fun ArtistDetailScreen(
                 val artist = state.artist
                 val songs = state.songs
                 val albums = state.albums
+                val popularSongs = remember(songs) { songs.take(5) }
 
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding)
                 ) {
-                    // Header
+                    // 1. Immersive Hero Header
                     item {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            MelofyArtwork(
-                                artworkUri = artist.artUri,
-                                title = artist.name,
-                                entityType = ArtworkEntityType.ARTIST,
+                            Column(
                                 modifier = Modifier
-                                    .size(140.dp)
-                                    .clickable { showArtworkDialog = true },
-                                cornerRadius = 70.dp
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            Text(
-                                text = artist.name,
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-
-                            Text(
-                                text = "${artist.songCount} songs • ${artist.albumCount} albums",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Playback Actions
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    .fillMaxWidth()
+                                    .padding(horizontal = MelofySpacing.lg, vertical = MelofySpacing.xl),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Button(
-                                    onClick = {
-                                        if (songs.isNotEmpty()) {
-                                            playbackViewModel.playSong(songs.first(), songs)
-                                        }
-                                    },
-                                    modifier = Modifier.weight(1f)
+                                Box(
+                                    contentAlignment = Alignment.BottomEnd,
+                                    modifier = Modifier.clickable { showArtworkDialog = true }
                                 ) {
-                                    Icon(painter = painterResource(R.drawable.ic_play_arrow), contentDescription = null)
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Play All")
-                                }
-
-                                FilledTonalButton(
-                                    onClick = {
-                                        if (songs.isNotEmpty()) {
-                                            playbackViewModel.playSong(songs.shuffled().first(), songs.shuffled())
+                                    Box(
+                                        modifier = Modifier
+                                            .size(150.dp)
+                                            .shadow(
+                                                elevation = MelofyElevation.high,
+                                                shape = CircleShape,
+                                                ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                                                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+                                            )
+                                    )
+                                    MelofyArtwork(
+                                        artworkUri = artist.artUri,
+                                        title = artist.name,
+                                        entityType = ArtworkEntityType.ARTIST,
+                                        modifier = Modifier.size(150.dp),
+                                        cornerRadius = 75.dp
+                                    )
+                                    // Custom artwork badge indicator
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.primary,
+                                        shape = CircleShape,
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .padding(2.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                painter = painterResource(R.drawable.ic_image),
+                                                contentDescription = "Edit Artist Artwork",
+                                                tint = MaterialTheme.colorScheme.onPrimary,
+                                                modifier = Modifier.size(18.dp)
+                                            )
                                         }
-                                    },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Icon(painter = painterResource(R.drawable.ic_shuffle), contentDescription = null)
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Shuffle")
-                                }
-
-                                OutlinedButton(
-                                    onClick = {
-                                        playbackViewModel.addSongsToQueue(songs)
                                     }
+                                }
+
+                                Spacer(modifier = Modifier.height(MelofySpacing.md))
+
+                                Text(
+                                    text = artist.name,
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+
+                                Spacer(modifier = Modifier.height(MelofySpacing.xxs))
+
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                    shape = RoundedCornerShape(12.dp)
                                 ) {
-                                    Icon(painter = painterResource(R.drawable.ic_queue_music), contentDescription = "Queue")
+                                    Text(
+                                        text = "${artist.songCount} songs • ${artist.albumCount} albums",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = MelofySpacing.md, vertical = MelofySpacing.xxs)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(MelofySpacing.lg))
+
+                                // Playback Actions Row
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(MelofySpacing.sm),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Button(
+                                        onClick = {
+                                            if (songs.isNotEmpty()) {
+                                                playbackViewModel.playSong(songs.first(), songs)
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(painter = painterResource(R.drawable.ic_play_arrow), contentDescription = null)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Play All")
+                                    }
+
+                                    FilledTonalButton(
+                                        onClick = {
+                                            if (songs.isNotEmpty()) {
+                                                playbackViewModel.playSong(songs.shuffled().first(), songs.shuffled())
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(painter = painterResource(R.drawable.ic_shuffle), contentDescription = null)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Shuffle")
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = {
+                                            playbackViewModel.addSongsToQueue(songs)
+                                        }
+                                    ) {
+                                        Icon(painter = painterResource(R.drawable.ic_queue_music), contentDescription = "Queue")
+                                    }
                                 }
                             }
                         }
                     }
 
-                    // Albums Horizontal Carousel
+                    // 2. Popular Tracks Section (Top 5 tracks with rank indicators)
+                    if (popularSongs.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = "Popular Tracks",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(start = MelofySpacing.lg, end = MelofySpacing.lg, top = MelofySpacing.lg, bottom = MelofySpacing.xs)
+                            )
+                        }
+
+                        itemsIndexed(popularSongs, key = { _, s -> "pop_${s.id}" }) { index, song ->
+                            PopularTrackRow(
+                                rank = index + 1,
+                                song = song,
+                                onClick = { onSongClick(song, songs) },
+                                isFavorite = song.id in favoriteSongIds,
+                                onToggleFavorite = { viewModel.toggleFavorite(song.id) },
+                                onAddToPlaylist = { onAddToPlaylistClick(song) },
+                                onPlayNext = { playbackViewModel.addSongsToQueue(listOf(song)) },
+                                onShowDetails = { onSongDetailsClick(song) }
+                            )
+                        }
+                    }
+
+                    // 3. Albums Horizontal Carousel
                     if (albums.isNotEmpty()) {
                         item {
-                            Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp)) {
+                            Column(modifier = Modifier.fillMaxWidth().padding(top = MelofySpacing.md, bottom = MelofySpacing.xs)) {
                                 Text(
                                     text = "Albums (${albums.size})",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                    modifier = Modifier.padding(horizontal = MelofySpacing.lg, vertical = MelofySpacing.xs)
                                 )
 
                                 LazyRow(
-                                    contentPadding = PaddingValues(horizontal = 16.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    contentPadding = PaddingValues(horizontal = MelofySpacing.lg),
+                                    horizontalArrangement = Arrangement.spacedBy(MelofySpacing.md)
                                 ) {
                                     items(albums, key = { it.id }) { album ->
                                         Card(
                                             modifier = Modifier
-                                                .width(130.dp)
+                                                .width(136.dp)
                                                 .clickable { onAlbumClick(album.id) },
-                                            shape = RoundedCornerShape(12.dp),
+                                            shape = RoundedCornerShape(14.dp),
                                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                         ) {
-                                            Column(modifier = Modifier.padding(8.dp)) {
+                                            Column(modifier = Modifier.padding(MelofySpacing.sm)) {
                                                 MelofyArtwork(
                                                     artworkUri = album.artUri,
                                                     title = album.name,
                                                     artist = artist.name,
-                                                    modifier = Modifier.size(114.dp),
-                                                    cornerRadius = 8.dp
+                                                    modifier = Modifier.size(120.dp),
+                                                    cornerRadius = 10.dp
                                                 )
 
-                                                Spacer(modifier = Modifier.height(6.dp))
+                                                Spacer(modifier = Modifier.height(MelofySpacing.xs))
 
                                                 Text(
                                                     text = album.name,
@@ -310,31 +384,28 @@ fun ArtistDetailScreen(
                         }
                     }
 
-                    // Songs Header
+                    // 4. All Tracks Header & List
                     item {
                         Text(
-                            text = "Tracks (${songs.size})",
+                            text = "All Tracks (${songs.size})",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)
+                            modifier = Modifier.padding(start = MelofySpacing.lg, end = MelofySpacing.lg, top = MelofySpacing.lg, bottom = MelofySpacing.xs)
                         )
                     }
 
-                    // Song List
-                    itemsIndexed(songs, key = { _, s -> s.id }) { index, song ->
+                    items(songs, key = { it.id }) { song ->
                         SongListItem(
                             song = song,
                             onClick = { onSongClick(song, songs) },
                             isFavorite = song.id in favoriteSongIds,
                             onToggleFavorite = { viewModel.toggleFavorite(song.id) },
                             onAddToPlaylist = { onAddToPlaylistClick(song) },
+                            onPlay = { onSongClick(song, songs) },
+                            onAddToQueue = { playbackViewModel.addSongsToQueue(listOf(song)) },
                             onPlayNext = { playbackViewModel.addSongsToQueue(listOf(song)) },
                             onShowDetails = { onSongDetailsClick(song) }
                         )
-                    }
-
-                    item {
-                        Spacer(modifier = Modifier.height(32.dp))
                     }
                 }
             }
@@ -342,22 +413,89 @@ fun ArtistDetailScreen(
     }
 
     if (showArtworkDialog) {
-        val currentArtist = (uiState as? ArtistDetailUiState.Success)?.artist
-        if (currentArtist != null) {
-            ArtworkCustomizationDialog(
-                entityType = ArtworkEntityType.ARTIST,
-                entityId = currentArtist.id.toString(),
-                entityName = currentArtist.name,
-                currentArtworkUri = currentArtist.artUri,
-                onDismiss = { showArtworkDialog = false },
-                onSave = { uri ->
-                    showArtworkDialog = false
-                    viewModel.setCustomArtwork(uri)
-                },
-                onReset = {
-                    showArtworkDialog = false
-                    viewModel.clearCustomArtwork()
-                }
+        ArtworkCustomizationDialog(
+            entityType = ArtworkEntityType.ARTIST,
+            entityId = artistId.toString(),
+            entityName = (uiState as? ArtistDetailUiState.Success)?.artist?.name.orEmpty(),
+            currentArtworkUri = (uiState as? ArtistDetailUiState.Success)?.artist?.artUri,
+            onDismiss = { showArtworkDialog = false },
+            onSave = { uri ->
+                viewModel.setCustomArtwork(uri)
+                showArtworkDialog = false
+            },
+            onReset = {
+                viewModel.clearCustomArtwork()
+                showArtworkDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun PopularTrackRow(
+    rank: Int,
+    song: Song,
+    onClick: () -> Unit,
+    isFavorite: Boolean,
+    onToggleFavorite: () -> Unit,
+    onAddToPlaylist: () -> Unit,
+    onPlayNext: () -> Unit,
+    onShowDetails: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = MelofySpacing.lg, vertical = MelofySpacing.xs),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = rank.toString(),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.width(28.dp)
+        )
+
+        MelofyArtwork(
+            artworkUri = song.albumArtUri,
+            title = song.title,
+            artist = song.artistName,
+            modifier = Modifier.size(44.dp),
+            cornerRadius = 8.dp
+        )
+
+        Spacer(modifier = Modifier.width(MelofySpacing.md))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = song.title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = song.albumName,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        IconButton(
+            onClick = onToggleFavorite,
+            modifier = Modifier.size(36.dp)
+        ) {
+            Icon(
+                painter = painterResource(
+                    if (isFavorite) R.drawable.ic_favorite else R.drawable.ic_favorite_border
+                ),
+                contentDescription = "Favorite",
+                tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
             )
         }
     }

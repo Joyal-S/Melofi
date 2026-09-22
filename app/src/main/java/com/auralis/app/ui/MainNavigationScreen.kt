@@ -1,6 +1,17 @@
 package com.auralis.app.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -20,6 +31,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.auralis.app.R
+import com.auralis.app.core.ui.theme.LocalAnimationMode
+import com.auralis.app.core.ui.theme.MelofyAnimationMode
+import com.auralis.app.core.ui.theme.MelofyMotion
 import com.auralis.app.domain.model.SmartPlaylistType
 import com.auralis.app.domain.model.Song
 import com.auralis.app.ui.browse.AlbumDetailScreen
@@ -62,6 +76,20 @@ enum class MainTab {
     SETTINGS
 }
 
+private sealed interface ScreenDestination {
+    data class Main(val tab: MainTab) : ScreenDestination
+    data object NowPlaying : ScreenDestination
+    data class SongDetails(val id: Long) : ScreenDestination
+    data object Duplicates : ScreenDestination
+    data class Album(val id: Long) : ScreenDestination
+    data class Artist(val id: Long) : ScreenDestination
+    data class Genre(val id: Long) : ScreenDestination
+    data object Recommendations : ScreenDestination
+    data object Search : ScreenDestination
+    data class SmartPlaylist(val type: SmartPlaylistType) : ScreenDestination
+    data class Playlist(val id: Long) : ScreenDestination
+}
+
 /**
  * Top-level navigation host coordinating library tabs, playlist details,
  * listening statistics, smart playlists, metadata inspection, duplicates,
@@ -87,6 +115,8 @@ fun MainNavigationScreen(
     audioSettingsViewModel: AudioSettingsViewModel = hiltViewModel(),
     modifier: Modifier = Modifier
 ) {
+    val animationMode = LocalAnimationMode.current
+
     var selectedTab by remember { mutableStateOf(MainTab.SONGS) }
     var selectedPlaylistId by remember { mutableStateOf<Long?>(null) }
     var selectedSmartPlaylistType by remember { mutableStateOf<SmartPlaylistType?>(null) }
@@ -132,12 +162,46 @@ fun MainNavigationScreen(
         }
     }
 
+    val currentDestination: ScreenDestination = remember(
+        showNowPlaying,
+        selectedSongDetailsId,
+        showDuplicateScreen,
+        selectedAlbumId,
+        selectedArtistId,
+        selectedGenreId,
+        showRecommendationDetail,
+        showSearchScreen,
+        selectedSmartPlaylistType,
+        selectedPlaylistId,
+        selectedTab
+    ) {
+        when {
+            showNowPlaying -> ScreenDestination.NowPlaying
+            selectedSongDetailsId != null -> ScreenDestination.SongDetails(selectedSongDetailsId!!)
+            showDuplicateScreen -> ScreenDestination.Duplicates
+            selectedAlbumId != null -> ScreenDestination.Album(selectedAlbumId!!)
+            selectedArtistId != null -> ScreenDestination.Artist(selectedArtistId!!)
+            selectedGenreId != null -> ScreenDestination.Genre(selectedGenreId!!)
+            showRecommendationDetail -> ScreenDestination.Recommendations
+            showSearchScreen -> ScreenDestination.Search
+            selectedSmartPlaylistType != null -> ScreenDestination.SmartPlaylist(selectedSmartPlaylistType!!)
+            selectedPlaylistId != null -> ScreenDestination.Playlist(selectedPlaylistId!!)
+            else -> ScreenDestination.Main(selectedTab)
+        }
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         bottomBar = {
             Column {
                 // Persistent Playback Controls Bar (hidden when full-screen Now Playing is open)
-                if (playbackState.currentSong != null && !showNowPlaying) {
+                AnimatedVisibility(
+                    visible = playbackState.currentSong != null && !showNowPlaying,
+                    enter = if (animationMode == MelofyAnimationMode.OFF) EnterTransition.None
+                            else slideInVertically(MelofyMotion.springSubtle()) { it } + fadeIn(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST)),
+                    exit = if (animationMode == MelofyAnimationMode.OFF) ExitTransition.None
+                           else slideOutVertically(MelofyMotion.springSubtle()) { it } + fadeOut(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST))
+                ) {
                     PlaybackControlsBar(
                         playbackState = playbackState,
                         onTogglePlayPause = { playbackViewModel.togglePlayPause() },
@@ -154,7 +218,13 @@ fun MainNavigationScreen(
                 }
 
                 // Root Navigation Bar (hidden on sub-details and Now Playing)
-                if (!isSubScreen) {
+                AnimatedVisibility(
+                    visible = !isSubScreen,
+                    enter = if (animationMode == MelofyAnimationMode.OFF) EnterTransition.None
+                            else slideInVertically(MelofyMotion.springSubtle()) { it } + fadeIn(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST)),
+                    exit = if (animationMode == MelofyAnimationMode.OFF) ExitTransition.None
+                           else slideOutVertically(MelofyMotion.springSubtle()) { it } + fadeOut(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST))
+                ) {
                     NavigationBar(
                         containerColor = MaterialTheme.colorScheme.surface
                     ) {
@@ -222,179 +292,226 @@ fun MainNavigationScreen(
             .fillMaxSize()
             .padding(innerPadding)
 
-        val activePlaylistId = selectedPlaylistId
-        val activeSmartPlaylistType = selectedSmartPlaylistType
-        val activeSongDetailsId = selectedSongDetailsId
-        val activeAlbumId = selectedAlbumId
-        val activeArtistId = selectedArtistId
-        val activeGenreId = selectedGenreId
+        AnimatedContent(
+            targetState = currentDestination,
+            transitionSpec = {
+                if (animationMode == MelofyAnimationMode.OFF) {
+                    EnterTransition.None togetherWith ExitTransition.None
+                } else if (animationMode == MelofyAnimationMode.REDUCED) {
+                    fadeIn(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST)) togetherWith
+                            fadeOut(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST))
+                } else {
+                    val isEnteringNowPlaying = targetState is ScreenDestination.NowPlaying
+                    val isExitingNowPlaying = initialState is ScreenDestination.NowPlaying
+                    val isTargetSubScreen = targetState !is ScreenDestination.Main && !isEnteringNowPlaying
+                    val isInitialSubScreen = initialState !is ScreenDestination.Main && !isExitingNowPlaying
 
-        if (showNowPlaying) {
-            NowPlayingScreen(
-                playbackViewModel = playbackViewModel,
-                onCollapse = { showNowPlaying = false },
-                isFavorite = playbackState.currentSong?.id?.let { it in favoriteSongIds } == true,
-                onToggleFavorite = { favoritesViewModel.toggleFavorite(it) },
-                onOpenAudioSettings = {
-                    showNowPlaying = false
-                    selectedTab = MainTab.SETTINGS
-                },
-                modifier = screenModifier
-            )
-        } else if (activeSongDetailsId != null) {
-            SongDetailsScreen(
-                songId = activeSongDetailsId,
-                viewModel = songDetailsViewModel,
-                onBackClick = { selectedSongDetailsId = null },
-                onPlaySong = { song -> playbackViewModel.playSong(song, listOf(song)) },
-                onAddToQueue = { song -> playbackViewModel.addSongsToQueue(listOf(song)) },
-                onAddToPlaylist = { song -> songForPlaylistDialog = song },
-                onFindDuplicates = {
-                    selectedSongDetailsId = null
-                    showDuplicateScreen = true
-                },
-                modifier = screenModifier
-            )
-        } else if (showDuplicateScreen) {
-            DuplicateDetectionScreen(
-                viewModel = duplicateDetectionViewModel,
-                onBackClick = { showDuplicateScreen = false },
-                onPlaySong = { song -> playbackViewModel.playSong(song, listOf(song)) },
-                modifier = screenModifier
-            )
-        } else if (activeAlbumId != null) {
-            AlbumDetailScreen(
-                albumId = activeAlbumId,
-                viewModel = albumDetailViewModel,
-                playbackViewModel = playbackViewModel,
-                onBackClick = { selectedAlbumId = null },
-                onSongClick = { song, list -> playbackViewModel.playSong(song, list) },
-                onSongDetailsClick = { song -> selectedSongDetailsId = song.id },
-                onAddToPlaylistClick = { song -> songForPlaylistDialog = song },
-                modifier = screenModifier
-            )
-        } else if (activeArtistId != null) {
-            ArtistDetailScreen(
-                artistId = activeArtistId,
-                viewModel = artistDetailViewModel,
-                playbackViewModel = playbackViewModel,
-                onBackClick = { selectedArtistId = null },
-                onAlbumClick = { albumId -> selectedAlbumId = albumId },
-                onSongClick = { song, list -> playbackViewModel.playSong(song, list) },
-                onSongDetailsClick = { song -> selectedSongDetailsId = song.id },
-                onAddToPlaylistClick = { song -> songForPlaylistDialog = song },
-                modifier = screenModifier
-            )
-        } else if (activeGenreId != null) {
-            GenreDetailScreen(
-                genreId = activeGenreId,
-                viewModel = genreDetailViewModel,
-                playbackViewModel = playbackViewModel,
-                onBackClick = { selectedGenreId = null },
-                onSongClick = { song, list -> playbackViewModel.playSong(song, list) },
-                onSongDetailsClick = { song -> selectedSongDetailsId = song.id },
-                onAddToPlaylistClick = { song -> songForPlaylistDialog = song },
-                modifier = screenModifier
-            )
-        } else if (showRecommendationDetail) {
-            RecommendationDetailScreen(
-                viewModel = recommendationViewModel,
-                playbackViewModel = playbackViewModel,
-                onBackClick = { showRecommendationDetail = false },
-                onSongClick = { song, list -> playbackViewModel.playSong(song, list) },
-                onSongDetailsClick = { song -> selectedSongDetailsId = song.id },
-                onAddToPlaylistClick = { song -> songForPlaylistDialog = song },
-                modifier = screenModifier
-            )
-        } else if (showSearchScreen) {
-            SearchScreen(
-                viewModel = searchViewModel,
-                playbackViewModel = playbackViewModel,
-                onBackClick = { showSearchScreen = false },
-                onAlbumClick = { albumId -> selectedAlbumId = albumId },
-                onArtistClick = { artistId -> selectedArtistId = artistId },
-                onGenreClick = { genreId -> selectedGenreId = genreId },
-                onSongClick = { song, list -> playbackViewModel.playSong(song, list) },
-                onSongDetailsClick = { song -> selectedSongDetailsId = song.id },
-                onAddToPlaylistClick = { song -> songForPlaylistDialog = song },
-                modifier = screenModifier
-            )
-        } else if (activeSmartPlaylistType != null) {
-            SmartPlaylistDetailScreen(
-                playlistType = activeSmartPlaylistType,
-                viewModel = smartPlaylistDetailViewModel,
-                playbackViewModel = playbackViewModel,
-                onBackClick = { selectedSmartPlaylistType = null },
-                modifier = screenModifier
-            )
-        } else if (activePlaylistId != null) {
-            PlaylistDetailScreen(
-                playlistId = activePlaylistId,
-                viewModel = playlistDetailViewModel,
-                playbackViewModel = playbackViewModel,
-                onBackClick = { selectedPlaylistId = null },
-                modifier = screenModifier
-            )
-        } else {
-            when (selectedTab) {
-                MainTab.SONGS -> {
-                    SongsScreen(
-                        viewModel = songsViewModel,
+                    when {
+                        isEnteringNowPlaying -> {
+                            (slideInVertically(MelofyMotion.springSubtle()) { it } + fadeIn(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST)))
+                                .togetherWith(fadeOut(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST)))
+                        }
+                        isExitingNowPlaying -> {
+                            fadeIn(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST))
+                                .togetherWith(slideOutVertically(MelofyMotion.springSubtle()) { it } + fadeOut(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST)))
+                        }
+                        isTargetSubScreen && !isInitialSubScreen -> {
+                            (slideInHorizontally(MelofyMotion.springSubtle()) { it / 4 } + fadeIn(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST)))
+                                .togetherWith(slideOutHorizontally(MelofyMotion.springSubtle()) { -it / 4 } + fadeOut(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST)))
+                        }
+                        !isTargetSubScreen && isInitialSubScreen -> {
+                            (slideInHorizontally(MelofyMotion.springSubtle()) { -it / 4 } + fadeIn(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST)))
+                                .togetherWith(slideOutHorizontally(MelofyMotion.springSubtle()) { it / 4 } + fadeOut(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST)))
+                        }
+                        else -> {
+                            fadeIn(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST))
+                                .togetherWith(fadeOut(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST)))
+                        }
+                    }
+                }
+            },
+            label = "screenTransition",
+            modifier = Modifier.fillMaxSize()
+        ) { destination ->
+            when (destination) {
+                is ScreenDestination.NowPlaying -> {
+                    NowPlayingScreen(
                         playbackViewModel = playbackViewModel,
-                        recommendationViewModel = recommendationViewModel,
-                        playlists = playlists,
-                        onCreatePlaylistAndAdd = { name, songId ->
-                            playlistsViewModel.createPlaylist(name) { newId ->
-                                songsViewModel.addSongToPlaylist(newId, songId)
-                            }
+                        onCollapse = { showNowPlaying = false },
+                        isFavorite = playbackState.currentSong?.id?.let { it in favoriteSongIds } == true,
+                        onToggleFavorite = { favoritesViewModel.toggleFavorite(it) },
+                        onOpenAudioSettings = {
+                            showNowPlaying = false
+                            selectedTab = MainTab.SETTINGS
                         },
-                        onSongDetailsClick = { selectedSongDetailsId = it.id },
-                        onCheckDuplicatesClick = { showDuplicateScreen = true },
-                        onSearchClick = { showSearchScreen = true },
+                        modifier = screenModifier
+                    )
+                }
+                is ScreenDestination.SongDetails -> {
+                    SongDetailsScreen(
+                        songId = destination.id,
+                        viewModel = songDetailsViewModel,
+                        onBackClick = { selectedSongDetailsId = null },
+                        onPlaySong = { song -> playbackViewModel.playSong(song, listOf(song)) },
+                        onAddToQueue = { song -> playbackViewModel.addSongsToQueue(listOf(song)) },
+                        onAddToPlaylist = { song -> songForPlaylistDialog = song },
+                        onFindDuplicates = {
+                            selectedSongDetailsId = null
+                            showDuplicateScreen = true
+                        },
+                        modifier = screenModifier
+                    )
+                }
+                is ScreenDestination.Duplicates -> {
+                    DuplicateDetectionScreen(
+                        viewModel = duplicateDetectionViewModel,
+                        onBackClick = { showDuplicateScreen = false },
+                        onPlaySong = { song -> playbackViewModel.playSong(song, listOf(song)) },
+                        modifier = screenModifier
+                    )
+                }
+                is ScreenDestination.Album -> {
+                    AlbumDetailScreen(
+                        albumId = destination.id,
+                        viewModel = albumDetailViewModel,
+                        playbackViewModel = playbackViewModel,
+                        onBackClick = { selectedAlbumId = null },
+                        onSongClick = { song, list -> playbackViewModel.playSong(song, list) },
+                        onSongDetailsClick = { song -> selectedSongDetailsId = song.id },
+                        onAddToPlaylistClick = { song -> songForPlaylistDialog = song },
+                        modifier = screenModifier
+                    )
+                }
+                is ScreenDestination.Artist -> {
+                    ArtistDetailScreen(
+                        artistId = destination.id,
+                        viewModel = artistDetailViewModel,
+                        playbackViewModel = playbackViewModel,
+                        onBackClick = { selectedArtistId = null },
+                        onAlbumClick = { albumId -> selectedAlbumId = albumId },
+                        onSongClick = { song, list -> playbackViewModel.playSong(song, list) },
+                        onSongDetailsClick = { song -> selectedSongDetailsId = song.id },
+                        onAddToPlaylistClick = { song -> songForPlaylistDialog = song },
+                        modifier = screenModifier
+                    )
+                }
+                is ScreenDestination.Genre -> {
+                    GenreDetailScreen(
+                        genreId = destination.id,
+                        viewModel = genreDetailViewModel,
+                        playbackViewModel = playbackViewModel,
+                        onBackClick = { selectedGenreId = null },
+                        onSongClick = { song, list -> playbackViewModel.playSong(song, list) },
+                        onSongDetailsClick = { song -> selectedSongDetailsId = song.id },
+                        onAddToPlaylistClick = { song -> songForPlaylistDialog = song },
+                        modifier = screenModifier
+                    )
+                }
+                is ScreenDestination.Recommendations -> {
+                    RecommendationDetailScreen(
+                        viewModel = recommendationViewModel,
+                        playbackViewModel = playbackViewModel,
+                        onBackClick = { showRecommendationDetail = false },
+                        onSongClick = { song, list -> playbackViewModel.playSong(song, list) },
+                        onSongDetailsClick = { song -> selectedSongDetailsId = song.id },
+                        onAddToPlaylistClick = { song -> songForPlaylistDialog = song },
+                        modifier = screenModifier
+                    )
+                }
+                is ScreenDestination.Search -> {
+                    SearchScreen(
+                        viewModel = searchViewModel,
+                        playbackViewModel = playbackViewModel,
+                        onBackClick = { showSearchScreen = false },
                         onAlbumClick = { albumId -> selectedAlbumId = albumId },
                         onArtistClick = { artistId -> selectedArtistId = artistId },
                         onGenreClick = { genreId -> selectedGenreId = genreId },
-                        onRecommendationSectionClick = { showRecommendationDetail = true },
-                        showBottomBar = false,
+                        onSongClick = { song, list -> playbackViewModel.playSong(song, list) },
+                        onSongDetailsClick = { song -> selectedSongDetailsId = song.id },
+                        onAddToPlaylistClick = { song -> songForPlaylistDialog = song },
                         modifier = screenModifier
                     )
                 }
-                MainTab.FAVORITES -> {
-                    FavoritesScreen(
-                        favoritesViewModel = favoritesViewModel,
+                is ScreenDestination.SmartPlaylist -> {
+                    SmartPlaylistDetailScreen(
+                        playlistType = destination.type,
+                        viewModel = smartPlaylistDetailViewModel,
                         playbackViewModel = playbackViewModel,
-                        playlists = playlists,
-                        onAddSongToPlaylist = { playlistId, songId ->
-                            songsViewModel.addSongToPlaylist(playlistId, songId)
-                        },
-                        onCreatePlaylistAndAdd = { name, songId ->
-                            playlistsViewModel.createPlaylist(name) { newId ->
-                                songsViewModel.addSongToPlaylist(newId, songId)
-                            }
-                        },
+                        onBackClick = { selectedSmartPlaylistType = null },
                         modifier = screenModifier
                     )
                 }
-                MainTab.PLAYLISTS -> {
-                    PlaylistsScreen(
-                        playlistsViewModel = playlistsViewModel,
-                        onPlaylistClick = { selectedPlaylistId = it },
-                        onSmartPlaylistClick = { selectedSmartPlaylistType = it },
+                is ScreenDestination.Playlist -> {
+                    PlaylistDetailScreen(
+                        playlistId = destination.id,
+                        viewModel = playlistDetailViewModel,
                         playbackViewModel = playbackViewModel,
+                        onBackClick = { selectedPlaylistId = null },
                         modifier = screenModifier
                     )
                 }
-                MainTab.STATS -> {
-                    StatisticsScreen(
-                        modifier = screenModifier
-                    )
-                }
-                MainTab.SETTINGS -> {
-                    SettingsScreen(
-                        settingsViewModel = settingsViewModel,
-                        audioViewModel = audioSettingsViewModel,
-                        modifier = screenModifier
-                    )
+                is ScreenDestination.Main -> {
+                    when (destination.tab) {
+                        MainTab.SONGS -> {
+                            SongsScreen(
+                                viewModel = songsViewModel,
+                                playbackViewModel = playbackViewModel,
+                                recommendationViewModel = recommendationViewModel,
+                                playlists = playlists,
+                                onCreatePlaylistAndAdd = { name, songId ->
+                                    playlistsViewModel.createPlaylist(name) { newId ->
+                                        songsViewModel.addSongToPlaylist(newId, songId)
+                                    }
+                                },
+                                onSongDetailsClick = { selectedSongDetailsId = it.id },
+                                onCheckDuplicatesClick = { showDuplicateScreen = true },
+                                onSearchClick = { showSearchScreen = true },
+                                onAlbumClick = { albumId -> selectedAlbumId = albumId },
+                                onArtistClick = { artistId -> selectedArtistId = artistId },
+                                onGenreClick = { genreId -> selectedGenreId = genreId },
+                                onRecommendationSectionClick = { showRecommendationDetail = true },
+                                showBottomBar = false,
+                                modifier = screenModifier
+                            )
+                        }
+                        MainTab.FAVORITES -> {
+                            FavoritesScreen(
+                                favoritesViewModel = favoritesViewModel,
+                                playbackViewModel = playbackViewModel,
+                                playlists = playlists,
+                                onAddSongToPlaylist = { playlistId, songId ->
+                                    songsViewModel.addSongToPlaylist(playlistId, songId)
+                                },
+                                onCreatePlaylistAndAdd = { name, songId ->
+                                    playlistsViewModel.createPlaylist(name) { newId ->
+                                        songsViewModel.addSongToPlaylist(newId, songId)
+                                    }
+                                },
+                                modifier = screenModifier
+                            )
+                        }
+                        MainTab.PLAYLISTS -> {
+                            PlaylistsScreen(
+                                playlistsViewModel = playlistsViewModel,
+                                onPlaylistClick = { selectedPlaylistId = it },
+                                onSmartPlaylistClick = { selectedSmartPlaylistType = it },
+                                playbackViewModel = playbackViewModel,
+                                modifier = screenModifier
+                            )
+                        }
+                        MainTab.STATS -> {
+                            StatisticsScreen(
+                                modifier = screenModifier
+                            )
+                        }
+                        MainTab.SETTINGS -> {
+                            SettingsScreen(
+                                settingsViewModel = settingsViewModel,
+                                audioViewModel = audioSettingsViewModel,
+                                modifier = screenModifier
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -418,3 +535,4 @@ fun MainNavigationScreen(
         }
     }
 }
+

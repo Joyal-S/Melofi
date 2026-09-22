@@ -3,17 +3,21 @@ package com.auralis.app.ui.favorites
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import com.auralis.app.core.ui.theme.MelofySpacing
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -111,6 +115,51 @@ fun FavoritesScreen(
                 )
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = MelofySpacing.lg, vertical = MelofySpacing.md)
+                        ) {
+                            val totalDurationMs = remember(favoriteSongs) { favoriteSongs.sumOf { it.duration } }
+                            Text(
+                                text = "${favoriteSongs.size} tracks • ${com.auralis.app.core.util.TimeUtils.formatDuration(totalDurationMs)}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            Spacer(modifier = Modifier.height(MelofySpacing.sm))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(MelofySpacing.sm)
+                            ) {
+                                Button(
+                                    onClick = { playbackViewModel.playSongs(favoriteSongs, 0) },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(painter = painterResource(R.drawable.ic_play_arrow), contentDescription = null)
+                                    Spacer(modifier = Modifier.width(MelofySpacing.xs))
+                                    Text("Play All")
+                                }
+
+                                FilledTonalButton(
+                                    onClick = {
+                                        val shuffled = favoriteSongs.shuffled()
+                                        if (shuffled.isNotEmpty()) {
+                                            playbackViewModel.playSong(shuffled.first(), shuffled)
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(painter = painterResource(R.drawable.ic_shuffle), contentDescription = null)
+                                    Spacer(modifier = Modifier.width(MelofySpacing.xs))
+                                    Text("Shuffle")
+                                }
+                            }
+                        }
+                    }
+
                     items(
                         items = favoriteSongs,
                         key = { it.id }
@@ -121,6 +170,8 @@ fun FavoritesScreen(
                             isFavorite = true,
                             onToggleFavorite = { favoritesViewModel.removeFavorite(song.id) },
                             onAddToPlaylist = { songForPlaylistDialog = song },
+                            onPlay = { playbackViewModel.playSong(song, favoriteSongs) },
+                            onAddToQueue = { playbackViewModel.addSongsToQueue(listOf(song)) },
                             onPlayNext = { playbackViewModel.addSongsToQueue(listOf(song)) }
                         )
                     }

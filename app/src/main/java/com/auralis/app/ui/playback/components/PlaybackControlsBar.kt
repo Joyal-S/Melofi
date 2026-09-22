@@ -43,10 +43,20 @@ import com.auralis.app.core.ui.theme.MelofySpacing
 import com.auralis.app.playback.model.PlaybackState
 import com.auralis.app.ui.components.MelofyArtwork
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.graphicsLayer
+import com.auralis.app.core.ui.theme.LocalAnimationMode
+import com.auralis.app.core.ui.theme.MelofyAnimationMode
+import com.auralis.app.core.ui.theme.MelofyDimensions
+
 /**
  * Premium persistent playback controls bar (mini player).
  * Features rounded artwork with deterministic fallback, draw-phase decoupled progress indicator,
- * animated play/pause state morph, spring-animated favorite interaction, and natural expansion to Now Playing.
+ * animated play/pause state morph, spring-animated favorite interaction, subtle border stroke,
+ * and natural expansion to Now Playing.
  */
 @Composable
 fun PlaybackControlsBar(
@@ -64,9 +74,18 @@ fun PlaybackControlsBar(
     modifier: Modifier = Modifier
 ) {
     val song = playbackState.currentSong ?: return
+    val animationMode = LocalAnimationMode.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val cardScale by animateFloatAsState(
+        targetValue = if (isPressed && animationMode != MelofyAnimationMode.OFF) 0.99f else 1.0f,
+        animationSpec = MelofyMotion.springSubtle(),
+        label = "miniPlayerPressScale"
+    )
 
     val heartScale by animateFloatAsState(
-        targetValue = if (isFavorite) 1.2f else 1.0f,
+        targetValue = if (isFavorite && animationMode != MelofyAnimationMode.OFF) 1.2f else 1.0f,
         animationSpec = MelofyMotion.springBouncy(),
         label = "miniPlayerFavoriteBounce"
     )
@@ -75,10 +94,22 @@ fun PlaybackControlsBar(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = MelofySpacing.md, vertical = MelofySpacing.xs)
-            .clickable(enabled = onClick != null) { onClick?.invoke() },
+            .graphicsLayer {
+                scaleX = cardScale
+                scaleY = cardScale
+            }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = androidx.compose.material3.ripple(),
+                enabled = onClick != null
+            ) { onClick?.invoke() },
         shape = MelofyShapes.card,
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+        ),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = MelofyElevation.medium)
     ) {
@@ -90,7 +121,7 @@ fun PlaybackControlsBar(
                     .fillMaxWidth()
                     .height(3.dp),
                 color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f)
+                trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
             )
 
             // Content row
@@ -105,7 +136,7 @@ fun PlaybackControlsBar(
                     artworkUri = song.albumArtUri,
                     title = song.title,
                     artist = song.artistName,
-                    modifier = Modifier.size(46.dp),
+                    modifier = Modifier.size(48.dp),
                     cornerRadius = 10.dp
                 )
 
@@ -134,12 +165,12 @@ fun PlaybackControlsBar(
                     )
                 }
 
-                // Favorite Toggle (Accessible 44dp touch target)
+                // Favorite Toggle (Accessible 48dp touch target)
                 if (onToggleFavorite != null) {
                     IconButton(
                         onClick = onToggleFavorite,
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(MelofyDimensions.minTouchTarget)
                             .scale(heartScale)
                     ) {
                         Icon(
@@ -166,9 +197,13 @@ fun PlaybackControlsBar(
                     AnimatedContent(
                         targetState = playbackState.isPlaying,
                         transitionSpec = {
-                            (scaleIn(MelofyMotion.springBouncy<Float>()) + fadeIn()).togetherWith(
-                                scaleOut(MelofyMotion.springBouncy<Float>()) + fadeOut()
-                            )
+                            if (animationMode == MelofyAnimationMode.OFF) {
+                                androidx.compose.animation.EnterTransition.None togetherWith androidx.compose.animation.ExitTransition.None
+                            } else {
+                                (scaleIn(MelofyMotion.springBouncy<Float>()) + fadeIn()).togetherWith(
+                                    scaleOut(MelofyMotion.springBouncy<Float>()) + fadeOut()
+                                )
+                            }
                         },
                         label = "miniPlayerPlayPauseMorph"
                     ) { isPlaying ->
@@ -182,10 +217,10 @@ fun PlaybackControlsBar(
                     }
                 }
 
-                // Next Button
+                // Next Button (Accessible 44dp target)
                 IconButton(
                     onClick = onNext,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(44.dp)
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_skip_next),

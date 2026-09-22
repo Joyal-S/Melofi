@@ -1,4 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Auralis" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Base post-splash application theme -->
+    <style name="Theme.Auralis" parent="android:Theme.Material.NoActionBar">
+        <!-- Pitch AMOLED black background to avoid white/light flash during cold launch -->
+        <item name="android:windowBackground">#000000</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <!-- Modern Android Splash Screen theme (AndroidX Core SplashScreen) -->
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <!-- Deep black / AMOLED-compatible background -->
+        <item name="windowSplashScreenBackground">#000000</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_melofi_brand_mark</item>
+        <item name="postSplashScreenTheme">@style/Theme.Auralis</item>
+    </style>
 </resources>

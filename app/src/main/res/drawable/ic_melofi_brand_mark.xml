@@ -1,0 +1,43 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Ambient circular backdrop glow for subtle contrast -->
+    <path
+        android:fillColor="#1A8B5CF6"
+        android:pathData="M54,54 m-36,0 a36,36 0 1,0 72,0 a36,36 0 1,0 -72,0" />
+
+    <!-- Bar 1: Left acoustic pulse bar -->
+    <path
+        android:fillColor="#8B5CF6"
+        android:pathData="M35,46 C36.66,46 38,47.34 38,49 L38,59 C38,60.66 36.66,62 35,62 C33.34,62 32,60.66 32,59 L32,49 C32,47.34 33.34,46 35,46 Z" />
+
+    <!-- Bar 2: Mid-left resonant frequency bar -->
+    <path
+        android:fillColor="#A78BFA"
+        android:pathData="M45,38 C46.66,38 48,39.34 48,41 L48,67 C48,68.66 46.66,70 45,70 C43.34,70 42,68.66 42,67 L42,41 C42,39.34 43.34,38 45,38 Z" />
+
+    <!-- Note Head & Central Stem: Geometric acoustic eighth note -->
+    <!-- Solid tilted musical note head -->
+    <path
+        android:fillColor="#8B5CF6"
+        android:pathData="M48,66 C53.52,66 58,69.58 58,74 C58,78.42 53.52,82 48,82 C42.48,82 38,78.42 38,74 C38,69.58 42.48,66 48,66 Z" />
+
+    <!-- Tall vertical note stem -->
+    <path
+        android:fillColor="#8B5CF6"
+        android:pathData="M55,30 C55,28.34 56.34,27 58,27 C59.66,27 61,28.34 61,30 L61,74 C61,74.5 60.5,75 60,75 L56,75 C55.5,75 55,74.5 55,74 Z" />
+
+    <!-- Elegant acoustic wave flag / musical beam -->
+    <path
+        android:fillColor="#C4B5FD"
+        android:pathData="M58,27 C66,27 75,32 75,41 C75,42.5 73.8,43.5 72.3,43 C67.5,41.5 63,38 58,35 Z" />
+
+    <!-- Bar 4: Right acoustic pulse bar -->
+    <path
+        android:fillColor="#8B5CF6"
+        android:pathData="M75,48 C76.66,48 78,49.34 78,51 L78,61 C78,62.66 76.66,64 75,64 C73.34,64 72,62.66 72,61 L72,51 C72,49.34 73.34,48 75,48 Z" />
+
+</vector>

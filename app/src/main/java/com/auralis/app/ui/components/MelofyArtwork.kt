@@ -1,5 +1,6 @@
 package com.auralis.app.ui.components
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import com.auralis.app.core.ui.theme.LocalAnimationMode
+import com.auralis.app.core.ui.theme.LocalArtworkCornerStyle
+import com.auralis.app.core.ui.theme.MelofyMotion
+import com.auralis.app.domain.model.ArtworkCornerStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -58,8 +63,8 @@ fun getDeterministicGradient(seed: String): Brush {
 
 /**
  * Premium universal local artwork component.
- * Loads artwork via Coil with smooth clipping and provides a rich deterministic gradient/monogram fallback
- * tailored to the entity type (Song, Album, Artist, Genre, Playlist).
+ * Loads artwork via Coil with smooth crossfading, respecting user-selected ArtworkCornerStyle,
+ * and provides a rich deterministic gradient/monogram fallback tailored to the entity type.
  */
 @Composable
 fun MelofyArtwork(
@@ -68,11 +73,17 @@ fun MelofyArtwork(
     modifier: Modifier = Modifier,
     artist: String? = null,
     entityType: ArtworkEntityType? = null,
-    cornerRadius: Dp = 12.dp,
+    cornerRadius: Dp? = null,
     contentScale: ContentScale = ContentScale.Crop,
     showInitial: Boolean = true
 ) {
-    val shape = remember(cornerRadius) { RoundedCornerShape(cornerRadius) }
+    val cornerStyle = LocalArtworkCornerStyle.current
+    val animationMode = LocalAnimationMode.current
+    val effectiveRadius = cornerRadius ?: when (entityType) {
+        ArtworkEntityType.ARTIST -> 70.dp
+        else -> cornerStyle.cornerRadiusDp.dp
+    }
+    val shape = remember(effectiveRadius) { RoundedCornerShape(effectiveRadius) }
     val gradient = remember(title, artist) { getDeterministicGradient(title + (artist ?: "")) }
     val initial = remember(title, entityType) {
         val trimmed = title.trim()
@@ -95,32 +106,42 @@ fun MelofyArtwork(
             .background(gradient),
         contentAlignment = Alignment.Center
     ) {
-        if (!artworkUri.isNullOrBlank()) {
-            AsyncImage(
-                model = artworkUri,
-                contentDescription = "Cover for $title",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = contentScale
-            )
-        } else if (showInitial) {
-            Text(
-                text = initial,
-                color = Color.White.copy(alpha = 0.9f),
-                fontWeight = FontWeight.Bold,
-                fontSize = 20.sp
-            )
-        } else {
-            Icon(
-                painter = painterResource(
-                    when (entityType) {
-                        ArtworkEntityType.PLAYLIST -> R.drawable.ic_playlist_play
-                        ArtworkEntityType.ARTIST -> R.drawable.ic_person
-                        else -> R.drawable.ic_music_placeholder
-                    }
-                ),
-                contentDescription = null,
-                tint = Color.White.copy(alpha = 0.7f)
-            )
+        Crossfade(
+            targetState = artworkUri,
+            animationSpec = MelofyMotion.adaptiveTween<Float>(animationMode, MelofyMotion.DURATION_NORMAL),
+            label = "artworkCrossfade"
+        ) { uri ->
+            if (!uri.isNullOrBlank()) {
+                AsyncImage(
+                    model = uri,
+                    contentDescription = "Cover for $title",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = contentScale
+                )
+            } else if (showInitial) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = initial,
+                        color = Color.White.copy(alpha = 0.95f),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
+                }
+            } else {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Icon(
+                        painter = painterResource(
+                            when (entityType) {
+                                ArtworkEntityType.PLAYLIST -> R.drawable.ic_playlist_play
+                                ArtworkEntityType.ARTIST -> R.drawable.ic_person
+                                else -> R.drawable.ic_music_placeholder
+                            }
+                        ),
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.75f)
+                    )
+                }
+            }
         }
     }
 }

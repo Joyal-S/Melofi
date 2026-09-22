@@ -55,6 +55,12 @@ import androidx.compose.runtime.setValue
 import com.auralis.app.domain.model.ArtworkEntityType
 import com.auralis.app.ui.components.ArtworkCustomizationDialog
 
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Surface
+import androidx.compose.ui.draw.shadow
+import com.auralis.app.core.ui.theme.MelofyElevation
+import com.auralis.app.core.ui.theme.MelofySpacing
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlbumDetailScreen(
@@ -170,92 +176,137 @@ fun AlbumDetailScreen(
                 ) {
                     // Header
                     item {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            MelofyArtwork(
-                                artworkUri = album.artUri,
-                                title = album.name,
-                                artist = album.artistName,
+                            Column(
                                 modifier = Modifier
-                                    .size(180.dp)
-                                    .clickable { showArtworkDialog = true },
-                                cornerRadius = 16.dp
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            Text(
-                                text = album.name,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-
-                            Text(
-                                text = album.artistName ?: "Unknown Artist",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-
-                            val totalDurationMs = songs.sumOf { it.duration }
-                            Text(
-                                text = buildString {
-                                    if (album.year != null && album.year > 0) {
-                                        append("${album.year} • ")
-                                    }
-                                    append("${songs.size} tracks")
-                                    if (totalDurationMs > 0) {
-                                        append(" • ${TimeUtils.formatDuration(totalDurationMs)}")
-                                    }
-                                },
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Playback Actions
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    .fillMaxWidth()
+                                    .padding(horizontal = MelofySpacing.lg, vertical = MelofySpacing.xl),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Button(
-                                    onClick = {
-                                        if (songs.isNotEmpty()) {
-                                            playbackViewModel.playSong(songs.first(), songs)
-                                        }
-                                    },
-                                    modifier = Modifier.weight(1f)
+                                Box(
+                                    contentAlignment = Alignment.BottomEnd,
+                                    modifier = Modifier.clickable { showArtworkDialog = true }
                                 ) {
-                                    Icon(painter = painterResource(R.drawable.ic_play_arrow), contentDescription = null)
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Play All")
-                                }
-
-                                FilledTonalButton(
-                                    onClick = {
-                                        if (songs.isNotEmpty()) {
-                                            playbackViewModel.playSong(songs.shuffled().first(), songs.shuffled())
+                                    Box(
+                                        modifier = Modifier
+                                            .size(190.dp)
+                                            .shadow(
+                                                elevation = MelofyElevation.high,
+                                                shape = RoundedCornerShape(20.dp),
+                                                ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                                                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+                                            )
+                                    )
+                                    MelofyArtwork(
+                                        artworkUri = album.artUri,
+                                        title = album.name,
+                                        artist = album.artistName,
+                                        modifier = Modifier.size(190.dp),
+                                        cornerRadius = 20.dp
+                                    )
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.primary,
+                                        shape = CircleShape,
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .padding(2.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                painter = painterResource(R.drawable.ic_image),
+                                                contentDescription = "Edit Album Cover",
+                                                tint = MaterialTheme.colorScheme.onPrimary,
+                                                modifier = Modifier.size(18.dp)
+                                            )
                                         }
-                                    },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Icon(painter = painterResource(R.drawable.ic_shuffle), contentDescription = null)
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Shuffle")
-                                }
-
-                                OutlinedButton(
-                                    onClick = {
-                                        playbackViewModel.addSongsToQueue(songs)
                                     }
+                                }
+
+                                Spacer(modifier = Modifier.height(MelofySpacing.md))
+
+                                Text(
+                                    text = album.name,
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+
+                                Spacer(modifier = Modifier.height(MelofySpacing.xxs))
+
+                                Text(
+                                    text = album.artistName ?: "Unknown Artist",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+
+                                Spacer(modifier = Modifier.height(MelofySpacing.xs))
+
+                                val totalDurationMs = songs.sumOf { it.duration }
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                    shape = RoundedCornerShape(12.dp)
                                 ) {
-                                    Icon(painter = painterResource(R.drawable.ic_queue_music), contentDescription = "Add all to queue")
+                                    Text(
+                                        text = buildString {
+                                            if (album.year != null && album.year > 0) {
+                                                append("${album.year} • ")
+                                            }
+                                            append("${songs.size} tracks")
+                                            if (totalDurationMs > 0) {
+                                                append(" • ${TimeUtils.formatDuration(totalDurationMs)}")
+                                            }
+                                        },
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = MelofySpacing.md, vertical = MelofySpacing.xxs)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(MelofySpacing.lg))
+
+                                // Playback Actions
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(MelofySpacing.sm),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Button(
+                                        onClick = {
+                                            if (songs.isNotEmpty()) {
+                                                playbackViewModel.playSong(songs.first(), songs)
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(painter = painterResource(R.drawable.ic_play_arrow), contentDescription = null)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Play All")
+                                    }
+
+                                    FilledTonalButton(
+                                        onClick = {
+                                            if (songs.isNotEmpty()) {
+                                                playbackViewModel.playSong(songs.shuffled().first(), songs.shuffled())
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(painter = painterResource(R.drawable.ic_shuffle), contentDescription = null)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Shuffle")
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = {
+                                            playbackViewModel.addSongsToQueue(songs)
+                                        }
+                                    ) {
+                                        Icon(painter = painterResource(R.drawable.ic_queue_music), contentDescription = "Add all to queue")
+                                    }
                                 }
                             }
                         }
@@ -269,6 +320,8 @@ fun AlbumDetailScreen(
                             isFavorite = song.id in favoriteSongIds,
                             onToggleFavorite = { viewModel.toggleFavorite(song.id) },
                             onAddToPlaylist = { onAddToPlaylistClick(song) },
+                            onPlay = { onSongClick(song, songs) },
+                            onAddToQueue = { playbackViewModel.addSongsToQueue(listOf(song)) },
                             onPlayNext = { playbackViewModel.addSongsToQueue(listOf(song)) },
                             onShowDetails = { onSongDetailsClick(song) }
                         )

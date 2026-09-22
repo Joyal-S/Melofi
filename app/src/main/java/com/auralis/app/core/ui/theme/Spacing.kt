@@ -52,3 +52,14 @@ object MelofyIconSize {
     val hero: Dp = 48.dp
     val giant: Dp = 64.dp
 }
+
+object MelofyDimensions {
+    val minTouchTarget: Dp = 48.dp
+    val buttonHeightSmall: Dp = 36.dp
+    val buttonHeightMedium: Dp = 44.dp
+    val buttonHeightLarge: Dp = 52.dp
+    val cardPadding: Dp = 16.dp
+    val screenPadding: Dp = 16.dp
+    val listItemVerticalPadding: Dp = 6.dp
+    val miniPlayerHeight: Dp = 72.dp
+}

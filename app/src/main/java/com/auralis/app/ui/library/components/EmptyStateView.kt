@@ -20,6 +20,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.auralis.app.core.ui.theme.MelofySpacing
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
+import com.auralis.app.core.ui.theme.MelofyDimensions
+import com.auralis.app.core.ui.theme.MelofyElevation
+import com.auralis.app.core.ui.theme.MelofyShapes
+
 /**
  * Reusable, accessible empty state component ensuring consistent presentation,
  * helpful guidance, and clear primary actions across all Melofy screens.
@@ -40,12 +47,23 @@ fun EmptyStateView(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            painter = painterResource(iconRes),
-            contentDescription = null,
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-        )
+        // Tonal circular backdrop for the empty state illustration
+        Box(
+            modifier = Modifier
+                .size(88.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = null,
+                modifier = Modifier.size(44.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
 
         Spacer(modifier = Modifier.height(MelofySpacing.lg))
 
@@ -63,14 +81,20 @@ fun EmptyStateView(
             text = description,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = MelofySpacing.md)
         )
 
         if (actionText != null && onAction != null) {
-            Spacer(modifier = Modifier.height(MelofySpacing.lg))
-            Button(onClick = onAction) {
+            Spacer(modifier = Modifier.height(MelofySpacing.xl))
+            Button(
+                onClick = onAction,
+                shape = MelofyShapes.pill,
+                modifier = Modifier.height(MelofyDimensions.buttonHeightMedium)
+            ) {
                 Text(actionText, fontWeight = FontWeight.SemiBold)
             }
         }
     }
 }
+

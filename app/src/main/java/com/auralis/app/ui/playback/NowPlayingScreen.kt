@@ -8,6 +8,8 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -56,9 +59,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.auralis.app.R
+import com.auralis.app.core.ui.theme.LocalAnimationMode
+import com.auralis.app.core.ui.theme.MelofyAnimationMode
+import com.auralis.app.core.ui.theme.MelofyDimensions
 import com.auralis.app.core.ui.theme.MelofyElevation
 import com.auralis.app.core.ui.theme.MelofyMotion
 import com.auralis.app.core.ui.theme.MelofySpacing
+import com.auralis.app.core.ui.theme.MelofyTypographyTokens
 import com.auralis.app.core.util.TimeUtils
 import com.auralis.app.playback.model.PlaybackRepeatMode
 import com.auralis.app.ui.components.MelofyArtwork
@@ -78,6 +85,7 @@ fun NowPlayingScreen(
     onOpenAudioSettings: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val animationMode = LocalAnimationMode.current
     val playbackState by playbackViewModel.playbackState.collectAsStateWithLifecycle()
     val activeQueue by playbackViewModel.activeQueue.collectAsStateWithLifecycle()
     val dspParams by playbackViewModel.dspParameters.collectAsStateWithLifecycle()
@@ -94,10 +102,27 @@ fun NowPlayingScreen(
     val queueSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val heartScale by animateFloatAsState(
-        targetValue = if (isFavorite) 1.2f else 1.0f,
+        targetValue = if (isFavorite && animationMode != MelofyAnimationMode.OFF) 1.2f else 1.0f,
         animationSpec = MelofyMotion.springBouncy(),
         label = "heartScale"
     )
+
+    // Compute audio quality tag
+    val qualityTag = remember(song.mimeType, song.bitrate, song.sampleRate) {
+        val mime = song.mimeType
+        when {
+            mime != null && mime.contains("flac", ignoreCase = true) -> {
+                if (song.sampleRate != null && song.sampleRate >= 96000) "HI-RES • FLAC ${song.sampleRate / 1000}kHz"
+                else "LOSSLESS • FLAC"
+            }
+            mime != null && mime.contains("wav", ignoreCase = true) -> "LOSSLESS • WAV"
+            mime != null && (mime.contains("ogg", ignoreCase = true) || mime.contains("opus", ignoreCase = true)) -> "OGG OPUS"
+            song.bitrate != null && song.bitrate >= 320 -> "320 KBPS • MP3"
+            song.bitrate != null && song.bitrate in 256..319 -> "256 KBPS • AAC"
+            song.sampleRate != null && song.sampleRate >= 96000 -> "HI-RES • ${song.sampleRate / 1000}kHz"
+            else -> null
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -122,7 +147,10 @@ fun NowPlayingScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onCollapse) {
+                    IconButton(
+                        onClick = onCollapse,
+                        modifier = Modifier.size(MelofyDimensions.minTouchTarget)
+                    ) {
                         Icon(
                             painter = painterResource(R.drawable.ic_expand_more),
                             contentDescription = "Collapse Player",
@@ -131,7 +159,10 @@ fun NowPlayingScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { onOpenAudioSettings?.invoke() }) {
+                    IconButton(
+                        onClick = { onOpenAudioSettings?.invoke() },
+                        modifier = Modifier.size(MelofyDimensions.minTouchTarget)
+                    ) {
                         Icon(
                             painter = painterResource(R.drawable.ic_tune),
                             contentDescription = "Audio Effects & Equalizer",
@@ -154,19 +185,32 @@ fun NowPlayingScreen(
         ) {
             Spacer(modifier = Modifier.height(MelofySpacing.sm))
 
-            // 1. Large Hero Album Artwork with Elevation & Monogram Gradient Fallback
+            // 1. Large Hero Album Artwork with Ambient Glow & Dynamic Elevation
             Box(
                 modifier = Modifier
                     .fillMaxWidth(0.88f)
-                    .aspectRatio(1f)
-                    .shadow(MelofyElevation.high, RoundedCornerShape(24.dp)),
+                    .aspectRatio(1f),
                 contentAlignment = Alignment.Center
             ) {
+                // Ambient tonal back-glow
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize(0.92f)
+                        .shadow(
+                            elevation = MelofyElevation.high,
+                            shape = RoundedCornerShape(28.dp),
+                            ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                            spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+                        )
+                )
+
                 MelofyArtwork(
                     artworkUri = song.albumArtUri,
                     title = song.title,
                     artist = song.artistName,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .shadow(MelofyElevation.medium, RoundedCornerShape(24.dp)),
                     cornerRadius = 24.dp
                 )
             }
@@ -201,7 +245,7 @@ fun NowPlayingScreen(
                 IconButton(
                     onClick = { onToggleFavorite(song.id) },
                     modifier = Modifier
-                        .size(48.dp)
+                        .size(MelofyDimensions.minTouchTarget)
                         .scale(heartScale)
                 ) {
                     Icon(
@@ -215,38 +259,59 @@ fun NowPlayingScreen(
                 }
             }
 
-            // Subtle Active Lo-Fi + Reverb Badge
-            if (dspParams.isAnyActive) {
+            // Audio Format Quality & Active DSP Badges Row
+            if (qualityTag != null || dspParams.isAnyActive) {
                 Spacer(modifier = Modifier.height(MelofySpacing.xs))
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.clickable { onOpenAudioSettings?.invoke() }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(MelofySpacing.sm),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = MelofySpacing.sm, vertical = MelofySpacing.xxs)
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_waves),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(MelofySpacing.xs))
-                        Text(
-                            text = "Lo-Fi • ${dspParams.preset.displayName}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                    qualityTag?.let { tag ->
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = tag,
+                                style = MelofyTypographyTokens.qualityBadge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = MelofySpacing.sm, vertical = 3.dp)
+                            )
+                        }
+                    }
+
+                    if (dspParams.isAnyActive) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                            shape = RoundedCornerShape(6.dp),
+                            modifier = Modifier.clickable { onOpenAudioSettings?.invoke() }
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = MelofySpacing.sm, vertical = 3.dp)
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_waves),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(modifier = Modifier.width(MelofySpacing.xs))
+                                Text(
+                                    text = "Lo-Fi • ${dspParams.preset.displayName}",
+                                    style = MelofyTypographyTokens.qualityBadge,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(MelofySpacing.md))
 
-            // 3. Scrub Slider & Time Row
+            // 3. Scrub Slider & Time Row (isolated high-frequency recomposition)
             NowPlayingScrubber(
                 playbackViewModel = playbackViewModel,
                 durationMs = playbackState.durationMs
@@ -254,16 +319,17 @@ fun NowPlayingScreen(
 
             Spacer(modifier = Modifier.height(MelofySpacing.md))
 
-            // 4. Primary Transport Controls Row
+            // 4. Primary Transport Controls Row with tactile spring feedback
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Shuffle
-                IconButton(
+                TactileIconButton(
                     onClick = { playbackViewModel.toggleShuffle() },
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier.size(MelofyDimensions.minTouchTarget),
+                    animationMode = animationMode
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_shuffle),
@@ -274,9 +340,10 @@ fun NowPlayingScreen(
                 }
 
                 // Previous
-                IconButton(
+                TactileIconButton(
                     onClick = { playbackViewModel.previous() },
-                    modifier = Modifier.size(52.dp)
+                    modifier = Modifier.size(52.dp),
+                    animationMode = animationMode
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_skip_previous),
@@ -286,10 +353,24 @@ fun NowPlayingScreen(
                     )
                 }
 
-                // Play / Pause Button with animated morph
+                // Play / Pause Button with animated morph and tactile press feedback
+                val playPauseInteraction = remember { MutableInteractionSource() }
+                val isPlayPausePressed by playPauseInteraction.collectIsPressedAsState()
+                val playPauseScale by animateFloatAsState(
+                    targetValue = if (isPlayPausePressed && animationMode != MelofyAnimationMode.OFF) 0.92f else 1.0f,
+                    animationSpec = MelofyMotion.springSubtle(),
+                    label = "playPauseTactile"
+                )
+
                 FilledIconButton(
                     onClick = { playbackViewModel.togglePlayPause() },
-                    modifier = Modifier.size(68.dp),
+                    interactionSource = playPauseInteraction,
+                    modifier = Modifier
+                        .size(68.dp)
+                        .graphicsLayer {
+                            scaleX = playPauseScale
+                            scaleY = playPauseScale
+                        },
                     shape = CircleShape,
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
@@ -299,9 +380,13 @@ fun NowPlayingScreen(
                     AnimatedContent(
                         targetState = playbackState.isPlaying,
                         transitionSpec = {
-                            (scaleIn(MelofyMotion.springBouncy<Float>()) + fadeIn()).togetherWith(
-                                scaleOut(MelofyMotion.springBouncy<Float>()) + fadeOut()
-                            )
+                            if (animationMode == MelofyAnimationMode.OFF) {
+                                androidx.compose.animation.EnterTransition.None togetherWith androidx.compose.animation.ExitTransition.None
+                            } else {
+                                (scaleIn(MelofyMotion.springBouncy<Float>()) + fadeIn()).togetherWith(
+                                    scaleOut(MelofyMotion.springBouncy<Float>()) + fadeOut()
+                                )
+                            }
                         },
                         label = "nowPlayingPlayPauseMorph"
                     ) { isPlaying ->
@@ -316,9 +401,10 @@ fun NowPlayingScreen(
                 }
 
                 // Next
-                IconButton(
+                TactileIconButton(
                     onClick = { playbackViewModel.next() },
-                    modifier = Modifier.size(52.dp)
+                    modifier = Modifier.size(52.dp),
+                    animationMode = animationMode
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_skip_next),
@@ -329,9 +415,10 @@ fun NowPlayingScreen(
                 }
 
                 // Repeat
-                IconButton(
+                TactileIconButton(
                     onClick = { playbackViewModel.cycleRepeatMode() },
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier.size(MelofyDimensions.minTouchTarget),
+                    animationMode = animationMode
                 ) {
                     val repeatIcon = if (playbackState.repeatMode == PlaybackRepeatMode.ONE) {
                         R.drawable.ic_repeat_one
@@ -359,9 +446,10 @@ fun NowPlayingScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center
             ) {
-                IconButton(
+                TactileIconButton(
                     onClick = { showQueueSheet = true },
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier.size(MelofyDimensions.minTouchTarget),
+                    animationMode = animationMode
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_queue_music),
@@ -390,6 +478,33 @@ fun NowPlayingScreen(
     }
 }
 
+@Composable
+private fun TactileIconButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    animationMode: MelofyAnimationMode = MelofyAnimationMode.FULL,
+    content: @Composable () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed && animationMode != MelofyAnimationMode.OFF) 0.88f else 1.0f,
+        animationSpec = MelofyMotion.springSubtle(),
+        label = "tactileScale"
+    )
+
+    IconButton(
+        onClick = onClick,
+        interactionSource = interactionSource,
+        modifier = modifier.graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+        }
+    ) {
+        content()
+    }
+}
+
 /**
  * Isolated scrubber composable that observes playbackProgress and playbackPositionMs.
  * Confines high-frequency 500ms recompositions strictly to the slider and duration readouts,
@@ -411,7 +526,7 @@ private fun NowPlayingScrubber(
 
     Column(modifier = modifier.fillMaxWidth()) {
         Slider(
-            value = currentProgress,
+            value = currentProgress.coerceIn(0f, 1f),
             onValueChange = {
                 isUserSeeking = true
                 seekProgress = it
@@ -430,7 +545,9 @@ private fun NowPlayingScrubber(
         )
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             val positionMs = if (isUserSeeking) {
@@ -442,14 +559,15 @@ private fun NowPlayingScrubber(
 
             Text(
                 text = TimeUtils.formatDuration(positionMs),
-                style = MaterialTheme.typography.labelMedium,
+                style = MelofyTypographyTokens.durationText,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 text = "-${TimeUtils.formatDuration(remainingMs)}",
-                style = MaterialTheme.typography.labelMedium,
+                style = MelofyTypographyTokens.durationText,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
+

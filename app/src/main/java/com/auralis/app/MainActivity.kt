@@ -22,8 +22,18 @@ import com.auralis.app.ui.MainNavigationScreen
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.auralis.app.core.ui.theme.MelofyAnimationMode
+import com.auralis.app.ui.launch.MelofiLaunchScreen
+
 /**
- * Single-activity host for the Auralis application.
+ * Single-activity host for the Melofi application.
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -31,7 +41,17 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var userPreferencesRepository: UserPreferencesRepository
 
+    companion object {
+        /**
+         * Cold start vs warm start tracking.
+         * Reset to false on process death; retains true for warm starts (returning from background,
+         * device rotation, multi-window toggling).
+         */
+        var hasCompletedInitialLaunch: Boolean = false
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
@@ -45,19 +65,24 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.DARK -> true
             }
 
+            var showLaunchScreen by remember {
+                mutableStateOf(!hasCompletedInitialLaunch && userPreferences.animationMode != MelofyAnimationMode.OFF)
+            }
+
             AuralisTheme(
                 darkTheme = isDark,
                 amoledBlack = userPreferences.amoledBlack,
                 accent = userPreferences.accentColor,
-                animationMode = userPreferences.animationMode
+                animationMode = userPreferences.animationMode,
+                artworkCornerStyle = userPreferences.artworkCornerStyle
             ) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     val notificationPermissionLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.RequestPermission()
                     ) { /* permission result handled */ }
 
-                    LaunchedEffect(Unit) {
-                        if (ContextCompat.checkSelfPermission(
+                    LaunchedEffect(showLaunchScreen) {
+                        if (!showLaunchScreen && ContextCompat.checkSelfPermission(
                                 this@MainActivity,
                                 Manifest.permission.POST_NOTIFICATIONS
                             ) != PackageManager.PERMISSION_GRANTED
@@ -67,7 +92,25 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                MainNavigationScreen()
+                Box(modifier = Modifier.fillMaxSize()) {
+                    // Underneath: Main application is fully composed immediately.
+                    // ViewModels, database flows, and MediaStore scanning start asynchronously
+                    // without any blocking main-thread delay.
+                    MainNavigationScreen()
+
+                    // Overlay: Premium Melofi launch experience on cold start
+                    if (showLaunchScreen) {
+                        MelofiLaunchScreen(
+                            isDark = isDark,
+                            isAmoled = userPreferences.amoledBlack,
+                            animationMode = userPreferences.animationMode,
+                            onLaunchComplete = {
+                                hasCompletedInitialLaunch = true
+                                showLaunchScreen = false
+                            }
+                        )
+                    }
+                }
             }
         }
     }

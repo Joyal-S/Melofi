@@ -10,8 +10,10 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import com.auralis.app.domain.model.ArtworkCornerStyle
 
 /**
  * Builds an enhanced Light ColorScheme based on the selected accent.
@@ -110,10 +112,12 @@ val LightColorScheme: ColorScheme = buildLightColorScheme(MelofyAccent.VIOLET)
 val DarkColorScheme: ColorScheme = buildDarkColorScheme(MelofyAccent.VIOLET)
 val AmoledColorScheme: ColorScheme = buildAmoledColorScheme(MelofyAccent.VIOLET)
 
+val LocalArtworkCornerStyle = compositionLocalOf { ArtworkCornerStyle.ROUNDED }
+
 /**
  * Melofy application theme.
  * Supports light, dark, pure AMOLED black modes, user-selected accent palettes,
- * and adaptive motion accessibility.
+ * adaptive motion accessibility, and customizable artwork corner radius.
  */
 @Composable
 fun AuralisTheme(
@@ -122,6 +126,7 @@ fun AuralisTheme(
     dynamicColor: Boolean = false,
     accent: MelofyAccent = MelofyAccent.VIOLET,
     animationMode: MelofyAnimationMode = MelofyAnimationMode.FULL,
+    artworkCornerStyle: ArtworkCornerStyle = ArtworkCornerStyle.ROUNDED,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when {
@@ -135,7 +140,8 @@ fun AuralisTheme(
     }
 
     CompositionLocalProvider(
-        LocalAnimationMode provides animationMode
+        LocalAnimationMode provides animationMode,
+        LocalArtworkCornerStyle provides artworkCornerStyle
     ) {
         MaterialTheme(
             colorScheme = colorScheme,

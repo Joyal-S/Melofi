@@ -39,10 +39,19 @@ import com.auralis.app.core.util.TimeUtils
 import com.auralis.app.domain.model.Song
 import com.auralis.app.ui.components.MelofyArtwork
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.graphics.graphicsLayer
+import com.auralis.app.core.ui.theme.LocalAnimationMode
+import com.auralis.app.core.ui.theme.MelofyAnimationMode
+import com.auralis.app.core.ui.theme.MelofyDimensions
+import com.auralis.app.core.ui.theme.MelofyTypographyTokens
+
 /**
  * High-performance, premium Material 3 song item component.
  * Features rich deterministic artwork fallback, subtle quality badge,
- * reactive favorite toggle with spring micro-interaction, and accessible touch targets.
+ * reactive favorite toggle with spring micro-interaction, graphicsLayer press feedback,
+ * and accessible touch targets.
  */
 @Composable
 fun SongListItem(
@@ -63,9 +72,18 @@ fun SongListItem(
     onShowDetails: (() -> Unit)? = null
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    val animationMode = LocalAnimationMode.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val itemScale by animateFloatAsState(
+        targetValue = if (isPressed && animationMode != MelofyAnimationMode.OFF) 0.985f else 1.0f,
+        animationSpec = MelofyMotion.springSubtle(),
+        label = "songItemPressScale"
+    )
 
     val heartScale by animateFloatAsState(
-        targetValue = if (isFavorite) 1.2f else 1.0f,
+        targetValue = if (isFavorite && animationMode != MelofyAnimationMode.OFF) 1.2f else 1.0f,
         animationSpec = MelofyMotion.springBouncy(),
         label = "favoriteBounce"
     )
@@ -84,16 +102,24 @@ fun SongListItem(
         }
     }
 
-    val artworkSize = if (isCompact) 38.dp else 50.dp
+    val artworkSize = if (isCompact) 40.dp else 50.dp
     val artworkRadius = if (isCompact) 8.dp else 10.dp
     val verticalPadding = if (isCompact) MelofySpacing.xxs else MelofySpacing.xs
-    val buttonSize = if (isCompact) 40.dp else 48.dp
+    val buttonSize = MelofyDimensions.minTouchTarget
     val iconSize = if (isCompact) 18.dp else 22.dp
 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .graphicsLayer {
+                scaleX = itemScale
+                scaleY = itemScale
+            }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = androidx.compose.material3.ripple(),
+                onClick = onClick
+            )
             .padding(horizontal = MelofySpacing.lg, vertical = verticalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -132,8 +158,7 @@ fun SongListItem(
                     ) {
                         Text(
                             text = qualityTag,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                            fontWeight = FontWeight.Bold,
+                            style = MelofyTypographyTokens.qualityBadge,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                         )
@@ -153,7 +178,7 @@ fun SongListItem(
         // Formatted track duration
         Text(
             text = TimeUtils.formatDuration(song.duration),
-            style = if (isCompact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium,
+            style = MelofyTypographyTokens.durationText,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(end = MelofySpacing.xxs)
         )

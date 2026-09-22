@@ -47,8 +47,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.auralis.app.R
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
+import com.auralis.app.core.ui.theme.LocalAnimationMode
+import com.auralis.app.core.ui.theme.MelofyAnimationMode
+import com.auralis.app.core.ui.theme.MelofyDimensions
+import com.auralis.app.core.ui.theme.MelofyMotion
+import com.auralis.app.core.ui.theme.MelofySpacing
 import com.auralis.app.domain.model.ArtworkEntityType
 import com.auralis.app.domain.model.Playlist
 import com.auralis.app.domain.model.SmartPlaylistType
@@ -307,13 +318,30 @@ private fun PlaylistItemCard(
     onChangeCover: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val animationMode = LocalAnimationMode.current
     var showMenu by remember { mutableStateOf(false) }
+
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val cardScale by animateFloatAsState(
+        targetValue = if (isPressed && animationMode != MelofyAnimationMode.OFF) 0.985f else 1.0f,
+        animationSpec = MelofyMotion.springSubtle(),
+        label = "playlistCardScale"
+    )
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .clickable(onClick = onClick),
+            .padding(horizontal = MelofySpacing.lg, vertical = 6.dp)
+            .graphicsLayer {
+                scaleX = cardScale
+                scaleY = cardScale
+            }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = androidx.compose.material3.ripple(),
+                onClick = onClick
+            ),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
@@ -359,7 +387,10 @@ private fun PlaylistItemCard(
                 )
             }
             Box {
-                IconButton(onClick = { showMenu = true }) {
+                IconButton(
+                    onClick = { showMenu = true },
+                    modifier = Modifier.size(MelofyDimensions.minTouchTarget)
+                ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_more_vert),
                         contentDescription = "Playlist options"
@@ -390,9 +421,9 @@ private fun PlaylistItemCard(
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("Edit Playlist") },
+                        text = { Text("Rename") },
                         leadingIcon = {
-                            Icon(painter = painterResource(R.drawable.ic_edit), contentDescription = null)
+                            Icon(painter = painterResource(R.drawable.ic_settings), contentDescription = null)
                         },
                         onClick = {
                             showMenu = false
@@ -412,7 +443,11 @@ private fun PlaylistItemCard(
                     DropdownMenuItem(
                         text = { Text("Delete") },
                         leadingIcon = {
-                            Icon(painter = painterResource(R.drawable.ic_delete), contentDescription = null)
+                            Icon(
+                                painter = painterResource(R.drawable.ic_delete),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
                         },
                         onClick = {
                             showMenu = false
@@ -429,7 +464,7 @@ private fun PlaylistItemCard(
 private fun PlaylistNameDialog(
     title: String,
     confirmButtonText: String,
-    initialName: String,
+    initialName: String = "",
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit
 ) {
@@ -482,23 +517,48 @@ private fun SmartPlaylistItemRow(
     type: SmartPlaylistType,
     onClick: () -> Unit
 ) {
+    val animationMode = LocalAnimationMode.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val rowScale by animateFloatAsState(
+        targetValue = if (isPressed && animationMode != MelofyAnimationMode.OFF) 0.985f else 1.0f,
+        animationSpec = MelofyMotion.springSubtle(),
+        label = "smartPlaylistScale"
+    )
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .graphicsLayer {
+                scaleX = rowScale
+                scaleY = rowScale
+            }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = androidx.compose.material3.ripple(),
+                onClick = onClick
+            )
+            .padding(horizontal = MelofySpacing.lg, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            painter = painterResource(type.iconRes),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(32.dp)
-        )
+        Surface(
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+            shape = CircleShape,
+            modifier = Modifier.size(44.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    painter = painterResource(type.iconRes),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(start = 16.dp)
+                .padding(start = MelofySpacing.md)
         ) {
             Text(
                 text = type.title,
@@ -521,4 +581,3 @@ private fun SmartPlaylistItemRow(
         )
     }
 }
-

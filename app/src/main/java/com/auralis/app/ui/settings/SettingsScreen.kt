@@ -50,6 +50,7 @@ import com.auralis.app.core.ui.theme.MelofyShapes
 import com.auralis.app.core.ui.theme.MelofyAccent
 import com.auralis.app.core.ui.theme.MelofyAnimationMode
 import com.auralis.app.core.ui.theme.MelofySpacing
+import com.auralis.app.domain.model.ArtworkCornerStyle
 import com.auralis.app.domain.model.LibraryTab
 import com.auralis.app.domain.model.LibraryViewMode
 import com.auralis.app.domain.model.SongSortOrder
@@ -288,6 +289,48 @@ private fun PersonalizationAndAboutContent(
                                         MelofyAnimationMode.FULL -> "Fluid Motion"
                                         MelofyAnimationMode.REDUCED -> "Subtle Transitions"
                                         MelofyAnimationMode.OFF -> "Off (Battery Saver)"
+                                    }
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                            )
+                        )
+                    }
+                }
+
+                // Artwork Corner Style
+                Spacer(modifier = Modifier.height(MelofySpacing.md))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Spacer(modifier = Modifier.height(MelofySpacing.md))
+
+                Text(
+                    text = "Artwork Corner Style",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "Controls curvature of artwork tiles across library, playlists, and playback.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(MelofySpacing.sm))
+
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(MelofySpacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(MelofySpacing.xs)
+                ) {
+                    ArtworkCornerStyle.entries.forEach { cornerStyle ->
+                        FilterChip(
+                            selected = preferences.artworkCornerStyle == cornerStyle,
+                            onClick = { viewModel.setArtworkCornerStyle(cornerStyle) },
+                            label = {
+                                Text(
+                                    when (cornerStyle) {
+                                        ArtworkCornerStyle.ROUNDED -> "Standard Rounded"
+                                        ArtworkCornerStyle.SUBTLE -> "Subtle (Sharp)"
+                                        ArtworkCornerStyle.SQUIRCLE -> "Squircle (Smooth)"
                                     }
                                 )
                             },
