@@ -29,6 +29,7 @@ class SearchRepositoryImpl @Inject constructor(
     private val albumDao: AlbumDao,
     private val artistDao: ArtistDao,
     private val genreDao: GenreDao,
+    private val localArtworkRepository: LocalArtworkRepository,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : SearchRepository {
 
@@ -54,10 +55,26 @@ class SearchRepositoryImpl @Inject constructor(
         val clean = query.trim()
         if (clean.isEmpty()) return@withContext SearchResultGroup(query = "")
 
-        val songs = songDao.getAllSongsList().map { SongMapper.toDomain(it) }
-        val albums = albumDao.getAllAlbums().first().map { LibraryMapper.toDomain(it) }
-        val artists = artistDao.getAllArtists().first().map { LibraryMapper.toDomain(it) }
-        val genres = genreDao.getAllGenres().first().map { LibraryMapper.toDomain(it) }
+        val songs = songDao.getAllSongsList().map {
+            val domain = SongMapper.toDomain(it)
+            val art = localArtworkRepository.resolveSongArtworkFast(domain)
+            domain.copy(albumArtUri = art)
+        }
+        val albums = albumDao.getAllAlbums().first().map {
+            val domain = LibraryMapper.toDomain(it)
+            val custom = localArtworkRepository.getAlbumArtworkUri(domain.id, domain.artUri)
+            domain.copy(artUri = custom)
+        }
+        val artists = artistDao.getAllArtists().first().map {
+            val domain = LibraryMapper.toDomain(it)
+            val custom = localArtworkRepository.getArtistArtworkUri(domain.id)
+            domain.copy(artUri = custom)
+        }
+        val genres = genreDao.getAllGenres().first().map {
+            val domain = LibraryMapper.toDomain(it)
+            val custom = localArtworkRepository.getGenreArtworkUri(domain.id)
+            domain.copy(artUri = custom)
+        }
 
         val rankedSongs = SearchRankingEngine.rankSongs(songs, clean)
         val rankedArtists = SearchRankingEngine.rankArtists(artists, clean)

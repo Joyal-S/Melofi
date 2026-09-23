@@ -43,6 +43,13 @@ import coil3.compose.AsyncImage
 import com.auralis.app.R
 import com.auralis.app.domain.model.ArtworkEntityType
 
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.rememberCoroutineScope
+import com.auralis.app.data.repository.ArtworkStagingHelper
+import kotlinx.coroutines.launch
+import java.io.File
+
 /**
  * Universal offline artwork customization dialog for Songs, Albums, Artists, Genres, and Playlists.
  *
@@ -62,10 +69,13 @@ fun ArtworkCustomizationDialog(
     entityId: String = "",
     entityName: String = "",
     currentArtworkUri: String? = null,
-    hasCustomOverride: Boolean = !currentArtworkUri.isNullOrBlank(),
+    hasCustomOverride: Boolean = currentArtworkUri?.contains("custom_artwork") == true,
     entityTitle: String = ""
 ) {
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
+    var stagedFile by remember { mutableStateOf<File?>(null) }
+    var isStaging by remember { mutableStateOf(false) }
+    var stagingError by remember { mutableStateOf<String?>(null) }
     var isCropMode by remember { mutableStateOf(true) }
     var showResetConfirmDialog by remember { mutableStateOf(false) }
 
@@ -83,18 +93,45 @@ fun ArtworkCustomizationDialog(
         }
     }
 
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val handleUriSelected: (Uri?) -> Unit = { uri: Uri? ->
         if (uri != null) {
-            selectedUri = uri
+            stagingError = null
+            isStaging = true
+            scope.launch {
+                val result = ArtworkStagingHelper.stageImageUri(context, uri)
+                isStaging = false
+                result.onSuccess { file ->
+                    stagedFile = file
+                    selectedUri = Uri.fromFile(file)
+                }.onFailure { err ->
+                    stagingError = err.message ?: "Unable to use this image"
+                }
+            }
         }
     }
 
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = handleUriSelected
+    )
+
+    val contentPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+        onResult = handleUriSelected
+    )
+
     val previewUri = selectedUri?.toString() ?: currentArtworkUri
 
+    val dismissAndCleanup: () -> Unit = {
+        stagedFile?.delete()
+        onDismiss()
+    }
+
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = dismissAndCleanup,
         title = {
             Text(
                 text = displayTitle,
@@ -118,7 +155,12 @@ fun ArtworkCustomizationDialog(
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (!previewUri.isNullOrBlank()) {
+                    if (isStaging) {
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(40.dp)
+                        )
+                    } else if (!previewUri.isNullOrBlank()) {
                         AsyncImage(
                             model = previewUri,
                             contentDescription = "Artwork Preview",
@@ -173,8 +215,26 @@ fun ArtworkCustomizationDialog(
                     )
                 }
 
+                // Error message if staging or validation failed
+                if (stagingError != null) {
+                    Text(
+                        text = stagingError!!,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center
+                    )
+                }
+
                 // Status message
                 when {
+                    isStaging -> {
+                        Text(
+                            text = "Reading and validating selected image...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                     selectedUri != null -> {
                         Text(
                             text = "New image selected — tap Save to apply.",
@@ -183,9 +243,16 @@ fun ArtworkCustomizationDialog(
                             fontWeight = FontWeight.SemiBold
                         )
                     }
-                    hasCustomOverride -> {
+                    hasCustomOverride || currentArtworkUri?.contains("custom_artwork") == true -> {
                         Text(
                             text = "Custom local artwork override is active.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    currentArtworkUri?.contains("default_covers") == true -> {
+                        Text(
+                            text = "Melofi default cover from images/ is assigned.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -211,7 +278,16 @@ fun ArtworkCustomizationDialog(
 
                 // [ Choose Image ] Button
                 OutlinedButton(
-                    onClick = { imagePickerLauncher.launch("image/*") },
+                    onClick = {
+                        stagingError = null
+                        try {
+                            photoPickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        } catch (_: Exception) {
+                            contentPickerLauncher.launch("image/*")
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(
@@ -231,6 +307,7 @@ fun ArtworkCustomizationDialog(
             ) {
                 if (selectedUri != null) {
                     Button(
+                        enabled = !isStaging,
                         onClick = {
                             selectedUri?.let { onSave(it) }
                             onDismiss()
@@ -256,7 +333,7 @@ fun ArtworkCustomizationDialog(
                         Text(if (entityType == ArtworkEntityType.PLAYLIST) "Reset to Automatic" else "Reset to Original")
                     }
                 }
-                TextButton(onClick = onDismiss) {
+                TextButton(onClick = dismissAndCleanup) {
                     Text("Cancel")
                 }
             }

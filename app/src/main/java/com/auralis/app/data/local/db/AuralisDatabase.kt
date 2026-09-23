@@ -18,8 +18,10 @@ import com.auralis.app.data.local.db.entity.GenreEntity
 import com.auralis.app.data.local.db.entity.PlaybackHistoryEntity
 import com.auralis.app.data.local.db.entity.PlaylistEntity
 import com.auralis.app.data.local.db.dao.ArtworkOverrideDao
+import com.auralis.app.data.local.db.dao.SongDefaultCoverDao
 import com.auralis.app.data.local.db.entity.ArtworkOverrideEntity
 import com.auralis.app.data.local.db.entity.PlaylistSongCrossRef
+import com.auralis.app.data.local.db.entity.SongDefaultCoverEntity
 import com.auralis.app.data.local.db.entity.SongEntity
 
 /**
@@ -37,8 +39,9 @@ import com.auralis.app.data.local.db.entity.SongEntity
         PlaybackHistoryEntity::class,
         com.auralis.app.data.local.db.entity.SearchHistoryEntity::class,
         ArtworkOverrideEntity::class,
+        SongDefaultCoverEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 abstract class AuralisDatabase : RoomDatabase() {
@@ -51,6 +54,7 @@ abstract class AuralisDatabase : RoomDatabase() {
     abstract fun historyDao(): HistoryDao
     abstract fun searchHistoryDao(): com.auralis.app.data.local.db.dao.SearchHistoryDao
     abstract fun artworkOverrideDao(): ArtworkOverrideDao
+    abstract fun songDefaultCoverDao(): SongDefaultCoverDao
 
     companion object {
         const val DATABASE_NAME = "auralis_database.db"
@@ -164,6 +168,20 @@ abstract class AuralisDatabase : RoomDatabase() {
                 )
                 db.execSQL(
                     "CREATE UNIQUE INDEX IF NOT EXISTS `index_artwork_overrides_entityType_entityKey` ON `artwork_overrides` (`entityType`, `entityKey`)"
+                )
+            }
+        }
+
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `song_default_covers` (
+                        `songId` INTEGER PRIMARY KEY NOT NULL,
+                        `coverFileName` TEXT NOT NULL,
+                        `assignedAt` INTEGER NOT NULL
+                    )
+                    """.trimIndent()
                 )
             }
         }

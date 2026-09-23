@@ -128,27 +128,8 @@ fun PlaylistsScreen(
                 .padding(innerPadding),
             contentPadding = PaddingValues(vertical = 8.dp)
         ) {
-            // Smart Playlists Section
+            // 1. User Playlists Section (Primary visual focus)
             item {
-                Text(
-                    text = "SMART PLAYLISTS",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-            }
-
-            items(SmartPlaylistType.entries) { type ->
-                SmartPlaylistItemRow(
-                    type = type,
-                    onClick = { onSmartPlaylistClick?.invoke(type) }
-                )
-            }
-
-            // User Playlists Section Header
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -158,7 +139,7 @@ fun PlaylistsScreen(
                 ) {
                     val count = if (playlists.isNotEmpty()) " (${playlists.size})" else ""
                     Text(
-                        text = "USER PLAYLISTS$count",
+                        text = "YOUR PLAYLISTS$count",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -211,8 +192,9 @@ fun PlaylistsScreen(
                 ) { playlist ->
                     PlaylistItemCard(
                         playlist = playlist,
-                        coverUri = playlistsViewModel.getPlaylistArtworkUri(playlist),
+                        coverUri = playlist.customCoverUri ?: playlistsViewModel.getCustomArtworkUri(playlist.id),
                         memberArtUris = playlistArtworkMap[playlist.id].orEmpty(),
+                        defaultCoverUri = playlistsViewModel.getDefaultPlaylistCoverUri(playlist.id),
                         onClick = { onPlaylistClick(playlist.id) },
                         onPlay = {
                             playlistsViewModel.playPlaylist(playlist.id, shuffle = false) { songs ->
@@ -229,6 +211,25 @@ fun PlaylistsScreen(
                         onDelete = { playlistToDelete = playlist }
                     )
                 }
+            }
+
+            // 2. Smart Playlists Section (Secondary, Favorites removed with zero gap)
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "SMART PLAYLISTS",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+
+            items(SmartPlaylistType.entries.filter { it != SmartPlaylistType.FAVORITES }) { type ->
+                SmartPlaylistItemRow(
+                    type = type,
+                    onClick = { onSmartPlaylistClick?.invoke(type) }
+                )
             }
         }
     }
@@ -314,6 +315,7 @@ private fun PlaylistItemCard(
     playlist: Playlist,
     coverUri: String?,
     memberArtUris: List<String> = emptyList(),
+    defaultCoverUri: String? = null,
     onClick: () -> Unit,
     onPlay: () -> Unit,
     onShuffle: () -> Unit,
@@ -359,6 +361,7 @@ private fun PlaylistItemCard(
             PlaylistCover(
                 customCoverUri = coverUri,
                 memberArtUris = memberArtUris,
+                fallbackDefaultCoverUri = defaultCoverUri,
                 title = playlist.name,
                 modifier = Modifier.size(68.dp),
                 cornerRadius = 10.dp

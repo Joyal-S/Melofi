@@ -58,23 +58,21 @@ class SongRepositoryImpl @Inject constructor(
             SongSortOrder.DATE_ADDED -> songDao.getSongsSortedByDateAdded()
             else -> songDao.getSongsSortedByTitle()
         }
-        return flow.map { list ->
+        return kotlinx.coroutines.flow.combine(flow, artworkRepository.artworkUpdates) { list, _ ->
             list.map { entity ->
                 val domain = SongMapper.toDomain(entity)
-                val customArt = artworkRepository.getCustomArtworkUri(ArtworkEntityType.SONG, entity.id.toString())
-                    ?: (entity.albumId?.let { albId -> artworkRepository.getCustomArtworkUri(ArtworkEntityType.ALBUM, albId.toString()) })
-                if (customArt != null) domain.copy(albumArtUri = customArt) else domain
+                val resolvedArt = artworkRepository.resolveSongArtworkFast(domain)
+                domain.copy(albumArtUri = resolvedArt)
             }
         }
     }
 
     override fun getSongById(id: Long): Flow<Song?> {
-        return songDao.getSongById(id).map { entity ->
+        return kotlinx.coroutines.flow.combine(songDao.getSongById(id), artworkRepository.artworkUpdates) { entity, _ ->
             entity?.let {
                 val domain = SongMapper.toDomain(it)
-                val customArt = artworkRepository.getCustomArtworkUri(ArtworkEntityType.SONG, it.id.toString())
-                    ?: (it.albumId?.let { albId -> artworkRepository.getCustomArtworkUri(ArtworkEntityType.ALBUM, albId.toString()) })
-                if (customArt != null) domain.copy(albumArtUri = customArt) else domain
+                val resolvedArt = artworkRepository.resolveSongArtworkFast(domain)
+                domain.copy(albumArtUri = resolvedArt)
             }
         }
     }
@@ -107,6 +105,14 @@ class SongRepositoryImpl @Inject constructor(
                 albumDao.syncAlbums(scanOutput.albums)
                 artistDao.syncArtists(scanOutput.artists)
                 genreDao.syncGenres(scanOutput.genres)
+            }
+
+            // 5. Ensure newly discovered songs have permanent default covers assigned
+            if (diff.toInsert.isNotEmpty()) {
+                for (newSong in diff.toInsert) {
+                    val domain = SongMapper.toDomain(newSong)
+                    artworkRepository.resolveSongArtworkFast(domain)
+                }
             }
 
             val result = ScanResult(

@@ -115,6 +115,14 @@ class PlaylistsViewModel @Inject constructor(
         return localArtworkRepository.getPlaylistArtworkUri(playlist.id, playlist.customCoverUri)
     }
 
+    fun getCustomArtworkUri(playlistId: Long): String? {
+        return localArtworkRepository.getCustomArtworkUri(com.auralis.app.domain.model.ArtworkEntityType.PLAYLIST, playlistId.toString())
+    }
+
+    fun getDefaultPlaylistCoverUri(playlistId: Long): String {
+        return localArtworkRepository.getOrAssignDefaultPlaylistCover(playlistId)
+    }
+
     fun playPlaylist(playlistId: Long, shuffle: Boolean, onPlay: (List<com.auralis.app.domain.model.Song>) -> Unit) {
         viewModelScope.launch {
             val songs = getPlaylistSongsUseCase(playlistId).firstOrNull().orEmpty()

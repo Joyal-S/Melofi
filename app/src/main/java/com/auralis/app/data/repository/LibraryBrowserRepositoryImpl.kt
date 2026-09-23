@@ -53,9 +53,17 @@ class LibraryBrowserRepositoryImpl @Inject constructor(
             .flowOn(ioDispatcher)
     }
 
+    private fun mapSongs(entities: List<com.auralis.app.data.local.db.entity.SongEntity>): List<Song> {
+        return entities.map { entity ->
+            val domain = SongMapper.toDomain(entity)
+            val art = localArtworkRepository.resolveSongArtworkFast(domain)
+            domain.copy(albumArtUri = art)
+        }
+    }
+
     override fun getSongsByAlbum(albumId: Long, albumName: String): Flow<List<Song>> {
         return songDao.getSongsByAlbum(albumId, albumName)
-            .map { SongMapper.toDomainList(it) }
+            .map { mapSongs(it) }
             .flowOn(ioDispatcher)
     }
 
@@ -85,7 +93,7 @@ class LibraryBrowserRepositoryImpl @Inject constructor(
 
     override fun getSongsByArtist(artistId: Long, artistName: String): Flow<List<Song>> {
         return songDao.getSongsByArtist(artistId, artistName)
-            .map { SongMapper.toDomainList(it) }
+            .map { mapSongs(it) }
             .flowOn(ioDispatcher)
     }
 
@@ -128,7 +136,7 @@ class LibraryBrowserRepositoryImpl @Inject constructor(
 
     override fun getSongsByGenre(genreName: String): Flow<List<Song>> {
         return songDao.getSongsByGenre(genreName)
-            .map { SongMapper.toDomainList(it) }
+            .map { mapSongs(it) }
             .flowOn(ioDispatcher)
     }
 }

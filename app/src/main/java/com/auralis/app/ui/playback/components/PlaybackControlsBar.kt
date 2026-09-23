@@ -207,8 +207,8 @@ fun PlaybackControlsBar(
                             if (animationMode == MelofyAnimationMode.OFF) {
                                 androidx.compose.animation.EnterTransition.None togetherWith androidx.compose.animation.ExitTransition.None
                             } else {
-                                (scaleIn(initialScale = 0.65f, animationSpec = MelofyMotion.springBouncy<Float>()) + fadeIn(tween(180))).togetherWith(
-                                    scaleOut(targetScale = 0.65f, animationSpec = MelofyMotion.springSubtle<Float>()) + fadeOut(tween(140))
+                                (scaleIn(initialScale = 0.80f, animationSpec = MelofyMotion.springSubtle<Float>()) + fadeIn(tween(140))).togetherWith(
+                                    scaleOut(targetScale = 0.80f, animationSpec = MelofyMotion.springSubtle<Float>()) + fadeOut(tween(100))
                                 )
                             }
                         },
@@ -219,11 +219,7 @@ fun PlaybackControlsBar(
                                 if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow
                             ),
                             contentDescription = if (isPlaying) "Pause" else "Play",
-                            modifier = Modifier
-                                .size(24.dp)
-                                .graphicsLayer {
-                                    rotationZ = if (animationMode != MelofyAnimationMode.OFF) playPauseRotation else 0f
-                                }
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 }

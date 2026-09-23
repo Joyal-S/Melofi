@@ -152,7 +152,17 @@ class MelofyWidgetProvider : AppWidgetProvider() {
 
         internal fun loadScaledArtwork(context: Context, uri: Uri): Bitmap? {
             return runCatching {
-                context.contentResolver.openInputStream(uri)?.use { stream ->
+                fun openStream(): java.io.InputStream? {
+                    return if (uri.scheme == "file") {
+                        val path = uri.path ?: return null
+                        val file = java.io.File(path)
+                        if (file.exists()) file.inputStream() else null
+                    } else {
+                        context.contentResolver.openInputStream(uri)
+                    }
+                }
+
+                openStream()?.use { stream ->
                     val options = BitmapFactory.Options().apply {
                         inJustDecodeBounds = true
                     }
@@ -168,7 +178,7 @@ class MelofyWidgetProvider : AppWidgetProvider() {
                         }
                     }
 
-                    context.contentResolver.openInputStream(uri)?.use { secondStream ->
+                    openStream()?.use { secondStream ->
                         val decodeOptions = BitmapFactory.Options().apply {
                             inSampleSize = sampleSize
                             inPreferredConfig = Bitmap.Config.RGB_565

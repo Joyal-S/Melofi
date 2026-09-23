@@ -74,4 +74,9 @@ class PlaybackViewModel @Inject constructor(
     fun cycleRepeatMode() {
         playbackController.cycleRepeatMode()
     }
+
+    fun toggleDsp() {
+        val current = dspParameters.value.isAnyActive
+        dspEffectsManager.setMasterEnabled(!current)
+    }
 }

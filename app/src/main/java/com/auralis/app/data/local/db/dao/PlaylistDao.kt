@@ -26,7 +26,8 @@ data class PlaylistWithCountEntity(
 
 data class PlaylistArtMapping(
     val playlistId: Long,
-    val albumArtUri: String
+    val songId: Long,
+    val albumArtUri: String?
 )
 
 /**
@@ -46,10 +47,9 @@ interface PlaylistDao {
     fun getPlaylistsWithCount(): Flow<List<PlaylistWithCountEntity>>
 
     @Query("""
-        SELECT ps.playlistId, s.albumArtUri
+        SELECT ps.playlistId, ps.songId, s.albumArtUri
         FROM playlist_songs ps
         INNER JOIN songs s ON ps.songId = s.id
-        WHERE s.albumArtUri IS NOT NULL AND s.albumArtUri != ''
         ORDER BY ps.playlistId, ps.position ASC
     """)
     fun getAllPlaylistArtworkMappings(): Flow<List<PlaylistArtMapping>>

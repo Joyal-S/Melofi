@@ -5,23 +5,32 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
@@ -43,6 +52,7 @@ import com.auralis.app.ui.browse.AlbumDetailScreen
 import com.auralis.app.ui.browse.AlbumDetailViewModel
 import com.auralis.app.ui.browse.ArtistDetailScreen
 import com.auralis.app.ui.browse.ArtistDetailViewModel
+import com.auralis.app.ui.browse.ArtistsScreen
 import com.auralis.app.ui.browse.GenreDetailScreen
 import com.auralis.app.ui.browse.GenreDetailViewModel
 import com.auralis.app.ui.details.SongDetailsScreen
@@ -75,6 +85,7 @@ enum class MainTab {
     SONGS,
     FAVORITES,
     PLAYLISTS,
+    ARTISTS,
     SETTINGS
 }
 
@@ -200,125 +211,31 @@ fun MainNavigationScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            Column {
-                // Persistent Playback Controls Bar (hidden when full-screen Now Playing is open)
-                AnimatedVisibility(
-                    visible = playbackState.currentSong != null && !showNowPlaying,
-                    enter = if (animationMode == MelofyAnimationMode.OFF) EnterTransition.None
-                            else slideInVertically(MelofyMotion.springSubtle()) { it } + fadeIn(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST)),
-                    exit = if (animationMode == MelofyAnimationMode.OFF) ExitTransition.None
-                           else slideOutVertically(MelofyMotion.springSubtle()) { it } + fadeOut(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST))
-                ) {
-                    PlaybackControlsBar(
-                        playbackState = playbackState,
-                        onTogglePlayPause = { playbackViewModel.togglePlayPause() },
-                        onSeekTo = { playbackViewModel.seekTo(it) },
-                        onNext = { playbackViewModel.next() },
-                        onPrevious = { playbackViewModel.previous() },
-                        onToggleShuffle = { playbackViewModel.toggleShuffle() },
-                        onCycleRepeat = { playbackViewModel.cycleRepeatMode() },
-                        onClick = { showNowPlaying = true },
-                        isFavorite = playbackState.currentSong?.id?.let { it in favoriteSongIds } == true,
-                        onToggleFavorite = { playbackState.currentSong?.let { favoritesViewModel.toggleFavorite(it.id) } },
-                        progressProvider = { playbackViewModel.playbackProgress.value }
-                    )
-                }
-
-                // Root Navigation Bar (hidden on sub-details and Now Playing)
-                AnimatedVisibility(
-                    visible = !isSubScreen,
-                    enter = if (animationMode == MelofyAnimationMode.OFF) EnterTransition.None
-                            else slideInVertically(MelofyMotion.springSubtle()) { it } + fadeIn(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST)),
-                    exit = if (animationMode == MelofyAnimationMode.OFF) ExitTransition.None
-                           else slideOutVertically(MelofyMotion.springSubtle()) { it } + fadeOut(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST))
-                ) {
-                    NavigationBar(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        tonalElevation = 3.dp
-                    ) {
-                        NavigationBarItem(
-                            selected = selectedTab == MainTab.SONGS,
-                            onClick = { selectedTab = MainTab.SONGS },
-                            icon = {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_queue_music),
-                                    contentDescription = "Songs",
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            },
-                            label = {
-                                Text(
-                                    text = "Songs",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = if (selectedTab == MainTab.SONGS) FontWeight.Bold else FontWeight.Medium
-                                )
-                            }
-                        )
-                        NavigationBarItem(
-                            selected = selectedTab == MainTab.FAVORITES,
-                            onClick = { selectedTab = MainTab.FAVORITES },
-                            icon = {
-                                Icon(
-                                    painter = painterResource(
-                                        if (selectedTab == MainTab.FAVORITES) R.drawable.ic_favorite else R.drawable.ic_favorite_border
-                                    ),
-                                    contentDescription = "Favorites",
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            },
-                            label = {
-                                Text(
-                                    text = "Favorites",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = if (selectedTab == MainTab.FAVORITES) FontWeight.Bold else FontWeight.Medium
-                                )
-                            }
-                        )
-                        NavigationBarItem(
-                            selected = selectedTab == MainTab.PLAYLISTS,
-                            onClick = { selectedTab = MainTab.PLAYLISTS },
-                            icon = {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_playlist_play),
-                                    contentDescription = "Playlists",
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            },
-                            label = {
-                                Text(
-                                    text = "Playlists",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = if (selectedTab == MainTab.PLAYLISTS) FontWeight.Bold else FontWeight.Medium
-                                )
-                            }
-                        )
-                        NavigationBarItem(
-                            selected = selectedTab == MainTab.SETTINGS,
-                            onClick = { selectedTab = MainTab.SETTINGS },
-                            icon = {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_settings),
-                                    contentDescription = "Settings",
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            },
-                            label = {
-                                Text(
-                                    text = "Settings",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = if (selectedTab == MainTab.SETTINGS) FontWeight.Bold else FontWeight.Medium
-                                )
-                            }
-                        )
-                    }
-                }
-            }
+            com.auralis.app.ui.components.MelofiBottomDock(
+                playbackState = playbackState,
+                showMiniPlayer = playbackState.currentSong != null && !showNowPlaying,
+                showBottomNav = !isSubScreen && !showNowPlaying,
+                selectedTab = selectedTab,
+                onTabSelected = { selectedTab = it },
+                favoriteSongIds = favoriteSongIds,
+                onTogglePlayPause = { playbackViewModel.togglePlayPause() },
+                onSeekTo = { playbackViewModel.seekTo(it) },
+                onNext = { playbackViewModel.next() },
+                onPrevious = { playbackViewModel.previous() },
+                onToggleShuffle = { playbackViewModel.toggleShuffle() },
+                onCycleRepeat = { playbackViewModel.cycleRepeatMode() },
+                onMiniPlayerClick = { showNowPlaying = true },
+                onToggleFavorite = { song -> favoritesViewModel.toggleFavorite(song.id) },
+                progressProvider = { playbackViewModel.playbackProgress.value },
+                animationMode = animationMode
+            )
         }
     ) { innerPadding ->
         val screenModifier = Modifier
             .fillMaxSize()
-            .padding(innerPadding)
+            .padding(bottom = innerPadding.calculateBottomPadding())
 
         AnimatedContent(
             targetState = currentDestination,
@@ -372,6 +289,24 @@ fun MainNavigationScreen(
                             showNowPlaying = false
                             selectedTab = MainTab.SETTINGS
                         },
+                        onAddToPlaylist = { song ->
+                            songForPlaylistDialog = song
+                        },
+                        onSongDetailsClick = { song ->
+                            showNowPlaying = false
+                            selectedSongDetailsId = song.id
+                        },
+                        onArtistClick = { artistId, artistName ->
+                            showNowPlaying = false
+                            val resolvedId = artistId ?: songsViewModel.artists.value.firstOrNull {
+                                it.name.equals(artistName, ignoreCase = true)
+                            }?.id
+                            if (resolvedId != null) {
+                                selectedArtistId = resolvedId
+                            } else {
+                                selectedTab = MainTab.ARTISTS
+                            }
+                        },
                         modifier = screenModifier
                     )
                 }
@@ -386,6 +321,26 @@ fun MainNavigationScreen(
                         onFindDuplicates = {
                             selectedSongDetailsId = null
                             showDuplicateScreen = true
+                        },
+                        onArtistClick = { artistId, artistName ->
+                            selectedSongDetailsId = null
+                            val resolvedId = artistId ?: songsViewModel.artists.value.firstOrNull {
+                                it.name.equals(artistName, ignoreCase = true)
+                            }?.id
+                            if (resolvedId != null) {
+                                selectedArtistId = resolvedId
+                            } else {
+                                selectedTab = MainTab.ARTISTS
+                            }
+                        },
+                        onAlbumClick = { albumName ->
+                            val album = songsViewModel.albums.value.firstOrNull {
+                                it.name.equals(albumName, ignoreCase = true)
+                            }
+                            if (album != null) {
+                                selectedSongDetailsId = null
+                                selectedAlbumId = album.id
+                            }
                         },
                         modifier = screenModifier
                     )
@@ -530,6 +485,14 @@ fun MainNavigationScreen(
                                 onPlaylistClick = { selectedPlaylistId = it },
                                 onSmartPlaylistClick = { selectedSmartPlaylistType = it },
                                 playbackViewModel = playbackViewModel,
+                                modifier = screenModifier
+                            )
+                        }
+                        MainTab.ARTISTS -> {
+                            ArtistsScreen(
+                                viewModel = songsViewModel,
+                                onArtistClick = { artistId -> selectedArtistId = artistId },
+                                onSearchClick = { showSearchScreen = true },
                                 modifier = screenModifier
                             )
                         }

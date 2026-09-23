@@ -37,6 +37,7 @@ class RecommendationRepositoryImpl @Inject constructor(
     private val historyDao: HistoryDao,
     private val favoriteDao: FavoriteDao,
     private val playlistDao: PlaylistDao,
+    private val localArtworkRepository: LocalArtworkRepository,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : RecommendationRepository {
 
@@ -50,7 +51,11 @@ class RecommendationRepositoryImpl @Inject constructor(
         historyDao.getRecentHistoryEntries(limit = 1000),
         _refreshTrigger
     ) { songEntities, favIds, historyEntries, _ ->
-        val domainSongs = SongMapper.toDomainList(songEntities)
+        val domainSongs = songEntities.map { entity ->
+            val domain = SongMapper.toDomain(entity)
+            val art = localArtworkRepository.resolveSongArtworkFast(domain)
+            domain.copy(albumArtUri = art)
+        }
         if (domainSongs.isEmpty()) {
             return@combine emptyList()
         }

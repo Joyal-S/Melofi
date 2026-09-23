@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.auralis.app.R
@@ -633,8 +635,10 @@ private fun SettingsMainContent(
 
         Spacer(modifier = Modifier.height(MelofySpacing.xs))
 
-        // 4. STATISTICS
-        SettingsSectionHeader(title = "Statistics")
+        // 4. ABOUT
+        SettingsSectionHeader(title = "About")
+
+        // Statistics Entry Card
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -676,12 +680,12 @@ private fun SettingsMainContent(
                             text = "Listening Statistics",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = "View top tracks, artists, and listening history",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -692,11 +696,6 @@ private fun SettingsMainContent(
                 )
             }
         }
-
-        Spacer(modifier = Modifier.height(MelofySpacing.xs))
-
-        // 5. ABOUT & PRIVACY
-        SettingsSectionHeader(title = "About & Privacy")
         // Privacy Guarantee Card
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -776,6 +775,31 @@ private fun SettingsMainContent(
                 }
             }
         }
+
+        // Developer Credit / Product Signature
+        Spacer(modifier = Modifier.height(MelofySpacing.xl))
+
+        HorizontalDivider(
+            modifier = Modifier
+                .fillMaxWidth(0.35f)
+                .align(Alignment.CenterHorizontally),
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+            thickness = 1.dp
+        )
+
+        Spacer(modifier = Modifier.height(MelofySpacing.md))
+
+        Text(
+            text = "Developed by Joyal",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentWidth(Alignment.CenterHorizontally),
+            letterSpacing = 0.5.sp
+        )
+
+        Spacer(modifier = Modifier.height(MelofySpacing.xl))
     }
 }
 

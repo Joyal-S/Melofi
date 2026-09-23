@@ -173,7 +173,8 @@ fun PlaylistCover(
     memberArtUris: List<String> = emptyList(),
     title: String,
     modifier: Modifier = Modifier,
-    cornerRadius: Dp = 16.dp
+    cornerRadius: Dp = 16.dp,
+    fallbackDefaultCoverUri: String? = null
 ) {
     val shape = remember(cornerRadius) { RoundedCornerShape(cornerRadius) }
 
@@ -280,6 +281,15 @@ fun PlaylistCover(
                     AsyncImage(
                         model = distinctArts[0],
                         contentDescription = "Cover for $title",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                !fallbackDefaultCoverUri.isNullOrBlank() -> {
+                    // Stable Melofi default cover from images/
+                    AsyncImage(
+                        model = fallbackDefaultCoverUri,
+                        contentDescription = "Default cover for $title",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )

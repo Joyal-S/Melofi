@@ -20,6 +20,7 @@ import javax.inject.Singleton
 @Singleton
 class FavoriteRepositoryImpl @Inject constructor(
     private val favoriteDao: FavoriteDao,
+    private val localArtworkRepository: LocalArtworkRepository,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : FavoriteRepository {
 
@@ -30,9 +31,13 @@ class FavoriteRepositoryImpl @Inject constructor(
     }
 
     override fun getFavoriteSongs(): Flow<List<Song>> {
-        return favoriteDao.getFavoriteSongs()
-            .map { SongMapper.toDomainList(it) }
-            .flowOn(ioDispatcher)
+        return kotlinx.coroutines.flow.combine(favoriteDao.getFavoriteSongs(), localArtworkRepository.artworkUpdates) { list, _ ->
+            list.map { entity ->
+                val domain = SongMapper.toDomain(entity)
+                val art = localArtworkRepository.resolveSongArtworkFast(domain)
+                domain.copy(albumArtUri = art)
+            }
+        }.flowOn(ioDispatcher)
     }
 
     override suspend fun isFavorite(songId: Long): Boolean = withContext(ioDispatcher) {

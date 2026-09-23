@@ -181,7 +181,7 @@ fun PlaylistDetailScreen(
                 ) {
                     Box(contentAlignment = Alignment.BottomEnd) {
                         PlaylistCover(
-                            customCoverUri = playlist?.customCoverUri,
+                            customCoverUri = playlist?.let { viewModel.getPlaylistArtworkUri(it) } ?: playlist?.customCoverUri,
                             memberArtUris = songs.mapNotNull { it.albumArtUri }.take(4),
                             title = playlist?.name ?: "Playlist",
                             modifier = Modifier
@@ -375,7 +375,7 @@ fun PlaylistDetailScreen(
                 entityType = ArtworkEntityType.PLAYLIST,
                 entityId = currentPlaylist.id.toString(),
                 entityName = currentPlaylist.name,
-                currentArtworkUri = currentPlaylist.customCoverUri,
+                currentArtworkUri = viewModel.getPlaylistArtworkUri(currentPlaylist),
                 onDismiss = { showArtworkDialog = false },
                 onSave = { uri ->
                     showArtworkDialog = false

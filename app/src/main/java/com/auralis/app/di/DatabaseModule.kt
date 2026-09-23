@@ -38,7 +38,8 @@ object DatabaseModule {
             AuralisDatabase.MIGRATION_2_3,
             AuralisDatabase.MIGRATION_3_4,
             AuralisDatabase.MIGRATION_4_5,
-            AuralisDatabase.MIGRATION_5_6
+            AuralisDatabase.MIGRATION_5_6,
+            AuralisDatabase.MIGRATION_6_7
         )
         .addCallback(object : RoomDatabase.Callback() {
             override fun onOpen(db: SupportSQLiteDatabase) {
@@ -92,5 +93,10 @@ object DatabaseModule {
     @Provides
     fun provideArtworkOverrideDao(database: AuralisDatabase): com.auralis.app.data.local.db.dao.ArtworkOverrideDao {
         return database.artworkOverrideDao()
+    }
+
+    @Provides
+    fun provideSongDefaultCoverDao(database: AuralisDatabase): com.auralis.app.data.local.db.dao.SongDefaultCoverDao {
+        return database.songDefaultCoverDao()
     }
 }

@@ -115,6 +115,10 @@ class PlaylistDetailViewModel @Inject constructor(
         }
     }
 
+    fun getPlaylistArtworkUri(playlist: com.auralis.app.domain.model.Playlist): String? {
+        return localArtworkRepository.getPlaylistArtworkUri(playlist.id, playlist.customCoverUri)
+    }
+
     fun deletePlaylist(onDeleted: () -> Unit) {
         val playlistId = _playlistId.value ?: return
         viewModelScope.launch {

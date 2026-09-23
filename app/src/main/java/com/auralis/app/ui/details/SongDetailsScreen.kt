@@ -74,20 +74,14 @@ fun SongDetailsScreen(
     onAddToQueue: (Song) -> Unit,
     onAddToPlaylist: (Song) -> Unit,
     onFindDuplicates: (Song) -> Unit,
+    onArtistClick: ((Long?, String) -> Unit)? = null,
+    onAlbumClick: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var showEditDialog by remember { mutableStateOf(false) }
     var showArtworkDialog by remember { mutableStateOf(false) }
-
-    val imagePickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
-    ) { uri: android.net.Uri? ->
-        if (uri != null) {
-            viewModel.setCustomArtwork(uri)
-        }
-    }
 
     LaunchedEffect(songId) {
         viewModel.loadSong(songId)
@@ -265,16 +259,25 @@ fun SongDetailsScreen(
                             Text(
                                 text = details.basicInfo.artist,
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (onArtistClick != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = if (onArtistClick != null) {
+                                    Modifier.clickable {
+                                        onArtistClick.invoke(null, details.basicInfo.artist)
+                                    }
+                                } else Modifier
                             )
+                            val isAlbumClickable = onAlbumClick != null && details.basicInfo.album.isNotBlank() && !details.basicInfo.album.equals("Unknown", ignoreCase = true)
                             Text(
                                 text = details.basicInfo.album,
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (isAlbumClickable) MaterialTheme.colorScheme.primary.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = if (isAlbumClickable) {
+                                    Modifier.clickable { onAlbumClick?.invoke(details.basicInfo.album) }
+                                } else Modifier
                             )
                         }
                     }
@@ -374,6 +377,16 @@ fun SongDetailsScreen(
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("Duplicates")
                         }
+                    }
+
+                    // Change Artwork Button
+                    OutlinedButton(
+                        onClick = { showArtworkDialog = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(painter = painterResource(R.drawable.ic_image), contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Change Artwork")
                     }
 
                     // Audio Specifications Card

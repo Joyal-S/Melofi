@@ -26,53 +26,64 @@ class PlaylistRepositoryImpl @Inject constructor(
 ) : PlaylistRepository {
 
     override fun getPlaylists(): Flow<List<Playlist>> {
-        return playlistDao.getPlaylistsWithCount()
-            .map { list ->
-                list.map { entity ->
-                    val cover = entity.customCoverUri ?: localArtworkRepository.getPlaylistArtworkUri(entity.id)
-                    Playlist(
-                        id = entity.id,
-                        name = entity.name,
-                        createdAt = entity.createdAt,
-                        updatedAt = entity.updatedAt,
-                        songCount = entity.songCount,
-                        customCoverUri = cover,
-                        description = entity.description
-                    )
-                }
+        return kotlinx.coroutines.flow.combine(
+            playlistDao.getPlaylistsWithCount(),
+            localArtworkRepository.artworkUpdates
+        ) { list, _ ->
+            list.map { entity ->
+                val cover = localArtworkRepository.getPlaylistArtworkUri(entity.id, entity.customCoverUri)
+                Playlist(
+                    id = entity.id,
+                    name = entity.name,
+                    createdAt = entity.createdAt,
+                    updatedAt = entity.updatedAt,
+                    songCount = entity.songCount,
+                    customCoverUri = cover,
+                    description = entity.description
+                )
             }
-            .flowOn(ioDispatcher)
+        }.flowOn(ioDispatcher)
     }
 
     override fun getPlaylist(id: Long): Flow<Playlist?> {
-        return playlistDao.getPlaylistById(id)
-            .map { entity ->
-                entity?.let {
-                    val cover = it.customCoverUri ?: localArtworkRepository.getPlaylistArtworkUri(it.id)
-                    Playlist(
-                        id = it.id,
-                        name = it.name,
-                        createdAt = it.createdAt,
-                        updatedAt = it.updatedAt,
-                        customCoverUri = cover,
-                        description = it.description
-                    )
-                }
+        return kotlinx.coroutines.flow.combine(
+            playlistDao.getPlaylistById(id),
+            localArtworkRepository.artworkUpdates
+        ) { entity, _ ->
+            entity?.let {
+                val cover = localArtworkRepository.getPlaylistArtworkUri(it.id, it.customCoverUri)
+                Playlist(
+                    id = it.id,
+                    name = it.name,
+                    createdAt = it.createdAt,
+                    updatedAt = it.updatedAt,
+                    customCoverUri = cover,
+                    description = it.description
+                )
             }
-            .flowOn(ioDispatcher)
+        }.flowOn(ioDispatcher)
     }
 
     override fun getPlaylistSongs(playlistId: Long): Flow<List<Song>> {
-        return playlistDao.getSongsForPlaylist(playlistId)
-            .map { SongMapper.toDomainList(it) }
-            .flowOn(ioDispatcher)
+        return kotlinx.coroutines.flow.combine(playlistDao.getSongsForPlaylist(playlistId), localArtworkRepository.artworkUpdates) { list, _ ->
+            list.map { entity ->
+                val domain = SongMapper.toDomain(entity)
+                val art = localArtworkRepository.resolveSongArtworkFast(domain)
+                domain.copy(albumArtUri = art)
+            }
+        }.flowOn(ioDispatcher)
     }
 
     override fun getPlaylistArtworkMappings(): Flow<Map<Long, List<String>>> {
         return playlistDao.getAllPlaylistArtworkMappings()
             .map { mappings ->
-                mappings.groupBy({ it.playlistId }, { it.albumArtUri })
-                    .mapValues { (_, uris) -> uris.distinct().take(4) }
+                mappings.groupBy({ it.playlistId })
+                    .mapValues { (_, songMappings) ->
+                        songMappings.map { mapping ->
+                            val custom = localArtworkRepository.getCustomArtworkUri(com.auralis.app.domain.model.ArtworkEntityType.SONG, mapping.songId.toString())
+                            custom ?: mapping.albumArtUri ?: localArtworkRepository.getOrAssignDefaultCover(mapping.songId)
+                        }.filter { it.isNotBlank() }.distinct().take(4)
+                    }
             }
             .flowOn(ioDispatcher)
     }
