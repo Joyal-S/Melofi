@@ -47,7 +47,8 @@ class DspEffectsManager @Inject constructor(
                 loFi = DspParameters.DEFAULT.loFi.copy(
                     bitCrush = prefs.dspLoFiBitCrush,
                     sampleRateReduction = prefs.dspLoFiSampleReduction,
-                    saturation = prefs.dspLoFiSaturation
+                    saturation = prefs.dspLoFiSaturation,
+                    wowFlutter = prefs.dspLoFiWowFlutter
                 )
             )
         }
@@ -128,6 +129,7 @@ class DspEffectsManager @Inject constructor(
             preferencesRepository.setDspLoFiBitCrush(newParams.loFi.bitCrush)
             preferencesRepository.setDspLoFiSampleReduction(newParams.loFi.sampleRateReduction)
             preferencesRepository.setDspLoFiSaturation(newParams.loFi.saturation)
+            preferencesRepository.setDspLoFiWowFlutter(newParams.loFi.wowFlutter)
             preferencesRepository.setDspReverbRoomSize(newParams.reverb.roomSize)
             preferencesRepository.setDspReverbDecay(newParams.reverb.decay)
             preferencesRepository.setDspReverbWetLevel(newParams.reverb.wetLevel)
@@ -187,6 +189,20 @@ class DspEffectsManager @Inject constructor(
         scope.launch {
             preferencesRepository.setDspPreset(DspPreset.CUSTOM)
             preferencesRepository.setDspLoFiSaturation(updated.loFi.saturation)
+        }
+    }
+
+    fun setLoFiWowFlutter(wowFlutter: Float) {
+        val current = audioProcessor.getParameters()
+        val updated = current.copy(
+            preset = DspPreset.CUSTOM,
+            loFi = current.loFi.copy(wowFlutter = wowFlutter.coerceIn(0.0f, 1.0f))
+        )
+        audioProcessor.updateParameters(updated)
+        _parametersState.update { updated }
+        scope.launch {
+            preferencesRepository.setDspPreset(DspPreset.CUSTOM)
+            preferencesRepository.setDspLoFiWowFlutter(updated.loFi.wowFlutter)
         }
     }
 

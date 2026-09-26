@@ -1,24 +1,21 @@
 package com.auralis.app.playback.dsp
 
+import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * High-performance, zero-allocation Real-Time Stereo Schroeder-Moorer Reverberator with Pre-Delay.
+ * High-performance, zero-allocation Real-Time Stereo Schroeder-Moorer Reverberator 2.0.
  *
- * Architecture:
- * - Pre-Delay Line (0 ms to 100 ms) separating direct sound from reverb onset
- * - 4 Parallel Feedback Comb Filters (FBCF) per channel with prime delay lines
- * - Low-pass damping within comb feedback loops simulating acoustic air/wall absorption
- * - 2 Series All-Pass Filters (APF) per channel for dense phase diffusion
- * - Stereo decorrelation using prime-offset delay buffers to preserve stereo width
- * - Click-free parameter smoothing for wet/dry levels and decay
- * - Denormal float suppression to eliminate CPU cycles wasted on subnormal numbers
- * - Preallocated circular delay buffers sized to accommodate up to 192 kHz sample rates
- *
- * Real-time audio constraints:
+ * Upgrades:
+ * - Pre-Reverb High-Pass "Mud" Filter (120 Hz) to eliminate muddy bass buildup in feedback loops.
+ * - Optimized Feedback Comb Filters with tuned high-frequency damping for a warm, natural acoustic space.
+ * - Golden-ratio series All-Pass Diffusers (0.618f) for dense, flutter-free diffusion.
+ * - Post-Reverb High-Frequency Softening (6.5 kHz) to eliminate metallic ringing and harsh reflections.
+ * - Headroom-conscious crossfade mixing preserving direct punch without volume inflation or digital overs.
+ * - Output soft-knee limiting to eliminate clipping crackle.
+ * - Preallocated circular delay buffers sized to accommodate up to 192 kHz sample rates.
  * - Zero allocations during [process] execution.
- * - Strict feedback gain limiting (< 0.975f) to mathematically prevent runaway feedback.
  * - Bounded input/output range [-1.0f..1.0f].
  */
 class ReverbDspEngine {
@@ -36,7 +33,7 @@ class ReverbDspEngine {
         private const val APF_BUFFER_SIZE = 8192
         private const val PRE_DELAY_BUFFER_SIZE = 20480 // > 100 ms at 192 kHz (19200)
 
-        private const val APF_GAIN = 0.5f
+        private const val APF_GAIN = 0.618f
         private const val DENORMAL_THRESHOLD = 1e-15f
     }
 
@@ -60,6 +57,12 @@ class ReverbDspEngine {
     private var preDelayIndexL = 0
     private var preDelayIndexR = 0
 
+    // Filter states for pre-high-pass mud filter and post-low-pass smoothing
+    private var hpStateL: Float = 0.0f
+    private var hpStateR: Float = 0.0f
+    private var postLpfL: Float = 0.0f
+    private var postLpfR: Float = 0.0f
+
     // Smoothed parameter states
     private var currentWetLevel = 0.0f
     private var currentDryLevel = 1.0f
@@ -67,7 +70,7 @@ class ReverbDspEngine {
     private var isInitialized = false
 
     /**
-     * Clears all circular delay lines and damping filter states.
+     * Clears all circular delay lines and filter states.
      * Invoked during seek, pause-flush, and track transitions to eliminate echoes.
      */
     fun reset() {
@@ -89,6 +92,10 @@ class ReverbDspEngine {
         preDelayBufferR.fill(0.0f)
         preDelayIndexL = 0
         preDelayIndexR = 0
+        hpStateL = 0.0f
+        hpStateR = 0.0f
+        postLpfL = 0.0f
+        postLpfR = 0.0f
         isInitialized = false
     }
 
@@ -120,25 +127,33 @@ class ReverbDspEngine {
             return
         }
 
-        val targetWet = params.wetLevel
-        val targetDry = params.dryLevel
+        val targetWet = params.wetLevel.coerceIn(0.0f, 1.0f)
+        val targetDry = params.dryLevel.coerceIn(0.0f, 1.0f)
         val safeRate = sampleRate.coerceIn(8000, 192000)
         val rateRatio = safeRate.toFloat() / 44100.0f
 
-        // Delay lengths scaling according to roomSize [0.7f..1.3f] and sample rate
-        val roomScale = 0.7f + (params.roomSize * 0.6f)
+        // Delay lengths scaling according to roomSize [0.75f..1.25f] and sample rate
+        val roomScale = 0.75f + (params.roomSize.coerceIn(0.0f, 1.0f) * 0.50f)
         val delayScale = rateRatio * roomScale
 
-        // Feedback gain: strictly clamped to [0.70f..0.975f] to prevent runaway oscillation
-        val targetFeedback = (0.70f + (params.decay * 0.275f)).coerceIn(0.70f, 0.975f)
+        // Feedback gain: strictly clamped to [0.65f..0.94f] to prevent runaway oscillation
+        val targetFeedback = (0.68f + (params.decay.coerceIn(0.0f, 1.0f) * 0.24f)).coerceIn(0.65f, 0.94f)
 
         // Pre-delay sample length (up to 100 ms)
-        val preDelaySamples = (params.preDelay * 0.10f * safeRate.toFloat()).roundToInt()
+        val preDelaySamples = (params.preDelay.coerceIn(0.0f, 1.0f) * 0.10f * safeRate.toFloat()).roundToInt()
             .coerceIn(0, PRE_DELAY_BUFFER_SIZE - 1)
 
-        // Damping factor inside comb filter feedback loop
-        val damping = (params.damping * 0.4f).coerceIn(0.0f, 0.4f)
+        // Damping factor inside comb filter feedback loop: absorbs highs over time
+        val damping = (0.20f + params.damping.coerceIn(0.0f, 1.0f) * 0.40f).coerceIn(0.10f, 0.65f)
         val dampingInv = 1.0f - damping
+
+        // High-pass mud filter alpha (~120 Hz)
+        val hpOmega = (2.0 * PI * 120.0 / safeRate.toDouble()).toFloat().coerceIn(0.001f, 0.5f)
+        val hpAlpha = hpOmega / (hpOmega + 1.0f)
+
+        // Post-reverb high-frequency softening filter alpha (~6.5 kHz)
+        val postLpfOmega = (2.0 * PI * 6500.0 / safeRate.toDouble()).toFloat().coerceIn(0.05f, 2.5f)
+        val postLpfAlpha = postLpfOmega / (postLpfOmega + 1.0f)
 
         // Dynamic delay lengths for comb filters
         val combLenL0 = ((COMB_DELAYS_L[0] * delayScale).roundToInt()).coerceIn(16, COMB_BUFFER_SIZE - 1)
@@ -185,15 +200,34 @@ class ReverbDspEngine {
 
                 val input = inputSamples[sampleIndex]
 
+                if (input == 0.0f && hpStateL == 0.0f && postLpfL == 0.0f) {
+                    var allSilent = true
+                    for (i in 0 until 4) {
+                        if (combDampStatesL[i] != 0.0f || combBuffersL[i][combIndicesL[i]] != 0.0f) {
+                            allSilent = false
+                            break
+                        }
+                    }
+                    if (allSilent) {
+                        outputSamples[sampleIndex] = 0.0f
+                        sampleIndex++
+                        continue
+                    }
+                }
+
+                // High-pass mud filter: remove sub-120Hz rumble
+                hpStateL += hpAlpha * (input - hpStateL)
+                val cleanInput = input - hpStateL
+
                 // Pre-Delay
                 val reverbInput = if (preDelaySamples > 0) {
                     val readIdx = (preDelayIndexL - preDelaySamples + PRE_DELAY_BUFFER_SIZE) % PRE_DELAY_BUFFER_SIZE
                     val delayed = preDelayBufferL[readIdx]
-                    preDelayBufferL[preDelayIndexL] = input
+                    preDelayBufferL[preDelayIndexL] = cleanInput
                     if (++preDelayIndexL >= PRE_DELAY_BUFFER_SIZE) preDelayIndexL = 0
                     delayed
                 } else {
-                    input
+                    cleanInput
                 }
 
                 // Comb Filter 0
@@ -242,7 +276,16 @@ class ReverbDspEngine {
                 wet = -wet * APF_GAIN + apfOut1
                 if (++apfIndicesL[1] >= apfLenL1) apfIndicesL[1] = 0
 
-                outputSamples[sampleIndex] = (input * dryLevel + wet * wetLevel).coerceIn(-1.0f, 1.0f)
+                // Post-reverb high-frequency softening
+                postLpfL += postLpfAlpha * (wet - postLpfL)
+                wet = postLpfL
+
+                // Headroom crossfade mix
+                val effectiveDryGain = (1.0f - 0.28f * wetLevel) * dryLevel
+                val effectiveWetGain = wetLevel * 0.88f
+                val mixed = input * effectiveDryGain + wet * effectiveWetGain
+
+                outputSamples[sampleIndex] = softLimit(mixed)
                 sampleIndex++
             }
         } else {
@@ -255,25 +298,51 @@ class ReverbDspEngine {
                 val inputL = inputSamples[sampleIndex]
                 val inputR = inputSamples[sampleIndex + 1]
 
+                if (inputL == 0.0f && inputR == 0.0f &&
+                    hpStateL == 0.0f && hpStateR == 0.0f &&
+                    postLpfL == 0.0f && postLpfR == 0.0f) {
+                    var allSilent = true
+                    for (i in 0 until 4) {
+                        if (combDampStatesL[i] != 0.0f || combBuffersL[i][combIndicesL[i]] != 0.0f ||
+                            combDampStatesR[i] != 0.0f || combBuffersR[i][combIndicesR[i]] != 0.0f) {
+                            allSilent = false
+                            break
+                        }
+                    }
+                    if (allSilent) {
+                        outputSamples[sampleIndex] = 0.0f
+                        outputSamples[sampleIndex + 1] = 0.0f
+                        sampleIndex += 2
+                        continue
+                    }
+                }
+
+                // High-pass mud filter: remove sub-120Hz rumble
+                hpStateL += hpAlpha * (inputL - hpStateL)
+                val cleanInL = inputL - hpStateL
+
+                hpStateR += hpAlpha * (inputR - hpStateR)
+                val cleanInR = inputR - hpStateR
+
                 // Pre-Delay
                 val reverbInL = if (preDelaySamples > 0) {
                     val readIdx = (preDelayIndexL - preDelaySamples + PRE_DELAY_BUFFER_SIZE) % PRE_DELAY_BUFFER_SIZE
                     val delayed = preDelayBufferL[readIdx]
-                    preDelayBufferL[preDelayIndexL] = inputL
+                    preDelayBufferL[preDelayIndexL] = cleanInL
                     if (++preDelayIndexL >= PRE_DELAY_BUFFER_SIZE) preDelayIndexL = 0
                     delayed
                 } else {
-                    inputL
+                    cleanInL
                 }
 
                 val reverbInR = if (preDelaySamples > 0) {
                     val readIdx = (preDelayIndexR - preDelaySamples + PRE_DELAY_BUFFER_SIZE) % PRE_DELAY_BUFFER_SIZE
                     val delayed = preDelayBufferR[readIdx]
-                    preDelayBufferR[preDelayIndexR] = inputR
+                    preDelayBufferR[preDelayIndexR] = cleanInR
                     if (++preDelayIndexR >= PRE_DELAY_BUFFER_SIZE) preDelayIndexR = 0
                     delayed
                 } else {
-                    inputR
+                    cleanInR
                 }
 
                 // LEFT CHANNEL COMBS
@@ -360,8 +429,22 @@ class ReverbDspEngine {
                 wetR = -wetR * APF_GAIN + apfOutR1
                 if (++apfIndicesR[1] >= apfLenR1) apfIndicesR[1] = 0
 
-                outputSamples[sampleIndex] = (inputL * dryLevel + wetL * wetLevel).coerceIn(-1.0f, 1.0f)
-                outputSamples[sampleIndex + 1] = (inputR * dryLevel + wetR * wetLevel).coerceIn(-1.0f, 1.0f)
+                // Post-reverb high-frequency softening
+                postLpfL += postLpfAlpha * (wetL - postLpfL)
+                wetL = postLpfL
+
+                postLpfR += postLpfAlpha * (wetR - postLpfR)
+                wetR = postLpfR
+
+                // Headroom crossfade mix
+                val effectiveDryGain = (1.0f - 0.28f * wetLevel) * dryLevel
+                val effectiveWetGain = wetLevel * 0.88f
+
+                val mixedL = inputL * effectiveDryGain + wetL * effectiveWetGain
+                val mixedR = inputR * effectiveDryGain + wetR * effectiveWetGain
+
+                outputSamples[sampleIndex] = softLimit(mixedL)
+                outputSamples[sampleIndex + 1] = softLimit(mixedR)
 
                 sampleIndex += 2
             }
@@ -370,5 +453,21 @@ class ReverbDspEngine {
         currentWetLevel = targetWet
         currentDryLevel = targetDry
         currentFeedbackGain = targetFeedback
+    }
+
+    private fun softLimit(x: Float): Float {
+        return when {
+            x >= 1.0f -> 1.0f
+            x <= -1.0f -> -1.0f
+            x > 0.88f -> {
+                val u = (x - 0.88f) / 0.12f
+                0.88f + 0.12f * (1.5f * u - 0.5f * u * u * u)
+            }
+            x < -0.88f -> {
+                val u = (-x - 0.88f) / 0.12f
+                -(0.88f + 0.12f * (1.5f * u - 0.5f * u * u * u))
+            }
+            else -> x
+        }
     }
 }

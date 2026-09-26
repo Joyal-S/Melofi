@@ -65,6 +65,7 @@
     <string name="lofi_bit_crush">Bit Crush</string>
     <string name="lofi_sample_reduction">Sample Rate</string>
     <string name="lofi_saturation">Tape Saturation</string>
+    <string name="lofi_wow_flutter">Wow &amp; Flutter</string>
     <string name="reverb_space_title">Acoustic Space (Reverb)</string>
     <string name="reverb_room_size">Room Size</string>
     <string name="reverb_decay">Decay Time</string>

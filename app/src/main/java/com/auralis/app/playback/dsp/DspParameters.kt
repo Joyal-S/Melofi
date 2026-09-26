@@ -53,6 +53,7 @@ enum class DspPreset(val displayName: String) {
  * @property bitCrush Quantization depth reduction [0.0f..1.0f], scaling from 16-bit down to 8-bit resolution.
  * @property lowPassCutoff Analog tape warmth low-pass filter [0.0f..1.0f], rolling off from 20 kHz down to 2.5 kHz.
  * @property saturation Soft saturation harmonic warmth [0.0f..1.0f], adding analog tape-like soft clipping.
+ * @property wowFlutter Subtle tape speed irregularity / pitch modulation [0.0f..1.0f].
  */
 data class LoFiParameters(
     val enabled: Boolean = false,
@@ -60,7 +61,8 @@ data class LoFiParameters(
     val sampleRateReduction: Float = 0.0f,
     val bitCrush: Float = 0.0f,
     val lowPassCutoff: Float = 0.5f,
-    val saturation: Float = 0.2f
+    val saturation: Float = 0.2f,
+    val wowFlutter: Float = 0.0f
 ) {
     init {
         require(!intensity.isNaN() && !intensity.isInfinite()) { "intensity must be finite" }
@@ -68,6 +70,7 @@ data class LoFiParameters(
         require(!bitCrush.isNaN() && !bitCrush.isInfinite()) { "bitCrush must be finite" }
         require(!lowPassCutoff.isNaN() && !lowPassCutoff.isInfinite()) { "lowPassCutoff must be finite" }
         require(!saturation.isNaN() && !saturation.isInfinite()) { "saturation must be finite" }
+        require(!wowFlutter.isNaN() && !wowFlutter.isInfinite()) { "wowFlutter must be finite" }
     }
 
     companion object {
@@ -83,7 +86,8 @@ data class LoFiParameters(
             sampleRateReduction: Float = 0.0f,
             bitCrush: Float = 0.0f,
             lowPassCutoff: Float = 0.5f,
-            saturation: Float = 0.2f
+            saturation: Float = 0.2f,
+            wowFlutter: Float = 0.0f
         ): LoFiParameters {
             return LoFiParameters(
                 enabled = enabled,
@@ -91,7 +95,8 @@ data class LoFiParameters(
                 sampleRateReduction = sanitize(sampleRateReduction, 0.0f),
                 bitCrush = sanitize(bitCrush, 0.0f),
                 lowPassCutoff = sanitize(lowPassCutoff, 0.5f),
-                saturation = sanitize(saturation, 0.2f)
+                saturation = sanitize(saturation, 0.2f),
+                wowFlutter = sanitize(wowFlutter, 0.0f)
             )
         }
 
@@ -196,7 +201,8 @@ data class DspParameters(
                         sampleRateReduction = 0.15f,
                         bitCrush = 0.10f,
                         lowPassCutoff = 0.65f,
-                        saturation = 0.20f
+                        saturation = 0.20f,
+                        wowFlutter = 0.08f
                     ),
                     reverb = ReverbParameters(
                         enabled = enabled,
@@ -216,7 +222,8 @@ data class DspParameters(
                         sampleRateReduction = 0.30f,
                         bitCrush = 0.25f,
                         lowPassCutoff = 0.40f,
-                        saturation = 0.45f
+                        saturation = 0.45f,
+                        wowFlutter = 0.25f
                     ),
                     reverb = ReverbParameters(
                         enabled = enabled,
@@ -236,7 +243,8 @@ data class DspParameters(
                         sampleRateReduction = 0.10f,
                         bitCrush = 0.15f,
                         lowPassCutoff = 0.30f,
-                        saturation = 0.25f
+                        saturation = 0.25f,
+                        wowFlutter = 0.06f
                     ),
                     reverb = ReverbParameters(
                         enabled = enabled,
@@ -256,7 +264,8 @@ data class DspParameters(
                         sampleRateReduction = 0.50f,
                         bitCrush = 0.50f,
                         lowPassCutoff = 0.25f,
-                        saturation = 0.55f
+                        saturation = 0.55f,
+                        wowFlutter = 0.35f
                     ),
                     reverb = ReverbParameters(
                         enabled = enabled,

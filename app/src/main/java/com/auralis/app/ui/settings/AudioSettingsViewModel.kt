@@ -118,6 +118,10 @@ class AudioSettingsViewModel @Inject constructor(
         dspEffectsManager.setLoFiSaturation(saturation)
     }
 
+    fun setLoFiWowFlutter(wowFlutter: Float) {
+        dspEffectsManager.setLoFiWowFlutter(wowFlutter)
+    }
+
     fun setReverbRoomSize(roomSize: Float) {
         dspEffectsManager.setReverbRoomSize(roomSize)
     }

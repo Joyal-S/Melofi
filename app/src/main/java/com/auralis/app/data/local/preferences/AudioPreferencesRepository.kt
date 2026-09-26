@@ -113,6 +113,10 @@ class AudioPreferencesRepository @Inject constructor(
         context.dataStore.edit { it[KEY_DSP_LOFI_SATURATION] = saturation }
     }
 
+    suspend fun setDspLoFiWowFlutter(wowFlutter: Float) {
+        context.dataStore.edit { it[KEY_DSP_LOFI_WOW_FLUTTER] = wowFlutter }
+    }
+
     suspend fun setDspReverbRoomSize(roomSize: Float) {
         context.dataStore.edit { it[KEY_DSP_REVERB_ROOM_SIZE] = roomSize }
     }
@@ -155,6 +159,7 @@ class AudioPreferencesRepository @Inject constructor(
         val dspLoFiBitCrush = preferences[KEY_DSP_LOFI_BIT_CRUSH] ?: 0.0f
         val dspLoFiSampleReduction = preferences[KEY_DSP_LOFI_SAMPLE_REDUCTION] ?: 0.0f
         val dspLoFiSaturation = preferences[KEY_DSP_LOFI_SATURATION] ?: 0.2f
+        val dspLoFiWowFlutter = preferences[KEY_DSP_LOFI_WOW_FLUTTER] ?: 0.0f
         val dspReverbRoomSize = preferences[KEY_DSP_REVERB_ROOM_SIZE] ?: 0.5f
         val dspReverbDecay = preferences[KEY_DSP_REVERB_DECAY] ?: 0.5f
         val dspReverbWetLevel = preferences[KEY_DSP_REVERB_WET_LEVEL] ?: 0.3f
@@ -177,6 +182,7 @@ class AudioPreferencesRepository @Inject constructor(
             dspLoFiBitCrush = dspLoFiBitCrush,
             dspLoFiSampleReduction = dspLoFiSampleReduction,
             dspLoFiSaturation = dspLoFiSaturation,
+            dspLoFiWowFlutter = dspLoFiWowFlutter,
             dspReverbRoomSize = dspReverbRoomSize,
             dspReverbDecay = dspReverbDecay,
             dspReverbWetLevel = dspReverbWetLevel
@@ -202,6 +208,7 @@ class AudioPreferencesRepository @Inject constructor(
         val KEY_DSP_LOFI_BIT_CRUSH = androidx.datastore.preferences.core.floatPreferencesKey("dsp_lofi_bit_crush")
         val KEY_DSP_LOFI_SAMPLE_REDUCTION = androidx.datastore.preferences.core.floatPreferencesKey("dsp_lofi_sample_reduction")
         val KEY_DSP_LOFI_SATURATION = androidx.datastore.preferences.core.floatPreferencesKey("dsp_lofi_saturation")
+        val KEY_DSP_LOFI_WOW_FLUTTER = androidx.datastore.preferences.core.floatPreferencesKey("dsp_lofi_wow_flutter")
         val KEY_DSP_REVERB_ROOM_SIZE = androidx.datastore.preferences.core.floatPreferencesKey("dsp_reverb_room_size")
         val KEY_DSP_REVERB_DECAY = androidx.datastore.preferences.core.floatPreferencesKey("dsp_reverb_decay")
         val KEY_DSP_REVERB_WET_LEVEL = androidx.datastore.preferences.core.floatPreferencesKey("dsp_reverb_wet_level")

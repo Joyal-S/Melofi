@@ -26,6 +26,7 @@ data class AudioPreferences(
     val dspLoFiBitCrush: Float = 0.0f,
     val dspLoFiSampleReduction: Float = 0.0f,
     val dspLoFiSaturation: Float = 0.2f,
+    val dspLoFiWowFlutter: Float = 0.0f,
     val dspReverbRoomSize: Float = 0.5f,
     val dspReverbDecay: Float = 0.5f,
     val dspReverbWetLevel: Float = 0.3f

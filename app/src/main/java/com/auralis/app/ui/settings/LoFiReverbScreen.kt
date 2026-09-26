@@ -386,6 +386,13 @@ fun LoFiReverbScreen(
                                     onValueChange = { viewModel.setLoFiSaturation(it) }
                                 )
 
+                                DspSliderRow(
+                                    label = stringResource(R.string.lofi_wow_flutter),
+                                    value = dspParams.loFi.wowFlutter,
+                                    enabled = isActive,
+                                    onValueChange = { viewModel.setLoFiWowFlutter(it) }
+                                )
+
                                 Spacer(modifier = Modifier.height(MelofySpacing.md))
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                 Spacer(modifier = Modifier.height(MelofySpacing.md))
@@ -457,10 +464,10 @@ fun LoFiReverbScreen(
                 Spacer(modifier = Modifier.height(MelofySpacing.lg))
 
                 val presets = listOf(
-                    PresetOption(DspPreset.DREAMY, "🌙 Dreamy", "Lush atmospheric reverb & gentle high-frequency softening"),
-                    PresetOption(DspPreset.CASSETTE, "📼 Cassette", "Warm tape saturation, analog roll-off & vintage character"),
-                    PresetOption(DspPreset.LATE_NIGHT, "🌃 Late Night", "Dark intimate cutoff, nocturnal acoustic space"),
-                    PresetOption(DspPreset.DEEP_LOFI, "📻 Deep Lo-Fi", "Vintage sampler crunch, tape crunch & deep spacious tail")
+                    PresetOption(DspPreset.DREAMY, "🌙 Dreamy", "Soft, spacious and atmospheric."),
+                    PresetOption(DspPreset.CASSETTE, "📼 Cassette", "Warm tape character with subtle imperfections."),
+                    PresetOption(DspPreset.LATE_NIGHT, "🌃 Late Night", "Dark, smooth and intimate."),
+                    PresetOption(DspPreset.DEEP_LOFI, "📻 Deep Lo-Fi", "Strong vintage degradation and texture.")
                 )
 
                 presets.forEach { option ->
