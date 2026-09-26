@@ -17,6 +17,9 @@ interface FavoriteDao {
     @Query("SELECT songId FROM favorites")
     fun getFavoriteSongIds(): Flow<List<Long>>
 
+    @Query("SELECT songId FROM favorites")
+    suspend fun getFavoriteSongIdsList(): List<Long>
+
     @Query("""
         SELECT s.* FROM songs s
         INNER JOIN favorites f ON s.id = f.songId

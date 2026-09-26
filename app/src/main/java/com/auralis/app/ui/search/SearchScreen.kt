@@ -482,7 +482,8 @@ fun SearchScreen(
                                 isFavorite = song.id in favoriteSongIds,
                                 onToggleFavorite = { viewModel.toggleFavorite(song.id) },
                                 onAddToPlaylist = { onAddToPlaylistClick(song) },
-                                onPlayNext = { playbackViewModel.addSongsToQueue(listOf(song)) },
+                                onPlayNext = { playbackViewModel.playNext(listOf(song)) },
+                                onAddToQueue = { playbackViewModel.addSongsToQueue(listOf(song)) },
                                 onShowDetails = { onSongDetailsClick(song) }
                             )
                         }

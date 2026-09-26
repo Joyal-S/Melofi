@@ -8,6 +8,7 @@ import com.auralis.app.data.local.db.dao.GenreDao
 import com.auralis.app.data.local.db.dao.SongDao
 import com.auralis.app.data.local.scanner.LibrarySyncDiff
 import com.auralis.app.data.local.scanner.MediaStoreAudioScanner
+import com.auralis.app.data.local.scanner.SafAudioScanner
 import com.auralis.app.data.mapper.SongMapper
 import com.auralis.app.di.IoDispatcher
 import com.auralis.app.domain.model.ScanResult
@@ -48,6 +49,8 @@ class SongRepositoryImpl @Inject constructor(
     private val artworkRepository: LocalArtworkRepository,
     private val hiddenAudioDao: com.auralis.app.data.local.db.dao.HiddenAudioDao,
     private val excludedFolderDao: com.auralis.app.data.local.db.dao.ExcludedFolderDao,
+    private val importedFolderDao: com.auralis.app.data.local.db.dao.ImportedFolderDao,
+    private val safAudioScanner: com.auralis.app.data.local.scanner.SafAudioScanner,
     @param:ApplicationContext private val context: Context,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : SongRepository {
@@ -93,17 +96,66 @@ class SongRepositoryImpl @Inject constructor(
                 hiddenContentUris = hiddenUris
             )
 
-            // 3. Fetch existing songs sync info (ID and dateModified)
+            // 3. Scan persisted user-imported SAF music folders
+            val importedFolders = importedFolderDao.getAllFolders()
+            val safSongs = mutableListOf<com.auralis.app.data.local.db.entity.SongEntity>()
+            val protectedSongIds = mutableSetOf<Long>()
+            val existingAllEntities = songDao.getAllSongsList()
+
+            for (folder in importedFolders) {
+                val treeUri = android.net.Uri.parse(folder.treeUri)
+                val hasPermission = try {
+                    context.contentResolver.persistedUriPermissions.any {
+                        it.uri.toString() == folder.treeUri && it.isReadPermission
+                    }
+                } catch (e: Exception) {
+                    false
+                }
+
+                if (!hasPermission) {
+                    importedFolderDao.updatePermissionStatus(folder.id, false)
+                    // Protect existing songs from this folder so they are not wiped when permission is suspended
+                    val prefix = folder.treeUri
+                    existingAllEntities.filter { it.contentUri.startsWith(prefix) }.forEach {
+                        protectedSongIds.add(it.id)
+                    }
+                    continue
+                } else {
+                    importedFolderDao.updatePermissionStatus(folder.id, true)
+                }
+
+                try {
+                    val folderSongs = safAudioScanner.scanTree(treeUri)
+                    for (song in folderSongs) {
+                        if (!SafAudioScanner.isDuplicateOfExisting(song, scanOutput.songs)) {
+                            safSongs.add(song)
+                        }
+                    }
+                    importedFolderDao.updateSongCount(folder.id, folderSongs.size)
+                } catch (e: Exception) {
+                    android.util.Log.w("SongRepositoryImpl", "Failed scanning persisted folder ${folder.displayName}: ${e.message}")
+                    val prefix = folder.treeUri
+                    existingAllEntities.filter { it.contentUri.startsWith(prefix) }.forEach {
+                        protectedSongIds.add(it.id)
+                    }
+                }
+            }
+
+            // 4. Combine MediaStore tracks with valid SAF imported tracks
+            val combinedScannedSongs = scanOutput.songs + safSongs
+
+            // 5. Fetch existing songs sync info (ID and dateModified)
             val existingList = songDao.getAllSongSyncInfo()
             val existingMap = existingList.associate { it.id to it.dateModified }
 
-            // 3. Compute deterministic differential
-            val diff = LibrarySyncDiff.computeDiff(existingMap, scanOutput.songs)
+            // 6. Compute deterministic differential
+            val diff = LibrarySyncDiff.computeDiff(existingMap, combinedScannedSongs)
+            val finalDeleteIds = diff.toDeleteIds.filter { it !in protectedSongIds }
 
-            // 4. Atomically persist changes in a single Room transaction
+            // 7. Atomically persist changes in a single Room transaction
             database.withTransaction {
-                if (diff.toDeleteIds.isNotEmpty()) {
-                    songDao.deleteSongsByIds(diff.toDeleteIds)
+                if (finalDeleteIds.isNotEmpty()) {
+                    songDao.deleteSongsByIds(finalDeleteIds)
                 }
 
                 // For newly inserted songs, resolve or create canonical persistent artists
@@ -158,15 +210,18 @@ class SongRepositoryImpl @Inject constructor(
                     songDao.updateSongs(preparedUpdates)
                 }
 
-                // Synchronize aggregated album and genre groupings
-                albumDao.syncAlbums(scanOutput.albums)
-                genreDao.syncGenres(scanOutput.genres)
+                // Synchronize aggregated album and genre groupings for all library tracks
+                val currentAllSongs = songDao.getAllSongsList()
+                val albums = com.auralis.app.data.local.scanner.LibraryAggregator.aggregateAlbums(currentAllSongs)
+                val genres = com.auralis.app.data.local.scanner.LibraryAggregator.aggregateGenres(currentAllSongs)
+                albumDao.syncAlbums(albums)
+                genreDao.syncGenres(genres)
 
                 // Recalculate artist counts without destroying persistent profiles
                 artistDao.recalculateAllArtistCounts()
             }
 
-            // 5. Ensure newly discovered songs have permanent default covers assigned
+            // 8. Ensure newly discovered songs have permanent default covers assigned
             if (diff.toInsert.isNotEmpty()) {
                 for (newSong in diff.toInsert) {
                     val domain = SongMapper.toDomain(newSong)
@@ -175,10 +230,10 @@ class SongRepositoryImpl @Inject constructor(
             }
 
             val result = ScanResult(
-                totalFound = scanOutput.songs.size,
+                totalFound = combinedScannedSongs.size,
                 inserted = diff.toInsert.size,
                 updated = diff.toUpdate.size,
-                deleted = diff.toDeleteIds.size
+                deleted = finalDeleteIds.size
             )
             Result.success(result)
         } catch (e: Exception) {

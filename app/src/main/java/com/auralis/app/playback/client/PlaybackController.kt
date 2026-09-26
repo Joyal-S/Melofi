@@ -28,6 +28,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.auralis.app.domain.repository.RecommendationRepository
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -40,7 +42,8 @@ import javax.inject.Singleton
 @Singleton
 class PlaybackController @Inject constructor(
     @param:ApplicationContext private val context: Context,
-    private val playbackQueue: PlaybackQueue
+    private val playbackQueue: PlaybackQueue,
+    private val recommendationRepository: RecommendationRepository
 ) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -139,6 +142,19 @@ class PlaybackController @Inject constructor(
         }
     }
 
+    fun playNext(songs: List<Song>) {
+        if (songs.isEmpty()) return
+
+        playbackQueue.playNext(songs)
+        _activeQueue.value = playbackQueue.getSongs()
+        val mediaItems = MediaItemMapper.toMediaItemList(songs)
+
+        ensureController { controller ->
+            val insertIndex = if (controller.currentMediaItemIndex != -1) controller.currentMediaItemIndex + 1 else controller.mediaItemCount
+            controller.addMediaItems(insertIndex, mediaItems)
+        }
+    }
+
     fun play() {
         ensureController { it.play() }
     }
@@ -168,10 +184,69 @@ class PlaybackController @Inject constructor(
 
     fun skipNext() {
         ensureController { controller ->
+            val repeatMode = _playbackState.value.repeatMode
+
+            // Priority 2: Repeat One rule (replay current track)
+            if (repeatMode == PlaybackRepeatMode.ONE) {
+                controller.seekTo(0L)
+                controller.play()
+                return@ensureController
+            }
+
+            // Priority 1 & 3: Explicit user queue / normal playback / shuffle
             if (controller.hasNextMediaItem()) {
                 controller.seekToNextMediaItem()
-            } else if (_playbackState.value.repeatMode == PlaybackRepeatMode.ALL) {
+                return@ensureController
+            }
+
+            // Priority 2: Repeat All rule (loop to beginning)
+            if (repeatMode == PlaybackRepeatMode.ALL && controller.mediaItemCount > 0) {
                 controller.seekTo(0, 0L)
+                controller.play()
+                return@ensureController
+            }
+
+            // Priority 4: Queue exhaustion -> Recommendation engine continuation
+            triggerRecommendationContinuation(controller)
+        }
+    }
+
+    private fun triggerRecommendationContinuation(controller: MediaController) {
+        val currentSong = _playbackState.value.currentSong
+        val activeIds = playbackQueue.getSongs().map { it.id }.toSet()
+
+        _playbackState.update { it.copy(status = PlaybackStatus.LOADING) }
+
+        scope.launch(Dispatchers.IO) {
+            try {
+                val recommendation = recommendationRepository.getNextTrackRecommendation(
+                    currentSong = currentSong,
+                    excludedSongIds = activeIds
+                )
+                if (recommendation != null) {
+                    withContext(Dispatchers.Main.immediate) {
+                        playbackQueue.addToQueue(recommendation.song)
+                        _activeQueue.value = playbackQueue.getSongs()
+                        val mediaItem = MediaItemMapper.toMediaItem(recommendation.song)
+                        controller.addMediaItem(mediaItem)
+                        val nextIndex = controller.mediaItemCount - 1
+                        controller.seekTo(nextIndex, 0L)
+                        controller.play()
+                    }
+                } else {
+                    withContext(Dispatchers.Main.immediate) {
+                        _playbackState.update { it.copy(status = PlaybackStatus.ENDED) }
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main.immediate) {
+                    _playbackState.update {
+                        it.copy(
+                            status = PlaybackStatus.ERROR,
+                            errorMessage = "Next recommendation failed: ${e.message}"
+                        )
+                    }
+                }
             }
         }
     }
@@ -225,6 +300,9 @@ class PlaybackController @Inject constructor(
         val songId = MediaItemMapper.extractSongId(currentMediaItem)
         val currentSong = songId?.let { playbackQueue.findSongById(it) }
 
+        playbackQueue.setCurrentIndex(player.currentMediaItemIndex)
+        _activeQueue.value = playbackQueue.getSongs()
+
         val status = mapPlaybackStatus(player.playbackState, player.isPlaying, player.playerError != null)
         val duration = if (player.duration > 0) player.duration else currentSong?.duration ?: 0L
         val repeatMode = mapMedia3RepeatMode(player.repeatMode)
@@ -245,8 +323,46 @@ class PlaybackController @Inject constructor(
 
         if (player.isPlaying) {
             startPositionTracker()
+            prefetchNextRecommendationIfNeeded(player)
         } else {
             stopPositionTracker()
+        }
+    }
+
+    @Volatile
+    private var isPrefetching = false
+
+    private fun prefetchNextRecommendationIfNeeded(player: Player) {
+        if (isPrefetching) return
+        val repeatMode = mapMedia3RepeatMode(player.repeatMode)
+        if (repeatMode == PlaybackRepeatMode.ONE || repeatMode == PlaybackRepeatMode.ALL) return
+        if (player.hasNextMediaItem()) return
+
+        val currentSong = _playbackState.value.currentSong ?: return
+        val activeIds = playbackQueue.getSongs().map { it.id }.toSet()
+
+        isPrefetching = true
+        scope.launch(Dispatchers.IO) {
+            try {
+                val recommendation = recommendationRepository.getNextTrackRecommendation(
+                    currentSong = currentSong,
+                    excludedSongIds = activeIds
+                )
+                if (recommendation != null) {
+                    withContext(Dispatchers.Main.immediate) {
+                        if (!player.hasNextMediaItem() && _playbackState.value.repeatMode == PlaybackRepeatMode.OFF) {
+                            playbackQueue.addToQueue(recommendation.song)
+                            _activeQueue.value = playbackQueue.getSongs()
+                            val mediaItem = MediaItemMapper.toMediaItem(recommendation.song)
+                            player.addMediaItem(mediaItem)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // Non-fatal background prefetch failure
+            } finally {
+                isPrefetching = false
+            }
         }
     }
 

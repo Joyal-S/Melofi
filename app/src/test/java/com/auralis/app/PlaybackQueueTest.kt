@@ -222,4 +222,84 @@ class PlaybackQueueTest {
         assertEquals(1, queue.indexOfSongId(20L))
         assertEquals(-1, queue.indexOfSongId(999L))
     }
+
+    @Test
+    fun playNext_insertsDirectlyAfterCurrentIndex() {
+        val s1 = createSong(1L, "Song 1")
+        val s2 = createSong(2L, "Song 2")
+        val s3 = createSong(3L, "Song 3")
+        val manualNext = createSong(99L, "Manual Next")
+
+        // Queue: [Song 1, Song 2, Song 3], current index = 0 (Song 1)
+        queue.setQueue(listOf(s1, s2, s3), startIndex = 0)
+
+        queue.playNext(manualNext)
+
+        // Queue must now be: [Song 1, Manual Next, Song 2, Song 3]
+        assertEquals(4, queue.size())
+        assertEquals(0, queue.currentIndex())
+        assertEquals("Song 1", queue.currentSong()?.title)
+
+        // Calling nextSong should immediately play Manual Next
+        val next = queue.nextSong(PlaybackRepeatMode.OFF)
+        assertEquals("Manual Next", next?.title)
+        assertEquals(1, queue.currentIndex())
+
+        // Next again should play Song 2
+        val nextAfterManual = queue.nextSong(PlaybackRepeatMode.OFF)
+        assertEquals("Song 2", nextAfterManual?.title)
+        assertEquals(2, queue.currentIndex())
+    }
+
+    @Test
+    fun playNext_multipleSongs_insertsDirectlyAfterCurrentIndexInOrder() {
+        val s1 = createSong(1L, "Song 1")
+        val s2 = createSong(2L, "Song 2")
+        val manualX = createSong(10L, "Manual X")
+        val manualY = createSong(20L, "Manual Y")
+
+        queue.setQueue(listOf(s1, s2), startIndex = 0)
+        queue.playNext(listOf(manualX, manualY))
+
+        // Queue must be: [Song 1, Manual X, Manual Y, Song 2]
+        assertEquals(4, queue.size())
+        assertEquals("Song 1", queue.currentSong()?.title)
+
+        assertEquals("Manual X", queue.nextSong(PlaybackRepeatMode.OFF)?.title)
+        assertEquals("Manual Y", queue.nextSong(PlaybackRepeatMode.OFF)?.title)
+        assertEquals("Song 2", queue.nextSong(PlaybackRepeatMode.OFF)?.title)
+    }
+
+    @Test
+    fun playNext_whenQueueEmpty_initializesQueue() {
+        val manual = createSong(1L, "Manual Solo")
+        queue.playNext(manual)
+
+        assertEquals(1, queue.size())
+        assertEquals(0, queue.currentIndex())
+        assertEquals("Manual Solo", queue.currentSong()?.title)
+    }
+
+    @Test
+    fun hasNext_accuratelyReflectsAvailabilityAcrossRepeatModes() {
+        val s1 = createSong(1L, "Song 1")
+        val s2 = createSong(2L, "Song 2")
+
+        queue.setQueue(listOf(s1, s2), startIndex = 0)
+        // At index 0, has next item regardless of repeat
+        assertTrue(queue.hasNext(PlaybackRepeatMode.OFF))
+        assertTrue(queue.hasNext(PlaybackRepeatMode.ALL))
+        assertTrue(queue.hasNext(PlaybackRepeatMode.ONE))
+
+        // Advance to index 1 (last item)
+        queue.nextSong(PlaybackRepeatMode.OFF)
+        assertEquals(1, queue.currentIndex())
+
+        // Repeat OFF -> no more items in queue
+        assertFalse(queue.hasNext(PlaybackRepeatMode.OFF))
+        // Repeat ALL -> wraps around, so has next
+        assertTrue(queue.hasNext(PlaybackRepeatMode.ALL))
+        // Repeat ONE -> replays current, so has next
+        assertTrue(queue.hasNext(PlaybackRepeatMode.ONE))
+    }
 }

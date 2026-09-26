@@ -10,7 +10,17 @@ import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.provider.OpenableColumns
 import android.util.Log
+import android.content.Intent
+import androidx.room.withTransaction
+import com.auralis.app.data.local.db.AuralisDatabase
+import com.auralis.app.data.local.db.dao.AlbumDao
+import com.auralis.app.data.local.db.dao.ArtistDao
+import com.auralis.app.data.local.db.dao.GenreDao
+import com.auralis.app.data.local.db.dao.ImportedFolderDao
 import com.auralis.app.data.local.db.dao.SongDao
+import com.auralis.app.data.local.db.entity.ImportedFolderEntity
+import com.auralis.app.data.local.db.entity.SongEntity
+import com.auralis.app.data.local.scanner.SafAudioScanner
 import com.auralis.app.di.IoDispatcher
 import com.auralis.app.domain.model.DuplicateConfidence
 import com.auralis.app.domain.model.DuplicateDetectionEngine
@@ -78,7 +88,8 @@ sealed interface ImportState {
  *
  * Implements Android Storage Access Framework (SAF) single/multiple file and folder import,
  * strict format capability validation, pre-import duplicate detection, byte-perfect copying
- * into standard MediaStore shared music storage (Music/Melofy/), and atomic library synchronization.
+ * into standard MediaStore shared music storage (Music/Melofy/) for selected files, and
+ * direct persistent tree indexing for folders.
  *
  * Guarantees:
  * - Zero audio transcoding, resampling, or re-encoding.
@@ -91,7 +102,13 @@ class MusicImportManager @Inject constructor(
     @param:ApplicationContext private val context: Context,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     private val songDao: SongDao,
-    private val songRepository: SongRepository
+    private val songRepository: SongRepository,
+    private val safAudioScanner: SafAudioScanner,
+    private val importedFolderDao: ImportedFolderDao,
+    private val database: AuralisDatabase,
+    private val artistDao: ArtistDao,
+    private val albumDao: AlbumDao,
+    private val genreDao: GenreDao
 ) {
 
     companion object {
@@ -191,19 +208,153 @@ class MusicImportManager @Inject constructor(
     }
 
     /**
-     * Recursively traverses a SAF Document Tree URI and inspects all audio files found.
+     * Recursively traverses a SAF Document Tree URI and inspects all audio files found,
+     * persisting the folder URI and indexing tracks into the Melofi library without copying.
      */
     fun processFolderTreeUri(treeUri: Uri) {
         activeImportJob?.cancel()
         activeImportJob = CoroutineScope(ioDispatcher).launch {
             try {
+                // 1. Take persistable URI permission
+                val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                try {
+                    context.contentResolver.takePersistableUriPermission(treeUri, takeFlags)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed taking persistable permission for $treeUri: ${e.message}")
+                }
+
                 _importState.value = ImportState.Validating(0, 1)
-                val discoveredAudioUris = findAudioFilesFromTreeUri(treeUri)
-                if (discoveredAudioUris.isEmpty()) {
-                    _importState.value = ImportState.Completed(0, 0, 0, "No supported audio files found in chosen folder.")
+
+                var resolvedFolderName: String? = null
+                try {
+                    val docUri = DocumentsContract.buildDocumentUriUsingTree(
+                        treeUri,
+                        DocumentsContract.getTreeDocumentId(treeUri)
+                    )
+                    context.contentResolver.query(
+                        docUri,
+                        arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+                        null, null, null
+                    )?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val colIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                            if (colIdx >= 0) {
+                                resolvedFolderName = cursor.getString(colIdx)
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not query folder display name: ${e.message}")
+                }
+
+                val folderName = resolvedFolderName?.takeIf { it.isNotBlank() }
+                    ?: treeUri.lastPathSegment?.substringAfterLast(':')?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+                    ?: "Music Folder"
+
+                // 2. Persist folder access in database
+                val existingFolder = importedFolderDao.findFolderByUri(treeUri.toString())
+                val folderId = if (existingFolder != null) {
+                    importedFolderDao.updatePermissionStatus(existingFolder.id, true)
+                    existingFolder.id
+                } else {
+                    val entity = ImportedFolderEntity(
+                        treeUri = treeUri.toString(),
+                        displayName = folderName,
+                        dateAdded = System.currentTimeMillis(),
+                        isPermissionValid = true,
+                        songCount = 0
+                    )
+                    importedFolderDao.insertFolder(entity)
+                }
+
+                // 3. Recursively inspect supported audio files with live progress
+                val discoveredSongs = safAudioScanner.scanTree(treeUri) { current, total, name ->
+                    val percent = if (total > 0) ((current.toFloat() / total) * 100).toInt() else 0
+                    _importState.value = ImportState.Importing(
+                        current = current,
+                        total = total,
+                        percent = percent,
+                        currentFileName = name
+                    )
+                }
+
+                if (discoveredSongs.isEmpty()) {
+                    _importState.value = ImportState.Completed(
+                        addedCount = 0,
+                        skippedCount = 0,
+                        failedCount = 0,
+                        message = "No supported audio files found in chosen folder."
+                    )
                     return@launch
                 }
-                processSelectedUris(discoveredAudioUris)
+
+                // 4. Deduplicate against existing library
+                val existingEntities = songDao.getAllSongsList()
+                var addedCount = 0
+                var skippedCount = 0
+                val songsToInsert = mutableListOf<SongEntity>()
+
+                for (song in discoveredSongs) {
+                    if (SafAudioScanner.isDuplicateOfExisting(song, existingEntities)) {
+                        skippedCount++
+                    } else {
+                        songsToInsert.add(song)
+                        addedCount++
+                    }
+                }
+
+                // 5. Persist newly discovered songs atomically with canonical artists and albums
+                if (songsToInsert.isNotEmpty()) {
+                    database.withTransaction {
+                        val preparedInserts = songsToInsert.map { song ->
+                            val norm = com.auralis.app.core.util.ArtistNameNormalizer.normalize(song.artistName)
+                            val existingArtist = if (norm.isNotEmpty()) artistDao.findArtistByNormalizedName(norm) else null
+                            val targetArtistId = if (existingArtist != null) {
+                                existingArtist.id
+                            } else if (norm.isNotEmpty()) {
+                                val clean = com.auralis.app.core.util.ArtistNameNormalizer.cleanDisplayName(song.artistName)
+                                val now = System.currentTimeMillis()
+                                val newEntity = com.auralis.app.data.local.db.entity.ArtistEntity(
+                                    name = clean,
+                                    normalizedName = norm,
+                                    albumCount = 0,
+                                    songCount = 0,
+                                    createdAt = now,
+                                    updatedAt = now
+                                )
+                                artistDao.insertArtist(newEntity)
+                            } else {
+                                null
+                            }
+                            val targetName = existingArtist?.name ?: com.auralis.app.core.util.ArtistNameNormalizer.cleanDisplayName(song.artistName)
+                            song.copy(artistId = targetArtistId, artistName = targetName)
+                        }
+
+                        songDao.insertSongs(preparedInserts)
+                        artistDao.recalculateAllArtistCounts()
+
+                        val currentAllSongs = songDao.getAllSongsList()
+                        val albums = com.auralis.app.data.local.scanner.LibraryAggregator.aggregateAlbums(currentAllSongs)
+                        val genres = com.auralis.app.data.local.scanner.LibraryAggregator.aggregateGenres(currentAllSongs)
+                        albumDao.insertAlbums(albums)
+                        genreDao.insertGenres(genres)
+                    }
+                }
+
+                importedFolderDao.updateSongCount(folderId, addedCount)
+
+                val msg = if (skippedCount > 0) {
+                    "Added $addedCount music files ($skippedCount already in library)."
+                } else {
+                    "Added $addedCount music files"
+                }
+
+                _importState.value = ImportState.Completed(
+                    addedCount = addedCount,
+                    skippedCount = skippedCount,
+                    failedCount = 0,
+                    message = msg
+                )
             } catch (e: CancellationException) {
                 _importState.value = ImportState.Idle
             } catch (e: Exception) {

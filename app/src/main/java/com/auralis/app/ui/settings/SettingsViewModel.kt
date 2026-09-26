@@ -6,6 +6,8 @@ import com.auralis.app.core.ui.theme.MelofyAccent
 import com.auralis.app.core.ui.theme.MelofyAnimationMode
 import com.auralis.app.data.local.db.entity.ExcludedFolderEntity
 import com.auralis.app.data.local.db.entity.HiddenAudioEntity
+import com.auralis.app.data.local.db.dao.ImportedFolderDao
+import com.auralis.app.data.local.db.entity.ImportedFolderEntity
 import com.auralis.app.data.local.preferences.UserPreferencesRepository
 import com.auralis.app.domain.model.ArtworkCornerStyle
 import com.auralis.app.domain.model.LibraryTab
@@ -24,7 +26,8 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
-    private val songRepository: SongRepository
+    private val songRepository: SongRepository,
+    private val importedFolderDao: ImportedFolderDao
 ) : ViewModel() {
 
     val preferences: StateFlow<UserPreferences> = userPreferencesRepository.preferencesFlow
@@ -41,12 +44,35 @@ class SettingsViewModel @Inject constructor(
             initialValue = emptyList()
         )
 
+    val importedFolders: StateFlow<List<ImportedFolderEntity>> = importedFolderDao.getAllFoldersFlow()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     val hiddenAudioList: StateFlow<List<HiddenAudioEntity>> = songRepository.getHiddenAudio()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
+
+    fun deleteImportedFolder(id: Long) {
+        viewModelScope.launch {
+            importedFolderDao.deleteFolderById(id)
+            songRepository.scanLibrary()
+        }
+    }
+
+    fun updateFolderPermissionStatus(id: Long, isValid: Boolean) {
+        viewModelScope.launch {
+            importedFolderDao.updatePermissionStatus(id, isValid)
+            if (isValid) {
+                songRepository.scanLibrary()
+            }
+        }
+    }
 
     fun toggleExcludedFolder(id: Long, isEnabled: Boolean) {
         viewModelScope.launch {

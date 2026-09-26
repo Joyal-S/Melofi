@@ -237,7 +237,22 @@ fun SongListItem(
                             }
                         )
                     }
-                    if (onAddToQueue != null || onPlayNext != null) {
+                    if (onPlayNext != null) {
+                        DropdownMenuItem(
+                            text = { Text("Play Next") },
+                            leadingIcon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_skip_next),
+                                    contentDescription = null
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                onPlayNext()
+                            }
+                        )
+                    }
+                    if (onAddToQueue != null) {
                         DropdownMenuItem(
                             text = { Text("Add to Queue") },
                             leadingIcon = {
@@ -248,7 +263,7 @@ fun SongListItem(
                             },
                             onClick = {
                                 showMenu = false
-                                (onAddToQueue ?: onPlayNext)?.invoke()
+                                onAddToQueue()
                             }
                         )
                     }

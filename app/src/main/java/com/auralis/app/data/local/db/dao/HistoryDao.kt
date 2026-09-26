@@ -57,6 +57,9 @@ interface HistoryDao {
     @Query("SELECT * FROM playback_history ORDER BY playedAt DESC LIMIT :limit")
     fun getRecentHistoryEntries(limit: Int): Flow<List<PlaybackHistoryEntity>>
 
+    @Query("SELECT * FROM playback_history ORDER BY playedAt DESC LIMIT :limit")
+    suspend fun getRecentHistoryEntriesList(limit: Int): List<PlaybackHistoryEntity>
+
     @Query("SELECT * FROM playback_history WHERE songId = :songId ORDER BY playedAt DESC")
     fun getHistoryForSong(songId: Long): Flow<List<PlaybackHistoryEntity>>
 

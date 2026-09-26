@@ -172,7 +172,7 @@ fun FavoritesScreen(
                             onAddToPlaylist = { songForPlaylistDialog = song },
                             onPlay = { playbackViewModel.playSong(song, favoriteSongs) },
                             onAddToQueue = { playbackViewModel.addSongsToQueue(listOf(song)) },
-                            onPlayNext = { playbackViewModel.addSongsToQueue(listOf(song)) }
+                            onPlayNext = { playbackViewModel.playNext(listOf(song)) }
                         )
                     }
                 }

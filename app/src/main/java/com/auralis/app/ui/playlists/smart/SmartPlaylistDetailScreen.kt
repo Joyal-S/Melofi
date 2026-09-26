@@ -199,7 +199,7 @@ fun SmartPlaylistDetailScreen(
                             index = index,
                             song = song,
                             onClick = { playbackViewModel.playSong(song, songs) },
-                            onPlayNext = { playbackViewModel.addSongsToQueue(listOf(song)) }
+                            onPlayNext = { playbackViewModel.playNext(listOf(song)) }
                         )
                     }
                 }

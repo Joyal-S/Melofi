@@ -39,6 +39,31 @@ class PlaybackQueue {
     }
 
     @Synchronized
+    fun playNext(songs: List<Song>) {
+        if (songs.isEmpty()) return
+        val insertIndex = if (currentIndex in items.indices) currentIndex + 1 else items.size
+        items.addAll(insertIndex, songs)
+        if (currentIndex == -1 && items.isNotEmpty()) {
+            currentIndex = 0
+        }
+    }
+
+    @Synchronized
+    fun playNext(song: Song) {
+        playNext(listOf(song))
+    }
+
+    @Synchronized
+    fun hasNext(repeatMode: PlaybackRepeatMode = PlaybackRepeatMode.OFF): Boolean {
+        if (items.isEmpty()) return false
+        return when (repeatMode) {
+            PlaybackRepeatMode.ONE -> true
+            PlaybackRepeatMode.ALL -> true
+            PlaybackRepeatMode.OFF -> currentIndex + 1 < items.size
+        }
+    }
+
+    @Synchronized
     fun removeFromQueue(index: Int): Boolean {
         if (index !in items.indices) return false
         items.removeAt(index)

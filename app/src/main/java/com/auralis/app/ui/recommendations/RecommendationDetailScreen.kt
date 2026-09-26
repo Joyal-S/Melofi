@@ -151,7 +151,8 @@ fun RecommendationDetailScreen(
                         isFavorite = item.song.id in favoriteSongIds,
                         onToggleFavorite = { viewModel.toggleFavorite(item.song.id) },
                         onAddToPlaylist = { onAddToPlaylistClick(item.song) },
-                        onPlayNext = { playbackViewModel.addSongsToQueue(listOf(item.song)) },
+                        onPlayNext = { playbackViewModel.playNext(listOf(item.song)) },
+                        onAddToQueue = { playbackViewModel.addSongsToQueue(listOf(item.song)) },
                         onShowDetails = { onSongDetailsClick(item.song) }
                     )
                 }

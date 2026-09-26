@@ -319,7 +319,7 @@ fun PlaylistDetailScreen(
                         song = song,
                         totalCount = songs.size,
                         onClick = { playbackViewModel.playSong(song, songs) },
-                        onPlayNext = { playbackViewModel.addSongsToQueue(listOf(song)) },
+                        onPlayNext = { playbackViewModel.playNext(listOf(song)) },
                         onRemove = { viewModel.removeSong(song.id) },
                         onMoveUp = { if (index > 0) viewModel.moveSong(index, index - 1) },
                         onMoveDown = { if (index < songs.lastIndex) viewModel.moveSong(index, index + 1) }

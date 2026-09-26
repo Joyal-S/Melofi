@@ -349,7 +349,7 @@ fun ArtistDetailScreen(
                                 isFavorite = song.id in favoriteSongIds,
                                 onToggleFavorite = { viewModel.toggleFavorite(song.id) },
                                 onAddToPlaylist = { onAddToPlaylistClick(song) },
-                                onPlayNext = { playbackViewModel.addSongsToQueue(listOf(song)) },
+                                onPlayNext = { playbackViewModel.playNext(listOf(song)) },
                                 onShowDetails = { onSongDetailsClick(song) }
                             )
                         }
@@ -429,7 +429,7 @@ fun ArtistDetailScreen(
                             onAddToPlaylist = { onAddToPlaylistClick(song) },
                             onPlay = { onSongClick(song, songs) },
                             onAddToQueue = { playbackViewModel.addSongsToQueue(listOf(song)) },
-                            onPlayNext = { playbackViewModel.addSongsToQueue(listOf(song)) },
+                            onPlayNext = { playbackViewModel.playNext(listOf(song)) },
                             onShowDetails = { onSongDetailsClick(song) }
                         )
                     }

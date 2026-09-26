@@ -322,7 +322,7 @@ fun AlbumDetailScreen(
                             onAddToPlaylist = { onAddToPlaylistClick(song) },
                             onPlay = { onSongClick(song, songs) },
                             onAddToQueue = { playbackViewModel.addSongsToQueue(listOf(song)) },
-                            onPlayNext = { playbackViewModel.addSongsToQueue(listOf(song)) },
+                            onPlayNext = { playbackViewModel.playNext(listOf(song)) },
                             onShowDetails = { onSongDetailsClick(song) }
                         )
                     }

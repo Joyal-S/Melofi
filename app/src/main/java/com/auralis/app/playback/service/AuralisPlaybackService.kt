@@ -53,6 +53,9 @@ class AuralisPlaybackService : MediaSessionService() {
     @Inject
     lateinit var dspAudioProcessor: MelofyDspAudioProcessor
 
+    @Inject
+    lateinit var playbackController: com.auralis.app.playback.client.PlaybackController
+
     private var mediaSession: MediaSession? = null
 
     override fun onCreate() {
@@ -160,8 +163,40 @@ class AuralisPlaybackService : MediaSessionService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        val sessionCallback = object : MediaSession.Callback {
+            override fun onPlayerCommandRequest(
+                session: MediaSession,
+                controller: MediaSession.ControllerInfo,
+                playerCommand: Int
+            ): Int {
+                if (playerCommand == androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT ||
+                    playerCommand == androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM
+                ) {
+                    val p = session.player
+                    if (p.repeatMode == androidx.media3.common.Player.REPEAT_MODE_ONE) {
+                        p.seekTo(0L)
+                        p.play()
+                        return androidx.media3.session.SessionResult.RESULT_SUCCESS
+                    }
+                    if (p.hasNextMediaItem()) {
+                        return super.onPlayerCommandRequest(session, controller, playerCommand)
+                    }
+                    if (p.repeatMode == androidx.media3.common.Player.REPEAT_MODE_ALL && p.mediaItemCount > 0) {
+                        p.seekTo(0, 0L)
+                        p.play()
+                        return androidx.media3.session.SessionResult.RESULT_SUCCESS
+                    }
+                    // Queue exhausted: delegate to PlaybackController's intelligent next-track logic
+                    playbackController.skipNext()
+                    return androidx.media3.session.SessionResult.RESULT_SUCCESS
+                }
+                return super.onPlayerCommandRequest(session, controller, playerCommand)
+            }
+        }
+
         mediaSession = MediaSession.Builder(this, player)
             .setSessionActivity(sessionActivityPendingIntent)
+            .setCallback(sessionCallback)
             .build()
     }
 
@@ -174,10 +209,7 @@ class AuralisPlaybackService : MediaSessionService() {
                 }
             }
             MelofyWidgetProvider.ACTION_WIDGET_NEXT -> {
-                val player = mediaSession?.player
-                if (player?.hasNextMediaItem() == true) {
-                    player.seekToNextMediaItem()
-                }
+                playbackController.skipNext()
             }
             MelofyWidgetProvider.ACTION_WIDGET_PREVIOUS -> {
                 val player = mediaSession?.player
