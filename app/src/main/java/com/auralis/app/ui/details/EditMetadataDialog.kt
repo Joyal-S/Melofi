@@ -1,5 +1,7 @@
 package com.auralis.app.ui.details
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -7,12 +9,18 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -20,10 +28,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.auralis.app.R
+import com.auralis.app.core.ui.theme.MelofySpacing
+import com.auralis.app.domain.model.Artist
 import com.auralis.app.domain.model.EditableMetadata
 import com.auralis.app.domain.model.MetadataEditValidator
 import com.auralis.app.domain.model.SongDetails
@@ -31,11 +45,16 @@ import com.auralis.app.domain.model.SongDetails
 @Composable
 fun EditMetadataDialog(
     songDetails: SongDetails,
+    availableArtists: List<Artist> = emptyList(),
+    onCreateNewArtist: (suspend (String) -> Result<Artist>)? = null,
     onDismiss: () -> Unit,
     onSave: (EditableMetadata) -> Unit
 ) {
     var title by remember { mutableStateOf(songDetails.basicInfo.title) }
-    var artist by remember { mutableStateOf(songDetails.basicInfo.artist) }
+    var artistName by remember { mutableStateOf(songDetails.basicInfo.artist) }
+    var selectedArtistId by remember { mutableStateOf(songDetails.basicInfo.artistId) }
+    var showArtistPicker by remember { mutableStateOf(false) }
+
     var album by remember { mutableStateOf(songDetails.basicInfo.album) }
     var albumArtist by remember { mutableStateOf(songDetails.basicInfo.albumArtist ?: "") }
     var genre by remember { mutableStateOf(songDetails.basicInfo.genre ?: "") }
@@ -95,14 +114,57 @@ fun EditMetadataDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                OutlinedTextField(
-                    value = artist,
-                    onValueChange = { artist = it; errorMessage = null },
-                    label = { Text("Artist") },
-                    enabled = isFormatEditable,
-                    singleLine = true,
+                // Artist Picker Selector (Section 4 & 5: persistent artist assignment instead of free-text)
+                Surface(
+                    onClick = {
+                        if (isFormatEditable) {
+                            showArtistPicker = true
+                        }
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
                     modifier = Modifier.fillMaxWidth()
-                )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = MelofySpacing.md, vertical = MelofySpacing.sm),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Artist",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = artistName.ifEmpty { "Select Artist..." },
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        FilledTonalButton(
+                            onClick = { showArtistPicker = true },
+                            enabled = isFormatEditable,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_person),
+                                contentDescription = "Pick Artist",
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(MelofySpacing.xxs))
+                            Text("Pick Artist")
+                        }
+                    }
+                }
 
                 OutlinedTextField(
                     value = album,
@@ -182,14 +244,15 @@ fun EditMetadataDialog(
                 onClick = {
                     val result = MetadataEditValidator.validate(
                         title = title,
-                        artist = artist,
+                        artist = artistName,
                         album = album,
                         albumArtist = albumArtist,
                         genre = genre,
                         composer = composer,
                         yearText = yearText,
                         trackNumberText = trackText,
-                        discNumberText = discText
+                        discNumberText = discText,
+                        artistId = selectedArtistId
                     )
                     if (result.isValid && result.sanitizedMetadata != null) {
                         onSave(result.sanitizedMetadata)
@@ -198,7 +261,7 @@ fun EditMetadataDialog(
                     }
                 }
             ) {
-                Text("Save", fontWeight = FontWeight.Bold)
+                Text("Save")
             }
         },
         dismissButton = {
@@ -207,4 +270,26 @@ fun EditMetadataDialog(
             }
         }
     )
+
+    if (showArtistPicker) {
+        ArtistPickerDialog(
+            currentArtistName = artistName,
+            currentArtistId = selectedArtistId,
+            artists = availableArtists,
+            onArtistSelected = { selected ->
+                selectedArtistId = selected.id
+                artistName = selected.name
+                errorMessage = null
+            },
+            onCreateNewArtist = { proposedName ->
+                onCreateNewArtist?.invoke(proposedName)
+                    ?: Result.failure(IllegalStateException("Create artist handler not provided"))
+            },
+            onDismiss = { showArtistPicker = false },
+            onClearArtist = {
+                selectedArtistId = null
+                artistName = "Unknown Artist"
+            }
+        )
+    }
 }

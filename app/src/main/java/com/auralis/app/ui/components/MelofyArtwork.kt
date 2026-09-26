@@ -102,34 +102,31 @@ fun MelofyArtwork(
     }
 
     Box(
-        modifier = modifier
-            .clip(shape)
-            .background(gradient),
+        modifier = modifier.clip(shape),
         contentAlignment = Alignment.Center
     ) {
-        Crossfade(
-            targetState = artworkUri,
-            animationSpec = MelofyMotion.adaptiveTween<Float>(animationMode, MelofyMotion.DURATION_NORMAL),
-            label = "artworkCrossfade"
-        ) { uri ->
-            if (!uri.isNullOrBlank()) {
-                AsyncImage(
-                    model = uri,
-                    contentDescription = "Cover for $title",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = contentScale
-                )
-            } else if (showInitial) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        if (!artworkUri.isNullOrBlank()) {
+            AsyncImage(
+                model = artworkUri,
+                contentDescription = "Cover for $title",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = contentScale
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(gradient),
+                contentAlignment = Alignment.Center
+            ) {
+                if (showInitial) {
                     Text(
                         text = initial,
                         color = Color.White.copy(alpha = 0.75f),
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp
                     )
-                }
-            } else {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                } else {
                     Icon(
                         painter = painterResource(
                             when (entityType) {

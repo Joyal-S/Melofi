@@ -49,11 +49,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import com.auralis.app.core.ui.theme.LocalAnimationMode
 import com.auralis.app.core.ui.theme.MelofyAnimationMode
 import com.auralis.app.core.ui.theme.MelofyElevation
@@ -143,6 +147,8 @@ fun SongsScreen(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val requiredPermission = remember { PermissionUtils.getRequiredStoragePermission() }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -173,6 +179,7 @@ fun SongsScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             Column {
                 TopAppBar(
@@ -518,7 +525,14 @@ fun SongsScreen(
                                                     onPlayNext = { playbackViewModel.addSongsToQueue(listOf(song)) },
                                                     onChangeArtwork = { songForArtworkDialog = song },
                                                     onDelete = { viewModel.deleteSong(song.id) },
-                                                    onShowDetails = { onSongDetailsClick?.invoke(song) }
+                                                    onShowDetails = { onSongDetailsClick?.invoke(song) },
+                                                    onHideFromLibrary = {
+                                                        viewModel.hideSong(song) {
+                                                            coroutineScope.launch {
+                                                                snackbarHostState.showSnackbar("\"${song.title}\" hidden from Music Library")
+                                                            }
+                                                        }
+                                                    }
                                                 )
                                             }
                                         }
@@ -537,7 +551,14 @@ fun SongsScreen(
                                                     onPlayNext = { playbackViewModel.addSongsToQueue(listOf(song)) },
                                                     onChangeArtwork = { songForArtworkDialog = song },
                                                     onDelete = { viewModel.deleteSong(song.id) },
-                                                    onShowDetails = { onSongDetailsClick?.invoke(song) }
+                                                    onShowDetails = { onSongDetailsClick?.invoke(song) },
+                                                    onHideFromLibrary = {
+                                                        viewModel.hideSong(song) {
+                                                            coroutineScope.launch {
+                                                                snackbarHostState.showSnackbar("\"${song.title}\" hidden from Music Library")
+                                                            }
+                                                        }
+                                                    }
                                                 )
                                             }
                                         }

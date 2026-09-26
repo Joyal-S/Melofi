@@ -86,15 +86,9 @@ fun PlaybackControlsBar(
     )
 
     val heartScale by animateFloatAsState(
-        targetValue = if (isFavorite && animationMode != MelofyAnimationMode.OFF) 1.2f else 1.0f,
-        animationSpec = MelofyMotion.springBouncy(),
+        targetValue = if (isFavorite && animationMode != MelofyAnimationMode.OFF) 1.15f else 1.0f,
+        animationSpec = MelofyMotion.springSubtle(),
         label = "miniPlayerFavoriteBounce"
-    )
-
-    val playPauseRotation by animateFloatAsState(
-        targetValue = if (playbackState.isPlaying) 0f else -90f,
-        animationSpec = MelofyMotion.springBouncy(),
-        label = "miniPlayerPlayPauseRotation"
     )
 
     Card(

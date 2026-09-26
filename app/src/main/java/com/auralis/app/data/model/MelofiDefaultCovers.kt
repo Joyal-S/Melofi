@@ -37,28 +37,36 @@ object MelofiDefaultCovers {
     const val FILES_FOLDER = "default_covers"
 
     /**
+     * Deterministically selects a single cover file name for an entity ID (e.g. playlist or song).
+     *
+     * Uses pure 64-bit SplitMix64 mixing to guarantee uniform, high-entropy distribution
+     * across all 16 supplied cover images without order dependence or scan state.
+     * Pure function of [id] alone, guaranteeing permanent stability across app restarts,
+     * rescans, recompositions, and navigation.
+     */
+    fun selectCover(id: Long): String {
+        var z = id + -0x61c8864680b583ebL
+        z = (z xor (z ushr 30)) * -0x40a7b892e31b1a47L
+        z = (z xor (z ushr 27)) * -0x6b2fb67232230ec5L
+        z = z xor (z ushr 31)
+        val index = (abs(z % AVAILABLE_COVERS.size)).toInt()
+        return AVAILABLE_COVERS[index]
+    }
+
+    /**
      * Deterministically selects a default cover for [songId].
-     *
-     * Uses 64-bit integer mix hashing to ensure high entropy and uniform distribution across
-     * all 16 supplied cover images without consecutive duplicate assignments.
-     * Pure function of [songId] ensuring permanent stability across app restarts, rescans,
-     * recompositions, and navigation.
-     *
-     * @return Pair of (selectedFileName, selectedIndex)
+     * Supports collision avoidance when consecutive tracks hash to identical indices.
      */
     fun pickCover(songId: Long, lastAssignedIndex: Int = -1): Pair<String, Int> {
         val total = AVAILABLE_COVERS.size
-        // High-entropy 64-bit mix hash ensuring uniform permutation
-        val mixed = (songId xor (songId ushr 16)) * 0x45d9f3bL
-        var index = (abs(mixed) % total).toInt()
+        var z = songId + -0x61c8864680b583ebL
+        z = (z xor (z ushr 30)) * -0x40a7b892e31b1a47L
+        z = (z xor (z ushr 27)) * -0x6b2fb67232230ec5L
+        z = z xor (z ushr 31)
+        var index = (abs(z % total)).toInt()
         if (lastAssignedIndex >= 0 && index == lastAssignedIndex) {
             index = (index + 1) % total
         }
         return Pair(AVAILABLE_COVERS[index], index)
     }
-
-    /**
-     * Deterministically selects a single cover file name for an entity ID (e.g. playlist or song).
-     */
-    fun selectCover(id: Long): String = pickCover(id).first
 }

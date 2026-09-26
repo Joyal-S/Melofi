@@ -96,4 +96,28 @@ class ArtistDetailViewModel @Inject constructor(
             _artistId.value = artist.id
         }
     }
+
+    fun renameArtist(customName: String, onComplete: ((Result<Unit>) -> Unit)? = null) {
+        val artist = (uiState.value as? ArtistDetailUiState.Success)?.artist ?: return
+        viewModelScope.launch {
+            val result = browserRepository.updateArtistProfileName(artist.id, customName)
+            onComplete?.invoke(result)
+        }
+    }
+
+    fun mergeWithExistingArtist(targetArtistId: Long, onComplete: ((Result<Unit>) -> Unit)? = null) {
+        val artist = (uiState.value as? ArtistDetailUiState.Success)?.artist ?: return
+        viewModelScope.launch {
+            val result = browserRepository.mergeArtists(sourceArtistId = artist.id, targetArtistId = targetArtistId)
+            onComplete?.invoke(result)
+        }
+    }
+
+    fun resetArtistName(onComplete: ((Result<Unit>) -> Unit)? = null) {
+        val artist = (uiState.value as? ArtistDetailUiState.Success)?.artist ?: return
+        viewModelScope.launch {
+            val result = browserRepository.resetArtistProfileName(artist.id)
+            onComplete?.invoke(result)
+        }
+    }
 }

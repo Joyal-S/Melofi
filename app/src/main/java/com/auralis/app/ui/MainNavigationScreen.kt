@@ -5,9 +5,12 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
@@ -253,20 +256,114 @@ fun MainNavigationScreen(
 
                     when {
                         isEnteringNowPlaying -> {
-                            (slideInVertically(MelofyMotion.springSubtle()) { it } + fadeIn(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST)))
-                                .togetherWith(fadeOut(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST)))
+                            (slideInVertically(
+                                animationSpec = tween(
+                                    durationMillis = MelofyMotion.DURATION_NORMAL,
+                                    easing = MelofyMotion.emphasizeEasing
+                                )
+                            ) { it / 6 } +
+                            scaleIn(
+                                initialScale = 0.94f,
+                                animationSpec = tween(
+                                    durationMillis = MelofyMotion.DURATION_NORMAL,
+                                    easing = MelofyMotion.emphasizeEasing
+                                )
+                            ) +
+                            fadeIn(
+                                animationSpec = tween(
+                                    durationMillis = MelofyMotion.DURATION_FAST,
+                                    easing = MelofyMotion.standardEasing
+                                )
+                            )).togetherWith(
+                                fadeOut(
+                                    animationSpec = tween(
+                                        durationMillis = MelofyMotion.DURATION_FAST,
+                                        easing = MelofyMotion.standardEasing
+                                    )
+                                )
+                            )
                         }
                         isExitingNowPlaying -> {
-                            fadeIn(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST))
-                                .togetherWith(slideOutVertically(MelofyMotion.springSubtle()) { it } + fadeOut(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST)))
+                            fadeIn(
+                                animationSpec = tween(
+                                    durationMillis = MelofyMotion.DURATION_FAST,
+                                    easing = MelofyMotion.standardEasing
+                                )
+                            ).togetherWith(
+                                slideOutVertically(
+                                    animationSpec = tween(
+                                        durationMillis = MelofyMotion.DURATION_FAST,
+                                        easing = MelofyMotion.standardEasing
+                                    )
+                                ) { it / 6 } +
+                                scaleOut(
+                                    targetScale = 0.94f,
+                                    animationSpec = tween(
+                                        durationMillis = MelofyMotion.DURATION_FAST,
+                                        easing = MelofyMotion.standardEasing
+                                    )
+                                ) +
+                                fadeOut(
+                                    animationSpec = tween(
+                                        durationMillis = MelofyMotion.DURATION_FAST,
+                                        easing = MelofyMotion.standardEasing
+                                    )
+                                )
+                            )
                         }
                         isTargetSubScreen && !isInitialSubScreen -> {
-                            (slideInHorizontally(MelofyMotion.springSubtle()) { it / 4 } + fadeIn(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST)))
-                                .togetherWith(slideOutHorizontally(MelofyMotion.springSubtle()) { -it / 4 } + fadeOut(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST)))
+                            (slideInHorizontally(
+                                animationSpec = tween(
+                                    durationMillis = MelofyMotion.DURATION_NORMAL,
+                                    easing = MelofyMotion.emphasizeEasing
+                                )
+                            ) { it / 5 } +
+                            fadeIn(
+                                animationSpec = tween(
+                                    durationMillis = MelofyMotion.DURATION_FAST,
+                                    easing = MelofyMotion.standardEasing
+                                )
+                            )).togetherWith(
+                                slideOutHorizontally(
+                                    animationSpec = tween(
+                                        durationMillis = MelofyMotion.DURATION_FAST,
+                                        easing = MelofyMotion.standardEasing
+                                    )
+                                ) { -it / 5 } +
+                                fadeOut(
+                                    animationSpec = tween(
+                                        durationMillis = MelofyMotion.DURATION_FAST,
+                                        easing = MelofyMotion.standardEasing
+                                    )
+                                )
+                            )
                         }
                         !isTargetSubScreen && isInitialSubScreen -> {
-                            (slideInHorizontally(MelofyMotion.springSubtle()) { -it / 4 } + fadeIn(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST)))
-                                .togetherWith(slideOutHorizontally(MelofyMotion.springSubtle()) { it / 4 } + fadeOut(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST)))
+                            (slideInHorizontally(
+                                animationSpec = tween(
+                                    durationMillis = MelofyMotion.DURATION_NORMAL,
+                                    easing = MelofyMotion.emphasizeEasing
+                                )
+                            ) { -it / 5 } +
+                            fadeIn(
+                                animationSpec = tween(
+                                    durationMillis = MelofyMotion.DURATION_FAST,
+                                    easing = MelofyMotion.standardEasing
+                                )
+                            )).togetherWith(
+                                slideOutHorizontally(
+                                    animationSpec = tween(
+                                        durationMillis = MelofyMotion.DURATION_FAST,
+                                        easing = MelofyMotion.standardEasing
+                                    )
+                                ) { it / 5 } +
+                                fadeOut(
+                                    animationSpec = tween(
+                                        durationMillis = MelofyMotion.DURATION_FAST,
+                                        easing = MelofyMotion.standardEasing
+                                    )
+                                )
+                            )
                         }
                         else -> {
                             fadeIn(MelofyMotion.adaptiveTween(animationMode, MelofyMotion.DURATION_FAST))

@@ -44,8 +44,14 @@ interface SongRepository {
         composer: String? = null,
         year: Int? = null,
         trackNumber: Int? = null,
-        discNumber: Int? = null
+        discNumber: Int? = null,
+        artistId: Long? = null
     ): Result<Unit>
+
+    /**
+     * Explicitly reassigns a song to an existing artist identity.
+     */
+    suspend fun reassignSongArtist(songId: Long, newArtistId: Long): Result<Unit>
 
     /**
      * Identifies duplicate groups across the local song library.
@@ -56,4 +62,39 @@ interface SongRepository {
      * Safely deletes a song file from MediaStore and Room with explicit user confirmation.
      */
     suspend fun deleteSong(songId: Long): Result<Unit>
+
+    /**
+     * Hides an audio file from the Melofi Music Library without deleting it from disk.
+     */
+    suspend fun hideSongFromLibrary(song: Song): Result<Unit>
+
+    /**
+     * Restores a previously hidden audio file back into the Music Library.
+     */
+    suspend fun restoreHiddenAudio(id: Long): Result<Unit>
+
+    /**
+     * Observes all user-hidden audio records.
+     */
+    fun getHiddenAudio(): Flow<List<com.auralis.app.data.local.db.entity.HiddenAudioEntity>>
+
+    /**
+     * Observes all folder exclusions.
+     */
+    fun getExcludedFolders(): Flow<List<com.auralis.app.data.local.db.entity.ExcludedFolderEntity>>
+
+    /**
+     * Toggles whether an excluded folder pattern is currently active.
+     */
+    suspend fun toggleExcludedFolder(id: Long, isEnabled: Boolean)
+
+    /**
+     * Adds a new custom folder exclusion pattern.
+     */
+    suspend fun addExcludedFolder(folderName: String, folderPath: String): Result<Unit>
+
+    /**
+     * Deletes a custom folder exclusion pattern.
+     */
+    suspend fun deleteExcludedFolder(id: Long): Result<Unit>
 }

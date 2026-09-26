@@ -10,9 +10,11 @@ import com.auralis.app.domain.repository.FavoriteRepository
 import com.auralis.app.domain.repository.SongRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -31,11 +33,23 @@ sealed interface SongDetailsUiState {
 class SongDetailsViewModel @Inject constructor(
     private val songRepository: SongRepository,
     private val favoriteRepository: FavoriteRepository,
-    private val artworkRepository: LocalArtworkRepository
+    private val artworkRepository: LocalArtworkRepository,
+    private val libraryBrowserRepository: com.auralis.app.domain.repository.LibraryBrowserRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<SongDetailsUiState>(SongDetailsUiState.Loading)
     val uiState: StateFlow<SongDetailsUiState> = _uiState.asStateFlow()
+
+    val allArtists: StateFlow<List<com.auralis.app.domain.model.Artist>> = libraryBrowserRepository.getArtists()
+        .stateIn(
+            scope = viewModelScope,
+            started = kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    suspend fun createArtist(name: String): Result<com.auralis.app.domain.model.Artist> {
+        return libraryBrowserRepository.createArtist(name)
+    }
 
     private var currentSongId: Long? = null
 
@@ -83,7 +97,8 @@ class SongDetailsViewModel @Inject constructor(
                 composer = metadata.composer,
                 year = metadata.year,
                 trackNumber = metadata.trackNumber,
-                discNumber = metadata.discNumber
+                discNumber = metadata.discNumber,
+                artistId = metadata.artistId
             )
             result.onSuccess {
                 // Re-fetch details to update UI

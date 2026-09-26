@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.auralis.app.core.ui.theme.MelofyAccent
 import com.auralis.app.core.ui.theme.MelofyAnimationMode
+import com.auralis.app.data.local.db.entity.ExcludedFolderEntity
+import com.auralis.app.data.local.db.entity.HiddenAudioEntity
 import com.auralis.app.data.local.preferences.UserPreferencesRepository
 import com.auralis.app.domain.model.ArtworkCornerStyle
 import com.auralis.app.domain.model.LibraryTab
@@ -11,6 +13,7 @@ import com.auralis.app.domain.model.LibraryViewMode
 import com.auralis.app.domain.model.SongSortOrder
 import com.auralis.app.domain.model.ThemeMode
 import com.auralis.app.domain.model.UserPreferences
+import com.auralis.app.domain.repository.SongRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -20,7 +23,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val userPreferencesRepository: UserPreferencesRepository
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val songRepository: SongRepository
 ) : ViewModel() {
 
     val preferences: StateFlow<UserPreferences> = userPreferencesRepository.preferencesFlow
@@ -29,6 +33,44 @@ class SettingsViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = UserPreferences()
         )
+
+    val excludedFolders: StateFlow<List<ExcludedFolderEntity>> = songRepository.getExcludedFolders()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    val hiddenAudioList: StateFlow<List<HiddenAudioEntity>> = songRepository.getHiddenAudio()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    fun toggleExcludedFolder(id: Long, isEnabled: Boolean) {
+        viewModelScope.launch {
+            songRepository.toggleExcludedFolder(id, isEnabled)
+        }
+    }
+
+    fun addExcludedFolder(folderName: String, folderPath: String) {
+        viewModelScope.launch {
+            songRepository.addExcludedFolder(folderName, folderPath)
+        }
+    }
+
+    fun deleteExcludedFolder(id: Long) {
+        viewModelScope.launch {
+            songRepository.deleteExcludedFolder(id)
+        }
+    }
+
+    fun restoreHiddenAudio(id: Long) {
+        viewModelScope.launch {
+            songRepository.restoreHiddenAudio(id)
+        }
+    }
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch {

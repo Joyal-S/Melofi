@@ -9,7 +9,8 @@ data class EditableMetadata(
     val composer: String? = null,
     val year: Int? = null,
     val trackNumber: Int? = null,
-    val discNumber: Int? = null
+    val discNumber: Int? = null,
+    val artistId: Long? = null
 )
 
 data class MetadataValidationResult(
@@ -51,7 +52,8 @@ object MetadataEditValidator {
         composer: String? = null,
         yearText: String? = null,
         trackNumberText: String? = null,
-        discNumberText: String? = null
+        discNumberText: String? = null,
+        artistId: Long? = null
     ): MetadataValidationResult {
         val cleanTitle = title.trim().take(MAX_FIELD_LENGTH)
         if (cleanTitle.isEmpty()) {
@@ -117,7 +119,8 @@ object MetadataEditValidator {
                 composer = cleanComposer,
                 year = parsedYear,
                 trackNumber = parsedTrack,
-                discNumber = parsedDisc
+                discNumber = parsedDisc,
+                artistId = artistId
             )
         )
     }

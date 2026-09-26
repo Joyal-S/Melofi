@@ -21,7 +21,8 @@ data class SongDetails(
         val trackNumber: Int?,
         val discNumber: Int?,
         val year: Int?,
-        val durationMs: Long
+        val durationMs: Long,
+        val artistId: Long? = null
     )
 
     data class AudioInfo(

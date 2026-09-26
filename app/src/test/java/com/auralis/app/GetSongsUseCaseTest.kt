@@ -69,12 +69,29 @@ class GetSongsUseCaseTest {
             composer: String?,
             year: Int?,
             trackNumber: Int?,
-            discNumber: Int?
+            discNumber: Int?,
+            artistId: Long?
         ): Result<Unit> = Result.success(Unit)
+
+        override suspend fun reassignSongArtist(songId: Long, newArtistId: Long): Result<Unit> = Result.success(Unit)
 
         override suspend fun findDuplicates(): List<com.auralis.app.domain.model.DuplicateGroup> = emptyList()
 
         override suspend fun deleteSong(songId: Long): Result<Unit> = Result.success(Unit)
+
+        override suspend fun hideSongFromLibrary(song: Song): Result<Unit> = Result.success(Unit)
+
+        override suspend fun restoreHiddenAudio(id: Long): Result<Unit> = Result.success(Unit)
+
+        override fun getHiddenAudio(): Flow<List<com.auralis.app.data.local.db.entity.HiddenAudioEntity>> = flowOf(emptyList())
+
+        override fun getExcludedFolders(): Flow<List<com.auralis.app.data.local.db.entity.ExcludedFolderEntity>> = flowOf(emptyList())
+
+        override suspend fun toggleExcludedFolder(id: Long, isEnabled: Boolean) {}
+
+        override suspend fun addExcludedFolder(folderName: String, folderPath: String): Result<Unit> = Result.success(Unit)
+
+        override suspend fun deleteExcludedFolder(id: Long): Result<Unit> = Result.success(Unit)
     }
 
     @Test

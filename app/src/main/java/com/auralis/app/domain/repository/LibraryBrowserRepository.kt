@@ -22,4 +22,11 @@ interface LibraryBrowserRepository {
     fun getGenres(): Flow<List<Genre>>
     fun getGenreById(id: Long): Flow<Genre?>
     fun getSongsByGenre(genreName: String): Flow<List<Song>>
+
+    suspend fun createArtist(name: String): Result<Artist>
+    suspend fun findArtistByNormalizedName(normalizedName: String): Artist?
+    suspend fun findArtistByName(name: String): Artist?
+    suspend fun mergeArtists(sourceArtistId: Long, targetArtistId: Long): Result<Unit>
+    suspend fun updateArtistProfileName(artistId: Long, customName: String): Result<Unit>
+    suspend fun resetArtistProfileName(artistId: Long): Result<Unit>
 }

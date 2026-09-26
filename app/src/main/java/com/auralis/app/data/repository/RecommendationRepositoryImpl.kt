@@ -49,8 +49,9 @@ class RecommendationRepositoryImpl @Inject constructor(
         songDao.getSongsSortedByTitle(),
         favoriteDao.getFavoriteSongIds(),
         historyDao.getRecentHistoryEntries(limit = 1000),
-        _refreshTrigger
-    ) { songEntities, favIds, historyEntries, _ ->
+        _refreshTrigger,
+        localArtworkRepository.artworkUpdates
+    ) { songEntities, favIds, historyEntries, _, _ ->
         val domainSongs = songEntities.map { entity ->
             val domain = SongMapper.toDomain(entity)
             val art = localArtworkRepository.resolveSongArtworkFast(domain)

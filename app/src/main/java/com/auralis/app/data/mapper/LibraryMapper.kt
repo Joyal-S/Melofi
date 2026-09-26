@@ -29,7 +29,8 @@ object LibraryMapper {
             id = entity.id,
             name = entity.name,
             albumCount = entity.albumCount,
-            songCount = entity.songCount
+            songCount = entity.songCount,
+            artUri = entity.customArtworkUri
         )
     }
 

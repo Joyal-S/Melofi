@@ -32,6 +32,8 @@ object MelofyMotion {
     const val DURATION_MICRO = 150
     const val DURATION_FAST = 200
     const val DURATION_NORMAL = 280
+    const val DURATION_CROSSFADE = 320
+    const val DURATION_MAJOR = 360
     const val DURATION_MEDIUM = 350
     const val DURATION_SLOW = 450
 
@@ -48,7 +50,7 @@ object MelofyMotion {
     )
 
     fun <T> springBouncy(): SpringSpec<T> = spring(
-        dampingRatio = Spring.DampingRatioMediumBouncy,
+        dampingRatio = Spring.DampingRatioLowBouncy,
         stiffness = Spring.StiffnessMedium
     )
 
@@ -58,7 +60,7 @@ object MelofyMotion {
     )
 
     fun <T> springSnappy(): SpringSpec<T> = spring(
-        dampingRatio = Spring.DampingRatioLowBouncy,
+        dampingRatio = Spring.DampingRatioNoBouncy,
         stiffness = Spring.StiffnessMediumLow
     )
 

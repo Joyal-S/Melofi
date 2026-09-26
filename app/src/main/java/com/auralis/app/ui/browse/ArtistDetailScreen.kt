@@ -20,10 +20,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -82,6 +85,7 @@ fun ArtistDetailScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val favoriteSongIds by viewModel.favoriteSongIds.collectAsStateWithLifecycle()
     var showArtworkDialog by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
 
     LaunchedEffect(artistId) {
@@ -107,6 +111,14 @@ fun ArtistDetailScreen(
                             expanded = showOverflowMenu,
                             onDismissRequest = { showOverflowMenu = false }
                         ) {
+                            DropdownMenuItem(
+                                text = { Text("Edit Artist Name") },
+                                leadingIcon = { Icon(painter = painterResource(R.drawable.ic_edit), contentDescription = null) },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    showRenameDialog = true
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text("Change Artist Image") },
                                 leadingIcon = { Icon(painter = painterResource(R.drawable.ic_image), contentDescription = null) },
@@ -234,15 +246,29 @@ fun ArtistDetailScreen(
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(MelofySpacing.md))
-
-                                Text(
-                                    text = artist.name,
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable { showRenameDialog = true }
+                                        .padding(horizontal = MelofySpacing.sm, vertical = MelofySpacing.xxs)
+                                ) {
+                                    Text(
+                                        text = artist.name,
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Spacer(modifier = Modifier.width(MelofySpacing.xs))
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_edit),
+                                        contentDescription = "Edit Artist Name",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
 
                                 Spacer(modifier = Modifier.height(MelofySpacing.xxs))
 
@@ -429,6 +455,31 @@ fun ArtistDetailScreen(
             }
         )
     }
+
+    if (showRenameDialog) {
+        val currentName = (uiState as? ArtistDetailUiState.Success)?.artist?.name.orEmpty()
+        EditArtistNameDialog(
+            currentName = currentName,
+            onDismiss = { showRenameDialog = false },
+            onSave = { newName, onResult ->
+                viewModel.renameArtist(newName) { result ->
+                    onResult(result)
+                }
+            },
+            onUseExistingArtist = { targetArtistId ->
+                viewModel.mergeWithExistingArtist(targetArtistId) { result ->
+                    result.onSuccess {
+                        showRenameDialog = false
+                        viewModel.loadArtist(targetArtistId)
+                    }
+                }
+            },
+            onReset = {
+                viewModel.resetArtistName()
+                showRenameDialog = false
+            }
+        )
+    }
 }
 
 @Composable
@@ -499,4 +550,127 @@ private fun PopularTrackRow(
             )
         }
     }
+}
+
+@Composable
+private fun EditArtistNameDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onSave: (String, (Result<Unit>) -> Unit) -> Unit,
+    onUseExistingArtist: (Long) -> Unit,
+    onReset: () -> Unit
+) {
+    var nameText by remember { mutableStateOf(currentName) }
+    var isBlankError by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var duplicateArtist by remember { mutableStateOf<com.auralis.app.domain.model.Artist?>(null) }
+    var isSaving by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_edit),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(MelofySpacing.sm))
+                Text(
+                    text = "Edit Artist Name",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(MelofySpacing.sm)) {
+                Text(
+                    text = "Personalize this artist's display name. Melofi maintains persistent artist profiles with unique identities.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(MelofySpacing.xs))
+                OutlinedTextField(
+                    value = nameText,
+                    onValueChange = {
+                        nameText = it
+                        isBlankError = it.isBlank()
+                        errorMessage = null
+                        duplicateArtist = null
+                    },
+                    label = { Text("Artist Name") },
+                    isError = isBlankError || errorMessage != null,
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (isBlankError) {
+                    Text(
+                        text = "Artist name cannot be blank",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                if (errorMessage != null) {
+                    Text(
+                        text = errorMessage!!,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                if (duplicateArtist != null) {
+                    Spacer(modifier = Modifier.height(MelofySpacing.xs))
+                    Button(
+                        onClick = {
+                            onUseExistingArtist(duplicateArtist!!.id)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Use Existing Artist (${duplicateArtist!!.name})")
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = !isSaving,
+                onClick = {
+                    val trimmed = nameText.trim()
+                    if (trimmed.isNotBlank()) {
+                        isSaving = true
+                        onSave(trimmed) { result ->
+                            isSaving = false
+                            result.onSuccess {
+                                onDismiss()
+                            }.onFailure { err ->
+                                if (err is com.auralis.app.domain.model.DuplicateArtistException) {
+                                    duplicateArtist = err.existingArtist
+                                    errorMessage = "An artist named ${err.existingArtist.name} already exists."
+                                } else {
+                                    errorMessage = err.message ?: "Failed to rename artist."
+                                }
+                            }
+                        }
+                    } else {
+                        isBlankError = true
+                    }
+                }
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(MelofySpacing.xs)) {
+                TextButton(onClick = onReset) {
+                    Text("Reset to Original", color = MaterialTheme.colorScheme.error)
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel")
+                }
+            }
+        }
+    )
 }

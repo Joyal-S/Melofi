@@ -69,7 +69,8 @@ fun SongListItem(
     onChangeArtwork: (() -> Unit)? = null,
     onEditMetadata: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
-    onShowDetails: (() -> Unit)? = null
+    onShowDetails: (() -> Unit)? = null,
+    onHideFromLibrary: (() -> Unit)? = null
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val animationMode = LocalAnimationMode.current
@@ -324,6 +325,21 @@ fun SongListItem(
                             onClick = {
                                 showMenu = false
                                 onChangeArtwork()
+                            }
+                        )
+                    }
+                    if (onHideFromLibrary != null) {
+                        DropdownMenuItem(
+                            text = { Text("Hide from Music Library") },
+                            leadingIcon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_close),
+                                    contentDescription = null
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                onHideFromLibrary()
                             }
                         )
                     }

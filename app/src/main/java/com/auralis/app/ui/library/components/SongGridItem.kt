@@ -67,7 +67,8 @@ fun SongGridItem(
     onChangeArtwork: () -> Unit,
     onDelete: () -> Unit,
     onShowDetails: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onHideFromLibrary: (() -> Unit)? = null
 ) {
     val animationMode = LocalAnimationMode.current
     var showMenu by remember { mutableStateOf(false) }
@@ -302,6 +303,21 @@ fun SongGridItem(
                                 onChangeArtwork()
                             }
                         )
+                        if (onHideFromLibrary != null) {
+                            DropdownMenuItem(
+                                text = { Text("Hide from Music Library") },
+                                leadingIcon = {
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_close),
+                                        contentDescription = null
+                                    )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    onHideFromLibrary()
+                                }
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text("Delete Track") },
                             leadingIcon = {

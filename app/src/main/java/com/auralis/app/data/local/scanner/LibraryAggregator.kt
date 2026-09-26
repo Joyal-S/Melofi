@@ -45,14 +45,17 @@ object LibraryAggregator {
     fun aggregateArtists(songs: List<SongEntity>): List<ArtistEntity> {
         return songs
             .groupBy { song ->
-                song.artistId ?: (abs(song.artistName.hashCode().toLong()) + 1_000_000_000L)
+                com.auralis.app.core.util.ArtistNameNormalizer.normalize(song.artistName)
             }
-            .map { (artistId, artistSongs) ->
+            .filter { it.key.isNotEmpty() }
+            .map { (norm, artistSongs) ->
                 val first = artistSongs.first()
                 val distinctAlbumCount = artistSongs.mapNotNull { it.albumId }.distinct().size
+                val stableId = first.artistId ?: (abs(norm.hashCode().toLong()) + 1_000_000_000L)
                 ArtistEntity(
-                    id = artistId,
-                    name = first.artistName,
+                    id = stableId,
+                    name = com.auralis.app.core.util.ArtistNameNormalizer.cleanDisplayName(first.artistName),
+                    normalizedName = norm,
                     albumCount = distinctAlbumCount,
                     songCount = artistSongs.size
                 )

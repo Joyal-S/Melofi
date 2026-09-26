@@ -101,7 +101,8 @@ class SongMetadataInspector @Inject constructor(
                 trackNumber = song.trackNumber,
                 discNumber = song.discNumber,
                 year = song.year,
-                durationMs = song.duration
+                durationMs = song.duration,
+                artistId = song.artistId
             ),
             audioInfo = SongDetails.AudioInfo(
                 codec = extractedCodec,

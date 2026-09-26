@@ -46,6 +46,8 @@ class SongRepositoryImpl @Inject constructor(
     private val scanner: MediaStoreAudioScanner,
     private val metadataInspector: SongMetadataInspector,
     private val artworkRepository: LocalArtworkRepository,
+    private val hiddenAudioDao: com.auralis.app.data.local.db.dao.HiddenAudioDao,
+    private val excludedFolderDao: com.auralis.app.data.local.db.dao.ExcludedFolderDao,
     @param:ApplicationContext private val context: Context,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : SongRepository {
@@ -79,10 +81,19 @@ class SongRepositoryImpl @Inject constructor(
 
     override suspend fun scanLibrary(): Result<ScanResult> = withContext(ioDispatcher) {
         try {
-            // 1. Scan external MediaStore via ContentResolver
-            val scanOutput = scanner.scanAudioFiles()
+            // 1. Fetch active folder exclusions and user-hidden audio records
+            val excludedFolders = excludedFolderDao.getActiveExcludedFolderPaths()
+            val hiddenIds = hiddenAudioDao.getAllHiddenIds().toSet()
+            val hiddenUris = hiddenAudioDao.getAllHiddenContentUris().toSet()
 
-            // 2. Fetch existing songs sync info (ID and dateModified)
+            // 2. Scan external MediaStore via ContentResolver with strict music filters
+            val scanOutput = scanner.scanAudioFiles(
+                excludedFolderPatterns = excludedFolders,
+                hiddenSongIds = hiddenIds,
+                hiddenContentUris = hiddenUris
+            )
+
+            // 3. Fetch existing songs sync info (ID and dateModified)
             val existingList = songDao.getAllSongSyncInfo()
             val existingMap = existingList.associate { it.id to it.dateModified }
 
@@ -94,17 +105,65 @@ class SongRepositoryImpl @Inject constructor(
                 if (diff.toDeleteIds.isNotEmpty()) {
                     songDao.deleteSongsByIds(diff.toDeleteIds)
                 }
-                if (diff.toInsert.isNotEmpty()) {
-                    songDao.insertSongs(diff.toInsert)
-                }
-                if (diff.toUpdate.isNotEmpty()) {
-                    songDao.updateSongs(diff.toUpdate)
+
+                // For newly inserted songs, resolve or create canonical persistent artists
+                val preparedInserts = diff.toInsert.map { song ->
+                    val norm = com.auralis.app.core.util.ArtistNameNormalizer.normalize(song.artistName)
+                    val existingArtist = if (norm.isNotEmpty()) artistDao.findArtistByNormalizedName(norm) else null
+                    val targetArtistId = if (existingArtist != null) {
+                        existingArtist.id
+                    } else if (norm.isNotEmpty()) {
+                        val clean = com.auralis.app.core.util.ArtistNameNormalizer.cleanDisplayName(song.artistName)
+                        val now = System.currentTimeMillis()
+                        val newEntity = com.auralis.app.data.local.db.entity.ArtistEntity(
+                            name = clean,
+                            normalizedName = norm,
+                            albumCount = 0,
+                            songCount = 0,
+                            createdAt = now,
+                            updatedAt = now
+                        )
+                        artistDao.insertArtist(newEntity)
+                    } else {
+                        null
+                    }
+                    val targetName = existingArtist?.name ?: com.auralis.app.core.util.ArtistNameNormalizer.cleanDisplayName(song.artistName)
+                    song.copy(artistId = targetArtistId, artistName = targetName)
                 }
 
-                // Synchronize aggregated album, artist, and genre groupings
+                if (preparedInserts.isNotEmpty()) {
+                    songDao.insertSongs(preparedInserts)
+                }
+
+                // For updated songs, preserve user-assigned artistId and artistName
+                if (diff.toUpdate.isNotEmpty()) {
+                    val existingEntities = songDao.getAllSongsList().associateBy { it.id }
+                    val preparedUpdates = diff.toUpdate.map { scannedSong ->
+                        val existing = existingEntities[scannedSong.id]
+                        if (existing != null && existing.artistId != null) {
+                            scannedSong.copy(
+                                artistId = existing.artistId,
+                                artistName = existing.artistName
+                            )
+                        } else {
+                            val norm = com.auralis.app.core.util.ArtistNameNormalizer.normalize(scannedSong.artistName)
+                            val existingArtist = if (norm.isNotEmpty()) artistDao.findArtistByNormalizedName(norm) else null
+                            if (existingArtist != null) {
+                                scannedSong.copy(artistId = existingArtist.id, artistName = existingArtist.name)
+                            } else {
+                                scannedSong
+                            }
+                        }
+                    }
+                    songDao.updateSongs(preparedUpdates)
+                }
+
+                // Synchronize aggregated album and genre groupings
                 albumDao.syncAlbums(scanOutput.albums)
-                artistDao.syncArtists(scanOutput.artists)
                 genreDao.syncGenres(scanOutput.genres)
+
+                // Recalculate artist counts without destroying persistent profiles
+                artistDao.recalculateAllArtistCounts()
             }
 
             // 5. Ensure newly discovered songs have permanent default covers assigned
@@ -154,7 +213,8 @@ class SongRepositoryImpl @Inject constructor(
         composer: String?,
         year: Int?,
         trackNumber: Int?,
-        discNumber: Int?
+        discNumber: Int?,
+        artistId: Long?
     ): Result<Unit> = withContext(ioDispatcher) {
         try {
             // Defensive input validation and length bounding
@@ -179,12 +239,34 @@ class SongRepositoryImpl @Inject constructor(
             val entity = songDao.getAllSongsList().find { it.id == songId }
                 ?: return@withContext Result.failure(IllegalArgumentException("Song with ID $songId not found"))
 
+            // Resolve target persistent artist identity
+            val targetArtist = if (artistId != null) {
+                artistDao.findArtistById(artistId)
+            } else {
+                val norm = com.auralis.app.core.util.ArtistNameNormalizer.normalize(clean.artist)
+                val existing = if (norm.isNotEmpty()) artistDao.findArtistByNormalizedName(norm) else null
+                if (existing != null) {
+                    existing
+                } else if (norm.isNotEmpty()) {
+                    val newEntity = com.auralis.app.data.local.db.entity.ArtistEntity(
+                        name = com.auralis.app.core.util.ArtistNameNormalizer.cleanDisplayName(clean.artist),
+                        normalizedName = norm
+                    )
+                    val id = artistDao.insertArtist(newEntity)
+                    artistDao.findArtistById(id) ?: newEntity.copy(id = id)
+                } else null
+            }
+
+            val finalArtistId = targetArtist?.id ?: entity.artistId
+            val finalArtistName = targetArtist?.name ?: clean.artist
+            val oldArtistId = entity.artistId
+
             // Safely attempt to update MediaStore record
             try {
                 val uri = Uri.parse(entity.contentUri)
                 val values = ContentValues().apply {
                     put(MediaStore.Audio.Media.TITLE, clean.title)
-                    put(MediaStore.Audio.Media.ARTIST, clean.artist)
+                    put(MediaStore.Audio.Media.ARTIST, finalArtistName)
                     put(MediaStore.Audio.Media.ALBUM, clean.album)
                     if (clean.year != null && clean.year > 0) {
                         put(MediaStore.Audio.Media.YEAR, clean.year)
@@ -214,7 +296,8 @@ class SongRepositoryImpl @Inject constructor(
             // Atomically update local Room database so UI and library immediately reflect changes
             val updatedEntity = entity.copy(
                 title = clean.title,
-                artistName = clean.artist,
+                artistId = finalArtistId,
+                artistName = finalArtistName,
                 albumName = clean.album,
                 genreName = clean.genre ?: entity.genreName,
                 year = clean.year ?: entity.year,
@@ -223,9 +306,40 @@ class SongRepositoryImpl @Inject constructor(
                 dateModified = System.currentTimeMillis() / 1000L
             )
             songDao.updateSong(updatedEntity)
+
+            // Recalculate artist counts for affected artists
+            if (oldArtistId != null) {
+                artistDao.recalculateArtistCounts(oldArtistId)
+            }
+            if (finalArtistId != null && finalArtistId != oldArtistId) {
+                artistDao.recalculateArtistCounts(finalArtistId)
+            }
+
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e("SongRepository", "Error updating song metadata: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun reassignSongArtist(songId: Long, newArtistId: Long): Result<Unit> = withContext(ioDispatcher) {
+        try {
+            val targetArtist = artistDao.findArtistById(newArtistId)
+                ?: return@withContext Result.failure(IllegalArgumentException("Target artist not found"))
+            val song = songDao.findSongById(songId)
+                ?: return@withContext Result.failure(IllegalArgumentException("Song with ID $songId not found"))
+
+            val oldArtistId = song.artistId
+            val now = System.currentTimeMillis() / 1000L
+            songDao.updateSongArtist(songId, targetArtist.id, targetArtist.name, now)
+
+            if (oldArtistId != null) {
+                artistDao.recalculateArtistCounts(oldArtistId)
+            }
+            artistDao.recalculateArtistCounts(targetArtist.id)
+
+            Result.success(Unit)
+        } catch (e: Exception) {
             Result.failure(e)
         }
     }
@@ -256,6 +370,82 @@ class SongRepositoryImpl @Inject constructor(
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e("SongRepository", "Error deleting song: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun hideSongFromLibrary(song: Song): Result<Unit> = withContext(ioDispatcher) {
+        try {
+            val songEntity = songDao.findSongById(song.id)
+            val entity = com.auralis.app.data.local.db.entity.HiddenAudioEntity(
+                id = song.id,
+                contentUri = song.contentUri,
+                title = song.title,
+                artistName = song.artistName,
+                albumName = song.albumName,
+                duration = song.duration,
+                filePath = songEntity?.filePath,
+                albumArtUri = song.albumArtUri
+            )
+            database.withTransaction {
+                hiddenAudioDao.insertHiddenAudio(entity)
+                songDao.deleteSongById(song.id)
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("SongRepository", "Error hiding song: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun restoreHiddenAudio(id: Long): Result<Unit> = withContext(ioDispatcher) {
+        try {
+            hiddenAudioDao.deleteHiddenAudio(id)
+            scanLibrary()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("SongRepository", "Error restoring hidden audio: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    override fun getHiddenAudio(): Flow<List<com.auralis.app.data.local.db.entity.HiddenAudioEntity>> =
+        hiddenAudioDao.getAllHiddenAudio()
+
+    override fun getExcludedFolders(): Flow<List<com.auralis.app.data.local.db.entity.ExcludedFolderEntity>> =
+        excludedFolderDao.getAllExcludedFolders()
+
+    override suspend fun toggleExcludedFolder(id: Long, isEnabled: Boolean) = withContext(ioDispatcher) {
+        excludedFolderDao.toggleFolder(id, isEnabled)
+        scanLibrary()
+        Unit
+    }
+
+    override suspend fun addExcludedFolder(folderName: String, folderPath: String): Result<Unit> = withContext(ioDispatcher) {
+        try {
+            excludedFolderDao.insertExcludedFolder(
+                com.auralis.app.data.local.db.entity.ExcludedFolderEntity(
+                    folderName = folderName,
+                    folderPath = folderPath,
+                    isEnabled = true,
+                    isDefault = false
+                )
+            )
+            scanLibrary()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("SongRepository", "Error adding excluded folder: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun deleteExcludedFolder(id: Long): Result<Unit> = withContext(ioDispatcher) {
+        try {
+            excludedFolderDao.deleteExcludedFolder(id)
+            scanLibrary()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("SongRepository", "Error deleting excluded folder: ${e.message}", e)
             Result.failure(e)
         }
     }

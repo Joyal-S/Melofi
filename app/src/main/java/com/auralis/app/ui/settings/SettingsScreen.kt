@@ -78,12 +78,15 @@ fun SettingsScreen(
 ) {
     var showAudioEffectsScreen by remember { mutableStateOf(false) }
     var showLoFiReverbScreen by remember { mutableStateOf(false) }
+    var showMusicSourcesScreen by remember { mutableStateOf(false) }
+    var showHiddenAudioScreen by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = showLoFiReverbScreen || showAudioEffectsScreen) {
-        if (showLoFiReverbScreen) {
-            showLoFiReverbScreen = false
-        } else {
-            showAudioEffectsScreen = false
+    BackHandler(enabled = showLoFiReverbScreen || showAudioEffectsScreen || showMusicSourcesScreen || showHiddenAudioScreen) {
+        when {
+            showLoFiReverbScreen -> showLoFiReverbScreen = false
+            showAudioEffectsScreen -> showAudioEffectsScreen = false
+            showMusicSourcesScreen -> showMusicSourcesScreen = false
+            showHiddenAudioScreen -> showHiddenAudioScreen = false
         }
     }
 
@@ -98,6 +101,18 @@ fun SettingsScreen(
             viewModel = audioViewModel,
             onNavigateToLoFiReverb = { showLoFiReverbScreen = true },
             onBackClick = { showAudioEffectsScreen = false },
+            modifier = modifier.fillMaxSize()
+        )
+    } else if (showMusicSourcesScreen) {
+        MusicSourcesScreen(
+            viewModel = settingsViewModel,
+            onBackClick = { showMusicSourcesScreen = false },
+            modifier = modifier.fillMaxSize()
+        )
+    } else if (showHiddenAudioScreen) {
+        HiddenAudioScreen(
+            viewModel = settingsViewModel,
+            onBackClick = { showHiddenAudioScreen = false },
             modifier = modifier.fillMaxSize()
         )
     } else {
@@ -121,6 +136,8 @@ fun SettingsScreen(
                 audioViewModel = audioViewModel,
                 onNavigateToAudioEffects = { showAudioEffectsScreen = true },
                 onNavigateToLoFiReverb = { showLoFiReverbScreen = true },
+                onNavigateToMusicSources = { showMusicSourcesScreen = true },
+                onNavigateToHiddenAudio = { showHiddenAudioScreen = true },
                 onNavigateToStatistics = onNavigateToStatistics,
                 modifier = Modifier
                     .fillMaxSize()
@@ -137,11 +154,14 @@ private fun SettingsMainContent(
     audioViewModel: AudioSettingsViewModel,
     onNavigateToAudioEffects: () -> Unit,
     onNavigateToLoFiReverb: () -> Unit,
+    onNavigateToMusicSources: () -> Unit,
+    onNavigateToHiddenAudio: () -> Unit,
     onNavigateToStatistics: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val preferences by settingsViewModel.preferences.collectAsStateWithLifecycle()
     val audioUiState by audioViewModel.uiState.collectAsStateWithLifecycle()
+    val hiddenAudioList by settingsViewModel.hiddenAudioList.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -524,7 +544,124 @@ private fun SettingsMainContent(
 
         Spacer(modifier = Modifier.height(MelofySpacing.xs))
 
-        // 3. LIBRARY DEFAULTS
+        // 3. MUSIC LIBRARY & SOURCES
+        SettingsSectionHeader(title = "Music Library & Sources")
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MelofyShapes.card,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            elevation = CardDefaults.cardElevation(defaultElevation = MelofyElevation.low)
+        ) {
+            Column(modifier = Modifier.padding(MelofySpacing.lg)) {
+                // Music Sources & Folders
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onNavigateToMusicSources() }
+                        .padding(vertical = MelofySpacing.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_folder),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(MelofySpacing.md))
+                        Column {
+                            Text(
+                                text = "Music Sources & Folders",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "Folder exclusions, system audio & WhatsApp filtering",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Icon(
+                        painter = painterResource(R.drawable.ic_chevron_right),
+                        contentDescription = "Open Music Sources",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(MelofySpacing.md))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Spacer(modifier = Modifier.height(MelofySpacing.md))
+
+                // Hidden Audio Row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onNavigateToHiddenAudio() }
+                        .padding(vertical = MelofySpacing.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_music_placeholder),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(MelofySpacing.md))
+                        Column {
+                            Text(
+                                text = "Hidden from Music Library",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = if (hiddenAudioList.isEmpty()) "No hidden tracks" else "${hiddenAudioList.size} hidden track${if (hiddenAudioList.size > 1) "s" else ""} • Review & restore",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Icon(
+                        painter = painterResource(R.drawable.ic_chevron_right),
+                        contentDescription = "Open Hidden Audio",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(MelofySpacing.xs))
+
+        // 4. LIBRARY DEFAULTS
         SettingsSectionHeader(title = "Library Defaults")
         Card(
             modifier = Modifier.fillMaxWidth(),

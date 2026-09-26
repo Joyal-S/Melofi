@@ -183,9 +183,13 @@ fun SongDetailsScreen(
                     }
                 }
 
+                val allArtists by viewModel.allArtists.collectAsStateWithLifecycle()
+
                 if (showEditDialog) {
                     EditMetadataDialog(
                         songDetails = details,
+                        availableArtists = allArtists,
+                        onCreateNewArtist = { viewModel.createArtist(it) },
                         onDismiss = { showEditDialog = false },
                         onSave = { updated ->
                             showEditDialog = false
@@ -264,7 +268,7 @@ fun SongDetailsScreen(
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = if (onArtistClick != null) {
                                     Modifier.clickable {
-                                        onArtistClick.invoke(null, details.basicInfo.artist)
+                                        onArtistClick.invoke(details.basicInfo.artistId, details.basicInfo.artist)
                                     }
                                 } else Modifier
                             )

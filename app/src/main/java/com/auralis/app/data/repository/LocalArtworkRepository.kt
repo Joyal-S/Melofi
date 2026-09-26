@@ -125,7 +125,7 @@ class LocalArtworkRepository @Inject constructor(
         if (path != null) {
             val file = File(path)
             if (file.exists() && file.length() > 0) {
-                return Uri.fromFile(file).toString()
+                return Uri.fromFile(file).buildUpon().appendQueryParameter("v", file.lastModified().toString()).build().toString()
             } else {
                 overrideCache.remove("${entityType.name}_$entityKey")
             }
@@ -133,7 +133,7 @@ class LocalArtworkRepository @Inject constructor(
         val diskFile = getCustomArtworkFile(entityType, entityKey)
         if (diskFile.exists() && diskFile.length() > 0) {
             overrideCache["${entityType.name}_$entityKey"] = diskFile.absolutePath
-            return Uri.fromFile(diskFile).toString()
+            return Uri.fromFile(diskFile).buildUpon().appendQueryParameter("v", diskFile.lastModified().toString()).build().toString()
         }
         return null
     }
@@ -173,9 +173,7 @@ class LocalArtworkRepository @Inject constructor(
         val cached = defaultCoverCache[songId]
         if (cached != null) return cached
 
-        val (fileName, index) = MelofiDefaultCovers.pickCover(songId, lastAssignedIndex)
-        lastAssignedIndex = index
-
+        val fileName = MelofiDefaultCovers.selectCover(songId)
         ensureCoverUnpacked(fileName)
         val file = File(defaultCoversDir, fileName)
         val uriStr = Uri.fromFile(file).toString()
@@ -559,7 +557,7 @@ class LocalArtworkRepository @Inject constructor(
                 invalidatePlaylistCollage(entityKey.toLongOrNull() ?: 0L)
             }
 
-            Result.success(Uri.fromFile(destination).toString())
+            Result.success(Uri.fromFile(destination).buildUpon().appendQueryParameter("v", destination.lastModified().toString()).build().toString())
         } catch (e: Exception) {
             if (tempImportFile.exists()) {
                 tempImportFile.delete()

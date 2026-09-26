@@ -29,6 +29,13 @@ data class MediaStoreScanOutput(
  *
  * Adheres to Scoped Storage (API 29+), reads stable content URIs, normalizes all metadata,
  * isolates corrupt records, and derives album, artist, and genre groupings.
+ *
+ * Implements strict Music Library Filtering:
+ * - Prefers [MediaStore.Audio.Media.IS_MUSIC] != 0.
+ * - Excludes non-music classifications: recordings, notifications, ringtones, alarms, podcasts, audiobooks.
+ * - Enforces user-configured folder exclusions (e.g. Recordings/, Notifications/).
+ * - Respects user-hidden audio records.
+ * - Always preserves deliberately user-imported music in Music/Melofy/.
  */
 @Singleton
 class MediaStoreAudioScanner @Inject constructor(
@@ -38,13 +45,74 @@ class MediaStoreAudioScanner @Inject constructor(
     companion object {
         private const val TAG = "MediaStoreScanner"
         private const val MIN_DURATION_MS = 1000L // Exclude short notification/click sounds
+
+        /**
+         * Pure functional validation of whether an audio track is eligible for the Music Library.
+         */
+        fun isEligibleAudioTrack(
+            id: Long,
+            contentUri: String,
+            rawPath: String?,
+            rawRelativePath: String?,
+            isMusic: Boolean = true,
+            isRingtone: Boolean = false,
+            isNotification: Boolean = false,
+            isAlarm: Boolean = false,
+            isPodcast: Boolean = false,
+            isAudiobook: Boolean = false,
+            isRecording: Boolean = false,
+            excludedFolderPatterns: List<String> = emptyList(),
+            hiddenSongIds: Set<Long> = emptySet(),
+            hiddenContentUris: Set<String> = emptySet()
+        ): Boolean {
+            // 1. Enforce user-hidden audio exclusion
+            if (hiddenSongIds.contains(id) || hiddenContentUris.contains(contentUri)) {
+                return false
+            }
+
+            // 2. Identify explicit user imports (deliberate user additions into Melofi directory)
+            val isUserImported = (rawRelativePath?.contains("Music/Melofy", ignoreCase = true) == true) ||
+                    (rawPath?.contains("/Music/Melofy/", ignoreCase = true) == true)
+
+            if (!isUserImported) {
+                // 3. Primary Classification Filter
+                if (!isMusic || isRingtone || isNotification || isAlarm || isPodcast || isAudiobook || isRecording) {
+                    return false
+                }
+
+                // 4. Folder-based Exclusions
+                if (excludedFolderPatterns.isNotEmpty()) {
+                    val isFolderExcluded = excludedFolderPatterns.any { pattern ->
+                        val clean = pattern.trim().trim('/')
+                        if (clean.isBlank()) false
+                        else {
+                            (rawPath != null && (rawPath.contains("/$clean/", ignoreCase = true) || rawPath.contains("/$clean", ignoreCase = true))) ||
+                            (rawRelativePath != null && rawRelativePath.contains(clean, ignoreCase = true))
+                        }
+                    }
+                    if (isFolderExcluded) {
+                        return false
+                    }
+                }
+            }
+
+            return true
+        }
     }
 
     /**
      * Queries MediaStore for all valid music tracks on the device.
-     * Returns empty output on permission failure or query error without throwing.
+     *
+     * @param excludedFolderPatterns List of folder names/patterns to exclude (e.g. "Recordings", "Notifications").
+     * @param hiddenSongIds Set of MediaStore song IDs explicitly hidden by user.
+     * @param hiddenContentUris Set of content URIs explicitly hidden by user.
+     * @return [MediaStoreScanOutput] containing filtered music tracks and derived aggregations.
      */
-    fun scanAudioFiles(): MediaStoreScanOutput {
+    fun scanAudioFiles(
+        excludedFolderPatterns: List<String> = emptyList(),
+        hiddenSongIds: Set<Long> = emptySet(),
+        hiddenContentUris: Set<String> = emptySet()
+    ): MediaStoreScanOutput {
         val resolver: ContentResolver = context.contentResolver
         val songs = mutableListOf<SongEntity>()
 
@@ -63,13 +131,29 @@ class MediaStoreAudioScanner @Inject constructor(
             MediaStore.Audio.Media.MIME_TYPE,
             MediaStore.Audio.Media.DATE_ADDED,
             MediaStore.Audio.Media.DATE_MODIFIED,
-            MediaStore.Audio.Media.DATA
+            MediaStore.Audio.Media.DATA,
+            MediaStore.Audio.Media.IS_MUSIC,
+            MediaStore.Audio.Media.IS_RINGTONE,
+            MediaStore.Audio.Media.IS_NOTIFICATION,
+            MediaStore.Audio.Media.IS_ALARM,
+            MediaStore.Audio.Media.IS_PODCAST
         )
 
-        // Add API 30+ columns conditionally
+        // API 29+ (Android 10+) columns
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            projectionList.add(MediaStore.Audio.AudioColumns.IS_AUDIOBOOK)
+            projectionList.add(MediaStore.Audio.Media.RELATIVE_PATH)
+        }
+
+        // API 30+ (Android 11+) columns
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             projectionList.add(MediaStore.Audio.AudioColumns.GENRE)
             projectionList.add(MediaStore.Audio.AudioColumns.BITRATE)
+        }
+
+        // API 31+ (Android 12+) columns
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            projectionList.add(MediaStore.Audio.AudioColumns.IS_RECORDING)
         }
 
         val projection = projectionList.toTypedArray()
@@ -87,7 +171,13 @@ class MediaStoreAudioScanner @Inject constructor(
             ) ?: throw IllegalStateException("MediaStore ContentResolver query returned null cursor")
 
             cursor.use {
-                parseCursor(it, songs)
+                parseCursor(
+                    cursor = it,
+                    destination = songs,
+                    excludedFolderPatterns = excludedFolderPatterns,
+                    hiddenSongIds = hiddenSongIds,
+                    hiddenContentUris = hiddenContentUris
+                )
             }
         } catch (e: SecurityException) {
             Log.w(TAG, "Permission denied when accessing MediaStore: ${e.message}")
@@ -97,7 +187,7 @@ class MediaStoreAudioScanner @Inject constructor(
             throw e
         }
 
-        // Derive albums, artists, genres from the successfully scanned songs
+        // Derive albums, artists, genres from the successfully scanned music songs
         val albums = LibraryAggregator.aggregateAlbums(songs)
         val artists = LibraryAggregator.aggregateArtists(songs)
         val genres = LibraryAggregator.aggregateGenres(songs)
@@ -110,7 +200,13 @@ class MediaStoreAudioScanner @Inject constructor(
         )
     }
 
-    private fun parseCursor(cursor: Cursor, destination: MutableList<SongEntity>) {
+    private fun parseCursor(
+        cursor: Cursor,
+        destination: MutableList<SongEntity>,
+        excludedFolderPatterns: List<String>,
+        hiddenSongIds: Set<Long>,
+        hiddenContentUris: Set<String>
+    ) {
         val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
         val titleCol = cursor.getColumnIndex(MediaStore.Audio.Media.TITLE)
         val displayCol = cursor.getColumnIndex(MediaStore.Audio.Media.DISPLAY_NAME)
@@ -126,6 +222,16 @@ class MediaStoreAudioScanner @Inject constructor(
         val dateAddedCol = cursor.getColumnIndex(MediaStore.Audio.Media.DATE_ADDED)
         val dateModCol = cursor.getColumnIndex(MediaStore.Audio.Media.DATE_MODIFIED)
         val dataCol = cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
+        val relativePathCol = cursor.getColumnIndex("relative_path")
+
+        // Classification columns
+        val isMusicCol = cursor.getColumnIndex(MediaStore.Audio.Media.IS_MUSIC)
+        val isRingtoneCol = cursor.getColumnIndex(MediaStore.Audio.Media.IS_RINGTONE)
+        val isNotificationCol = cursor.getColumnIndex(MediaStore.Audio.Media.IS_NOTIFICATION)
+        val isAlarmCol = cursor.getColumnIndex(MediaStore.Audio.Media.IS_ALARM)
+        val isPodcastCol = cursor.getColumnIndex(MediaStore.Audio.Media.IS_PODCAST)
+        val isAudiobookCol = cursor.getColumnIndex("is_audiobook")
+        val isRecordingCol = cursor.getColumnIndex("is_recording")
 
         val genreCol = cursor.getColumnIndex("genre")
         val bitrateCol = cursor.getColumnIndex("bitrate")
@@ -134,6 +240,37 @@ class MediaStoreAudioScanner @Inject constructor(
             try {
                 val id = cursor.getLong(idCol)
                 if (id <= 0) continue
+
+                val contentUri = AudioMetadataNormalizer.buildContentUri(id)
+                val rawPath = if (dataCol != -1) cursor.getString(dataCol) else null
+                val rawRelativePath = if (relativePathCol != -1) cursor.getString(relativePathCol) else null
+
+                val isMusic = if (isMusicCol != -1 && !cursor.isNull(isMusicCol)) cursor.getInt(isMusicCol) != 0 else true
+                val isRingtone = if (isRingtoneCol != -1 && !cursor.isNull(isRingtoneCol)) cursor.getInt(isRingtoneCol) != 0 else false
+                val isNotification = if (isNotificationCol != -1 && !cursor.isNull(isNotificationCol)) cursor.getInt(isNotificationCol) != 0 else false
+                val isAlarm = if (isAlarmCol != -1 && !cursor.isNull(isAlarmCol)) cursor.getInt(isAlarmCol) != 0 else false
+                val isPodcast = if (isPodcastCol != -1 && !cursor.isNull(isPodcastCol)) cursor.getInt(isPodcastCol) != 0 else false
+                val isAudiobook = if (isAudiobookCol != -1 && !cursor.isNull(isAudiobookCol)) cursor.getInt(isAudiobookCol) != 0 else false
+                val isRecording = if (isRecordingCol != -1 && !cursor.isNull(isRecordingCol)) cursor.getInt(isRecordingCol) != 0 else false
+
+                if (!isEligibleAudioTrack(
+                    id = id,
+                    contentUri = contentUri,
+                    rawPath = rawPath,
+                    rawRelativePath = rawRelativePath,
+                    isMusic = isMusic,
+                    isRingtone = isRingtone,
+                    isNotification = isNotification,
+                    isAlarm = isAlarm,
+                    isPodcast = isPodcast,
+                    isAudiobook = isAudiobook,
+                    isRecording = isRecording,
+                    excludedFolderPatterns = excludedFolderPatterns,
+                    hiddenSongIds = hiddenSongIds,
+                    hiddenContentUris = hiddenContentUris
+                )) {
+                    continue
+                }
 
                 val rawTitle = if (titleCol != -1) cursor.getString(titleCol) else null
                 val rawDisplayName = if (displayCol != -1) cursor.getString(displayCol) else null
@@ -148,7 +285,6 @@ class MediaStoreAudioScanner @Inject constructor(
                 val rawMimeType = if (mimeCol != -1) cursor.getString(mimeCol) else null
                 val rawDateAdded = if (dateAddedCol != -1 && !cursor.isNull(dateAddedCol)) cursor.getLong(dateAddedCol) else 0L
                 val rawDateModified = if (dateModCol != -1 && !cursor.isNull(dateModCol)) cursor.getLong(dateModCol) else 0L
-                val rawPath = if (dataCol != -1) cursor.getString(dataCol) else null
 
                 val rawGenre = if (genreCol != -1) cursor.getString(genreCol) else null
                 val rawBitrate = if (bitrateCol != -1 && !cursor.isNull(bitrateCol)) cursor.getInt(bitrateCol) else null
@@ -159,7 +295,6 @@ class MediaStoreAudioScanner @Inject constructor(
                 val genre = AudioMetadataNormalizer.normalizeGenre(rawGenre)
                 val duration = AudioMetadataNormalizer.normalizeDuration(rawDuration)
                 val (discNumber, trackNumber) = AudioMetadataNormalizer.parseTrackAndDiscNumber(rawTrack)
-                val contentUri = AudioMetadataNormalizer.buildContentUri(id)
                 val albumArtUri = AudioMetadataNormalizer.buildAlbumArtUri(rawAlbumId)
 
                 val song = SongEntity(
@@ -194,4 +329,3 @@ class MediaStoreAudioScanner @Inject constructor(
         }
     }
 }
-

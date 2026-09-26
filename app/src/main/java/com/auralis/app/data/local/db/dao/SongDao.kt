@@ -37,11 +37,26 @@ interface SongDao {
     @Query("SELECT * FROM songs WHERE id = :id")
     fun getSongById(id: Long): Flow<SongEntity?>
 
+    @Query("SELECT * FROM songs WHERE id = :id LIMIT 1")
+    suspend fun findSongById(id: Long): SongEntity?
+
     @Query("SELECT * FROM songs WHERE (albumId IS NOT NULL AND albumId = :albumId) OR albumName = :albumName ORDER BY trackNumber ASC, title COLLATE NOCASE ASC")
     fun getSongsByAlbum(albumId: Long, albumName: String): Flow<List<SongEntity>>
 
-    @Query("SELECT * FROM songs WHERE (artistId IS NOT NULL AND artistId = :artistId) OR artistName = :artistName ORDER BY year DESC, albumName COLLATE NOCASE ASC, trackNumber ASC, title COLLATE NOCASE ASC")
+    @Query("SELECT * FROM songs WHERE (artistId IS NOT NULL AND artistId = :artistId) OR (artistId IS NULL AND (artistName = :artistName OR (:originalName IS NOT NULL AND artistName = :originalName))) ORDER BY year DESC, albumName COLLATE NOCASE ASC, trackNumber ASC, title COLLATE NOCASE ASC")
+    fun getSongsByArtistWithOriginal(artistId: Long, artistName: String, originalName: String?): Flow<List<SongEntity>>
+
+    @Query("SELECT * FROM songs WHERE artistId = :artistId ORDER BY year DESC, albumName COLLATE NOCASE ASC, trackNumber ASC, title COLLATE NOCASE ASC")
+    fun getSongsByArtistId(artistId: Long): Flow<List<SongEntity>>
+
+    @Query("SELECT * FROM songs WHERE (artistId IS NOT NULL AND artistId = :artistId) OR (artistId IS NULL AND artistName = :artistName) ORDER BY year DESC, albumName COLLATE NOCASE ASC, trackNumber ASC, title COLLATE NOCASE ASC")
     fun getSongsByArtist(artistId: Long, artistName: String): Flow<List<SongEntity>>
+
+    @Query("UPDATE songs SET artistId = :targetArtistId, artistName = :targetArtistName WHERE artistId = :sourceArtistId")
+    suspend fun reassignSongsArtist(sourceArtistId: Long, targetArtistId: Long, targetArtistName: String): Int
+
+    @Query("UPDATE songs SET artistId = :artistId, artistName = :artistName, dateModified = :dateModified WHERE id = :songId")
+    suspend fun updateSongArtist(songId: Long, artistId: Long, artistName: String, dateModified: Long): Int
 
     @Query("SELECT * FROM songs WHERE genreName = :genreName ORDER BY artistName COLLATE NOCASE ASC, title COLLATE NOCASE ASC")
     fun getSongsByGenre(genreName: String): Flow<List<SongEntity>>

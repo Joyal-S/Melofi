@@ -322,6 +322,13 @@ class SongsViewModel @Inject constructor(
         }
     }
 
+    fun hideSong(song: Song, onComplete: (() -> Unit)? = null) {
+        viewModelScope.launch {
+            songRepository.hideSongFromLibrary(song)
+            onComplete?.invoke()
+        }
+    }
+
     fun setCustomArtwork(entityType: com.auralis.app.domain.model.ArtworkEntityType, entityKey: String, uri: android.net.Uri) {
         viewModelScope.launch {
             localArtworkRepository.setCustomArtwork(entityType, entityKey, uri)

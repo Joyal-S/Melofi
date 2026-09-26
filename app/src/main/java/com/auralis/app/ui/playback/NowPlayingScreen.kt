@@ -500,18 +500,13 @@ fun NowPlayingScreen(
 
                         Spacer(modifier = Modifier.width(MelofySpacing.xl))
 
-                        // Central Play/Pause Button with ambient accent glow & rotating morph
+                        // Central Play/Pause Button with ambient accent glow & stable icon morph
                         val playPauseInteraction = remember { MutableInteractionSource() }
                         val isPlayPausePressed by playPauseInteraction.collectIsPressedAsState()
                         val playPauseScale by animateFloatAsState(
-                            targetValue = if (isPlayPausePressed && animationMode != MelofyAnimationMode.OFF) 0.93f else 1.0f,
+                            targetValue = if (isPlayPausePressed && animationMode != MelofyAnimationMode.OFF) 0.97f else 1.0f,
                             animationSpec = MelofyMotion.springSubtle(),
                             label = "playPauseTactile"
-                        )
-                        val playPauseRotation by animateFloatAsState(
-                            targetValue = if (playbackState.isPlaying) 0f else -90f,
-                            animationSpec = MelofyMotion.springBouncy(),
-                            label = "nowPlayingPlayPauseRotation"
                         )
 
                         FilledIconButton(
@@ -739,7 +734,7 @@ private fun TactileIconButton(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed && animationMode != MelofyAnimationMode.OFF) 0.91f else 1.0f,
+        targetValue = if (isPressed && animationMode != MelofyAnimationMode.OFF) 0.97f else 1.0f,
         animationSpec = MelofyMotion.springSubtle(),
         label = "tactileScale"
     )
