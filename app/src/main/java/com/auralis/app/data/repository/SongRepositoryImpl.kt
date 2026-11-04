@@ -105,9 +105,11 @@ class SongRepositoryImpl @Inject constructor(
             for (folder in importedFolders) {
                 val treeUri = android.net.Uri.parse(folder.treeUri)
                 val hasPermission = try {
-                    context.contentResolver.persistedUriPermissions.any {
-                        it.uri.toString() == folder.treeUri && it.isReadPermission
-                    }
+                    val doc = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, treeUri)
+                    (doc != null && doc.exists() && doc.canRead()) ||
+                        context.contentResolver.persistedUriPermissions.any {
+                            it.uri.toString() == folder.treeUri && it.isReadPermission
+                        }
                 } catch (e: Exception) {
                     false
                 }
@@ -127,7 +129,9 @@ class SongRepositoryImpl @Inject constructor(
                 try {
                     val folderSongs = safAudioScanner.scanTree(treeUri)
                     for (song in folderSongs) {
-                        if (!SafAudioScanner.isDuplicateOfExisting(song, scanOutput.songs)) {
+                        if (!SafAudioScanner.isDuplicateOfExisting(song, scanOutput.songs) &&
+                            !SafAudioScanner.isDuplicateOfExisting(song, safSongs)
+                        ) {
                             safSongs.add(song)
                         }
                     }

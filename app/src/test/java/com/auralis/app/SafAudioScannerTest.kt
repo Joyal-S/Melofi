@@ -106,6 +106,45 @@ class SafAudioScannerTest {
         assertFalse(SafAudioScanner.isDuplicateOfExisting(candidate, existing))
     }
 
+    @Test
+    fun isDuplicateOfExisting_intraBatchDuplicates_prevented() {
+        val song1 = createTestSongEntity(1L, "Track A", "Artist X", "content://saf/doc/1", 5000000L, 180000L)
+        val song1Copy = createTestSongEntity(2L, "Track A", "Artist X", "content://saf/doc/sub/1", 5000000L, 180000L)
+
+        val batch = mutableListOf<SongEntity>()
+        batch.add(song1)
+
+        // Same song in a subfolder with matching metadata must be identified as duplicate
+        assertTrue(SafAudioScanner.isDuplicateOfExisting(song1Copy, batch))
+    }
+
+    @Test
+    fun getMimeTypeFromExtension_coversAllSupportedFormats() {
+        assertEquals("audio/mpeg", SafAudioScanner.getMimeTypeFromExtension("mp3"))
+        assertEquals("audio/flac", SafAudioScanner.getMimeTypeFromExtension("flac"))
+        assertEquals("audio/wav", SafAudioScanner.getMimeTypeFromExtension("wav"))
+        assertEquals("audio/aac", SafAudioScanner.getMimeTypeFromExtension("aac"))
+        assertEquals("audio/mp4", SafAudioScanner.getMimeTypeFromExtension("m4a"))
+        assertEquals("audio/ogg", SafAudioScanner.getMimeTypeFromExtension("ogg"))
+        assertEquals("audio/opus", SafAudioScanner.getMimeTypeFromExtension("opus"))
+        assertEquals("audio/alac", SafAudioScanner.getMimeTypeFromExtension("alac"))
+    }
+
+    @Test
+    fun folderRescan_generatesSameIdForSameDocumentUri() {
+        val docUri = "content://com.android.externalstorage.documents/tree/primary%3AMusic/document/primary%3AMusic%2FSongs%2Ftrack.flac"
+        val id1 = SafAudioScanner.generateSafSongId(docUri)
+        val id2 = SafAudioScanner.generateSafSongId(docUri)
+
+        assertEquals("Rescan must yield identical ID to prevent duplicate records", id1, id2)
+    }
+
+    @Test
+    fun isDuplicateOfExisting_emptyExistingList_returnsFalse() {
+        val candidate = createTestSongEntity(1L, "Song", "Artist", "content://saf/1", 1000L, 100000L)
+        assertFalse(SafAudioScanner.isDuplicateOfExisting(candidate, emptyList()))
+    }
+
     private fun createTestSongEntity(
         id: Long,
         title: String,

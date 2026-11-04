@@ -52,7 +52,8 @@ class MelofyDspAudioProcessor(
 
         val totalSamples = remainingBytes / 2
         if (workBuffer.size < totalSamples) {
-            workBuffer = FloatArray(totalSamples)
+            val newCapacity = maxOf(totalSamples, workBuffer.size * 2)
+            workBuffer = FloatArray(newCapacity)
         }
 
         val channelCount = inputAudioFormat.channelCount
@@ -79,7 +80,8 @@ class MelofyDspAudioProcessor(
         val outputBuffer = replaceOutputBuffer(remainingBytes)
         outputBuffer.order(ByteOrder.LITTLE_ENDIAN)
         for (i in 0 until totalSamples) {
-            val sample = workBuffer[i].coerceIn(-1.0f, 1.0f)
+            val raw = workBuffer[i]
+            val sample = if (raw.isNaN() || raw.isInfinite()) 0.0f else raw.coerceIn(-1.0f, 1.0f)
             val shortVal = (sample * 32767.0f).toInt().toShort()
             outputBuffer.putShort(shortVal)
         }

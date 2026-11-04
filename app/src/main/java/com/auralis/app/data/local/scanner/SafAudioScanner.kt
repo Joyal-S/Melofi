@@ -6,6 +6,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.util.Log
+import androidx.documentfile.provider.DocumentFile
 import com.auralis.app.data.local.db.entity.SongEntity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
@@ -20,7 +21,7 @@ import kotlin.math.abs
 /**
  * Robust, recursive Android Storage Access Framework (SAF) folder scanner for local audio files.
  *
- * Traverses document trees via ContentResolver and DocumentsContract without converting URIs
+ * Traverses document trees via DocumentFile and ContentResolver without converting URIs
  * to fake filesystem paths. Handles nested directories, empty folders, permission anomalies,
  * and unsupported files safely.
  *
@@ -110,74 +111,74 @@ class SafAudioScanner @Inject constructor(
     )
 
     /**
-     * Recursively traverses a document tree URI and returns all valid, supported audio files.
+     * Recursively traverses a document tree URI via DocumentFile and ContentResolver
+     * and returns all valid, supported audio files.
      */
     suspend fun scanTree(
         treeUri: Uri,
         onProgress: ((current: Int, total: Int, currentName: String) -> Unit)? = null
     ): List<SongEntity> = withContext(Dispatchers.IO) {
-        val resolver = context.contentResolver
         val discoveredFiles = mutableListOf<DiscoveredDocument>()
 
-        // 1. Recursive document tree traversal via DocumentsContract
         try {
-            val rootDocId = DocumentsContract.getTreeDocumentId(treeUri)
-            val queue = ArrayDeque<String>()
-            queue.add(rootDocId)
+            val rootDoc = try {
+                DocumentFile.fromTreeUri(context, treeUri)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Cannot create DocumentFile for tree $treeUri: ${e.message}")
+                null
+            }
 
-            val projection = arrayOf(
-                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                DocumentsContract.Document.COLUMN_MIME_TYPE,
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                DocumentsContract.Document.COLUMN_SIZE,
-                DocumentsContract.Document.COLUMN_LAST_MODIFIED
-            )
+            if (rootDoc == null || !rootDoc.exists() || !rootDoc.canRead()) {
+                Log.w(TAG, "Tree root is inaccessible or permission missing: $treeUri")
+                return@withContext emptyList()
+            }
+
+            val queue = ArrayDeque<DocumentFile>()
+            queue.add(rootDoc)
 
             while (queue.isNotEmpty()) {
-                val currentDocId = queue.removeFirst()
-                val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, currentDocId)
+                val currentDir = queue.removeFirst()
+                val children = try {
+                    currentDir.listFiles()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed listing children of directory ${currentDir.uri}: ${e.message}")
+                    emptyArray()
+                }
 
-                try {
-                    resolver.query(childrenUri, projection, null, null, null)?.use { cursor ->
-                        val idIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
-                        val mimeIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
-                        val nameIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
-                        val sizeIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
-                        val modIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
-
-                        while (cursor.moveToNext()) {
-                            val childId = if (idIdx != -1) cursor.getString(idIdx) else null ?: continue
-                            val mime = if (mimeIdx != -1) cursor.getString(mimeIdx) else null
-                            val name = if (nameIdx != -1) cursor.getString(nameIdx) else "audio_file"
-                            val size = if (sizeIdx != -1) cursor.getLong(sizeIdx) else 0L
-                            val modified = if (modIdx != -1) cursor.getLong(modIdx) else 0L
-
-                            if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
-                                queue.add(childId)
-                            } else if (isSupportedAudio(name, mime)) {
-                                val docUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, childId)
+                for (child in children) {
+                    try {
+                        if (child.isDirectory) {
+                            queue.add(child)
+                        } else if (child.isFile) {
+                            val name = child.name ?: "audio_file"
+                            val mime = child.type
+                            if (isSupportedAudio(name, mime)) {
                                 discoveredFiles.add(
                                     DiscoveredDocument(
-                                        documentUri = docUri,
+                                        documentUri = child.uri,
                                         displayName = name,
-                                        sizeBytes = size,
+                                        sizeBytes = child.length(),
                                         mimeType = mime,
-                                        lastModified = modified
+                                        lastModified = child.lastModified()
                                     )
                                 )
                             }
                         }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Error inspecting child document ${child.uri}: ${e.message}")
                     }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed reading subfolder $currentDocId: ${e.message}")
                 }
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.e(TAG, "Error initiating tree traversal for $treeUri: ${e.message}", e)
+            Log.e(TAG, "Error traversing tree $treeUri: ${e.message}", e)
             return@withContext emptyList()
         }
 

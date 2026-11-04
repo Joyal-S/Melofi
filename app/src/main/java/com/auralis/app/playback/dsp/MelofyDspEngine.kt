@@ -34,6 +34,8 @@ class MelofyDspEngine(
         currentParameters = params
     }
 
+    fun getParameters(): DspParameters = currentParameters
+
     /**
      * Activates a predefined [DspPreset] preserving active enabled states.
      */
@@ -133,7 +135,8 @@ class MelofyDspEngine(
             // Mode 4: Both ON (Lo-Fi -> Reverb)
             else -> {
                 if (intermediateBuffer.size < totalSamples) {
-                    intermediateBuffer = FloatArray(totalSamples)
+                    val newCapacity = maxOf(totalSamples, intermediateBuffer.size * 2)
+                    intermediateBuffer = FloatArray(newCapacity)
                 }
 
                 // 1. Process Lo-Fi into preallocated intermediate buffer

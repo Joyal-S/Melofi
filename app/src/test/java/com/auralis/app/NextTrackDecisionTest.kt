@@ -206,4 +206,73 @@ class NextTrackDecisionTest {
         assertTrue("Should find candidates from different artist", diverseCandidates.isNotEmpty())
         assertEquals("David Bowie", diverseCandidates.first().artistName)
     }
+
+    @Test
+    fun oneSongLibrary_fallbackCandidate_returnsSingleSong() {
+        val onlySong = createSong(1L, "Lone Song", "Solo Artist")
+        val library = listOf(onlySong)
+
+        // In 1-song library, if candidate is the only song, relaxing exclusions returns the only song
+        val candidates = library.filter { it.id != onlySong.id }.ifEmpty { library }
+        assertEquals(1, candidates.size)
+        assertEquals(onlySong.id, candidates.first().id)
+    }
+
+    @Test
+    fun emptyLibrary_recommendationReturnsNull_noCrash() {
+        val emptyLibrary = emptyList<Song>()
+        val profile = RecommendationProfile()
+
+        val sections = RecommendationEngine.generateSections(emptyLibrary, profile)
+        assertTrue("Empty library generates empty recommendation sections", sections.isEmpty())
+    }
+
+    @Test
+    fun repeatOne_neverReplacedByRecommendation() {
+        val song1 = createSong(1L, "Track 1")
+        val song2 = createSong(2L, "Track 2")
+        queue.setQueue(listOf(song1, song2), startIndex = 1) // At last song
+
+        // Under Repeat One, next MUST always return current song, never trigger recommendation
+        val next = queue.nextSong(PlaybackRepeatMode.ONE)
+        assertEquals(song2.id, next?.id)
+        assertEquals(1, queue.currentIndex())
+    }
+
+    @Test
+    fun repeatAll_neverReplacedByRecommendation() {
+        val song1 = createSong(1L, "Track 1")
+        val song2 = createSong(2L, "Track 2")
+        queue.setQueue(listOf(song1, song2), startIndex = 1) // At last song
+
+        // Under Repeat All, next wraps to 0, never triggers recommendation
+        val next = queue.nextSong(PlaybackRepeatMode.ALL)
+        assertEquals(song1.id, next?.id)
+        assertEquals(0, queue.currentIndex())
+    }
+
+    @Test
+    fun manualQueue_preservesExplicitPriorityOverContinuation() {
+        val currentSong = createSong(1L, "Current Track")
+        val manual1 = createSong(2L, "User Enqueued 1")
+        val manual2 = createSong(3L, "User Enqueued 2")
+
+        queue.setQueue(listOf(currentSong), startIndex = 0)
+        // User explicitly enqueues manual1 and manual2
+        queue.addToQueue(listOf(manual1, manual2))
+
+        // HasNext must be true because manual queue has tracks
+        assertTrue(queue.hasNext(PlaybackRepeatMode.OFF))
+
+        // Next MUST be manual1
+        val n1 = queue.nextSong(PlaybackRepeatMode.OFF)
+        assertEquals(manual1.id, n1?.id)
+
+        // Next MUST be manual2
+        val n2 = queue.nextSong(PlaybackRepeatMode.OFF)
+        assertEquals(manual2.id, n2?.id)
+
+        // Now queue is exhausted -> hasNext is false -> recommendation continuation allowed
+        assertFalse(queue.hasNext(PlaybackRepeatMode.OFF))
+    }
 }

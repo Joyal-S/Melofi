@@ -186,7 +186,7 @@ class AuralisPlaybackService : MediaSessionService() {
                         p.play()
                         return androidx.media3.session.SessionResult.RESULT_SUCCESS
                     }
-                    // Queue exhausted: delegate to PlaybackController's intelligent next-track logic
+                    // Queue exhausted: delegate to PlaybackController's intelligent continuation
                     playbackController.skipNext()
                     return androidx.media3.session.SessionResult.RESULT_SUCCESS
                 }

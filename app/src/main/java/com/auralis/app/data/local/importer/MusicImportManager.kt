@@ -225,26 +225,44 @@ class MusicImportManager @Inject constructor(
 
                 _importState.value = ImportState.Validating(0, 1)
 
-                var resolvedFolderName: String? = null
-                try {
-                    val docUri = DocumentsContract.buildDocumentUriUsingTree(
-                        treeUri,
-                        DocumentsContract.getTreeDocumentId(treeUri)
+                val rootDoc = try {
+                    androidx.documentfile.provider.DocumentFile.fromTreeUri(context, treeUri)
+                } catch (e: Exception) {
+                    null
+                }
+
+                if (rootDoc == null || !rootDoc.exists() || !rootDoc.canRead()) {
+                    _importState.value = ImportState.Completed(
+                        addedCount = 0,
+                        skippedCount = 0,
+                        failedCount = 0,
+                        message = "Selected folder is not accessible or permission was not granted."
                     )
-                    context.contentResolver.query(
-                        docUri,
-                        arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME),
-                        null, null, null
-                    )?.use { cursor ->
-                        if (cursor.moveToFirst()) {
-                            val colIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
-                            if (colIdx >= 0) {
-                                resolvedFolderName = cursor.getString(colIdx)
+                    return@launch
+                }
+
+                var resolvedFolderName: String? = rootDoc.name
+                if (resolvedFolderName.isNullOrBlank()) {
+                    try {
+                        val docUri = DocumentsContract.buildDocumentUriUsingTree(
+                            treeUri,
+                            DocumentsContract.getTreeDocumentId(treeUri)
+                        )
+                        context.contentResolver.query(
+                            docUri,
+                            arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+                            null, null, null
+                        )?.use { cursor ->
+                            if (cursor.moveToFirst()) {
+                                val colIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                                if (colIdx >= 0) {
+                                    resolvedFolderName = cursor.getString(colIdx)
+                                }
                             }
                         }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Could not query folder display name: ${e.message}")
                     }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Could not query folder display name: ${e.message}")
                 }
 
                 val folderName = resolvedFolderName?.takeIf { it.isNotBlank() }
@@ -279,6 +297,7 @@ class MusicImportManager @Inject constructor(
                 }
 
                 if (discoveredSongs.isEmpty()) {
+                    importedFolderDao.updateSongCount(folderId, 0)
                     _importState.value = ImportState.Completed(
                         addedCount = 0,
                         skippedCount = 0,
@@ -288,14 +307,16 @@ class MusicImportManager @Inject constructor(
                     return@launch
                 }
 
-                // 4. Deduplicate against existing library
+                // 4. Deduplicate against existing library and intra-batch
                 val existingEntities = songDao.getAllSongsList()
                 var addedCount = 0
                 var skippedCount = 0
                 val songsToInsert = mutableListOf<SongEntity>()
 
                 for (song in discoveredSongs) {
-                    if (SafAudioScanner.isDuplicateOfExisting(song, existingEntities)) {
+                    if (SafAudioScanner.isDuplicateOfExisting(song, existingEntities) ||
+                        SafAudioScanner.isDuplicateOfExisting(song, songsToInsert)
+                    ) {
                         skippedCount++
                     } else {
                         songsToInsert.add(song)
@@ -341,12 +362,12 @@ class MusicImportManager @Inject constructor(
                     }
                 }
 
-                importedFolderDao.updateSongCount(folderId, addedCount)
+                importedFolderDao.updateSongCount(folderId, discoveredSongs.size)
 
-                val msg = if (skippedCount > 0) {
-                    "Added $addedCount music files ($skippedCount already in library)."
-                } else {
-                    "Added $addedCount music files"
+                val msg = when {
+                    addedCount == 0 && skippedCount > 0 -> "All $skippedCount tracks are already in library."
+                    skippedCount > 0 -> "Added $addedCount tracks ($skippedCount already in library)."
+                    else -> "Added $addedCount tracks to library."
                 }
 
                 _importState.value = ImportState.Completed(

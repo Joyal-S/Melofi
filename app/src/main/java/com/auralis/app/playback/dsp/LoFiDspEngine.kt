@@ -6,16 +6,17 @@ import kotlin.math.round
 import kotlin.math.sin
 
 /**
- * Real-Time Lo-Fi DSP Engine (MELOFI DSP 2.0).
+ * Real-Time Lo-Fi DSP Engine (MELOFI DSP 3.0).
  *
  * Implements a high-fidelity, musical vintage degradation signal chain:
- * 1. 2-Pole cascaded warm analog Low-Pass Filter (Anti-aliasing & analog tape warmth rolloff)
- * 2. Decimation (Sample & Hold)
- * 3. Bit-depth reduction (Quantization)
- * 4. Musical Analog Tape Saturation (Cubic soft-saturation with 2nd harmonic warmth)
- * 5. Subtle Tape Wow & Flutter (modulated fractional delay line)
- * 6. Dry/Wet intensity mixing
- * 7. Transparent output soft limiter (guarantees bounds within [-1.0f..1.0f] with zero digital clipping)
+ * 1. Headroom & numerical protection (strict NaN, Infinity, and extreme outlier sanitization)
+ * 2. 2-Pole cascaded warm analog Low-Pass Filter (1.8 kHz to 14.0 kHz analog tape warmth rolloff)
+ * 3. Sample-Rate Degradation (Sample & Hold decimation from 1.0x up to 4.5x)
+ * 4. Bit-Depth Quantization (16.0-bit down to 9.5-bit vintage sampler resolution)
+ * 5. Musical Analog Tape Saturation (smooth cubic curve with asymmetric 2nd harmonic warmth)
+ * 6. Subtle Tape Wow & Flutter (sample-rate scaled, click-free continuous buffer & transition blending)
+ * 7. Dry/Wet intensity mixing
+ * 8. Transparent output soft limiter (strictly bounded in [-1.0f..1.0f] with zero digital clipping)
  *
  * Features:
  * - Linear per-frame parameter interpolation eliminating zipper noise during real-time adjustments.
@@ -123,6 +124,7 @@ class LoFiDspEngine {
         val targetHalfLevels = targetQuantizationLevels * 0.5f
 
         val safeSampleRate = sampleRate.coerceIn(8000, 192000).toFloat()
+        val rateRatio = safeSampleRate / 44100.0f
 
         // 2-Pole cascaded warm analog low-pass filter: 1.8 kHz to 14.0 kHz
         val targetCutoffHz = 1800.0f + (params.lowPassCutoff.coerceIn(0.0f, 1.0f) * 12200.0f)
@@ -163,10 +165,10 @@ class LoFiDspEngine {
         var saturation = currentSaturation
         var wowFlutter = currentWowFlutter
 
-        // Wow/Flutter LFO phase increments
-        val wowPhaseInc = (2.0 * PI * 0.55 / safeSampleRate).toFloat()      // 0.55 Hz wow
-        val flutterPhaseInc = (2.0 * PI * 4.8 / safeSampleRate).toFloat()    // 4.8 Hz flutter
-        val baseDelay = 40.0f
+        // Wow/Flutter LFO phase increments and delay scaling (sample-rate normalized)
+        val wowPhaseInc = (2.0 * PI * 0.55 / safeSampleRate).toFloat()       // 0.55 Hz wow
+        val flutterPhaseInc = (2.0 * PI * 4.8 / safeSampleRate).toFloat()     // 4.8 Hz flutter
+        val baseDelay = 40.0f * rateRatio
 
         var sampleIndex = 0
 
@@ -182,7 +184,8 @@ class LoFiDspEngine {
                 saturation += stepSaturation
                 wowFlutter += stepWowFlutter
 
-                val dry = inputSamples[sampleIndex]
+                val rawDry = inputSamples[sampleIndex]
+                val dry = if (rawDry.isNaN() || rawDry.isInfinite()) 0.0f else rawDry
 
                 // Fast path for pure silence to prevent phantom noise
                 if (dry == 0.0f && lpfStateLeft1 == 0.0f && lpfStateLeft2 == 0.0f && holdLeft == 0.0f) {
@@ -199,15 +202,17 @@ class LoFiDspEngine {
                 wet = lpfStateLeft2
 
                 // Stage 2: Decimation (Sample & Hold)
-                decimationPhase += 1.0f
-                if (decimationPhase >= decimationFactor) {
-                    holdLeft = wet
-                    decimationPhase -= decimationFactor
+                if (decimationFactor > 1.005f) {
+                    decimationPhase += 1.0f
                     if (decimationPhase >= decimationFactor) {
-                        decimationPhase = 0.0f
+                        holdLeft = wet
+                        decimationPhase -= decimationFactor
+                        if (decimationPhase >= decimationFactor) {
+                            decimationPhase = 0.0f
+                        }
+                    } else {
+                        wet = holdLeft
                     }
-                } else {
-                    wet = holdLeft
                 }
 
                 // Stage 3: Bit crushing (quantization)
@@ -227,14 +232,15 @@ class LoFiDspEngine {
                     wet = wet * (1.0f - saturation) + sat * saturation
                 }
 
-                // Stage 5: Subtle Tape Wow & Flutter Modulation
+                // Stage 5: Subtle Tape Wow & Flutter Modulation (continuous buffer write & click-free transition)
+                val preModWet = wet
                 if (wowFlutter > 0.005f) {
                     wowLfoPhase += wowPhaseInc
                     if (wowLfoPhase >= (2.0f * PI.toFloat())) wowLfoPhase -= (2.0f * PI.toFloat())
                     flutterLfoPhase += flutterPhaseInc
                     if (flutterLfoPhase >= (2.0f * PI.toFloat())) flutterLfoPhase -= (2.0f * PI.toFloat())
 
-                    val maxMod = 22.0f * wowFlutter
+                    val maxMod = 22.0f * wowFlutter * rateRatio
                     val modOffset = baseDelay + (sin(wowLfoPhase) * 0.75f + sin(flutterLfoPhase) * 0.25f) * maxMod
                     val readPos = (wowWriteIdx - modOffset + WOW_BUFFER_SIZE * 2) % WOW_BUFFER_SIZE
                     val idx0 = readPos.toInt() % WOW_BUFFER_SIZE
@@ -242,11 +248,13 @@ class LoFiDspEngine {
                     val frac = readPos - readPos.toInt()
 
                     val delayed = wowBufferL[idx0] * (1.0f - frac) + wowBufferL[idx1] * frac
-                    wowBufferL[wowWriteIdx] = wet
-                    if (++wowWriteIdx >= WOW_BUFFER_SIZE) wowWriteIdx = 0
-
-                    wet = delayed
+                    val ramp = (wowFlutter / 0.05f).coerceIn(0.0f, 1.0f)
+                    wet = wet * (1.0f - ramp) + delayed * ramp
                 }
+
+                // Continuously populate delay line to prevent stale buffer artifacts or clicks on enable
+                wowBufferL[wowWriteIdx] = preModWet
+                if (++wowWriteIdx >= WOW_BUFFER_SIZE) wowWriteIdx = 0
 
                 // Stage 6: Dry/Wet Intensity Blend
                 val blended = dry * (1.0f - intensity) + wet * intensity
@@ -267,8 +275,10 @@ class LoFiDspEngine {
                 saturation += stepSaturation
                 wowFlutter += stepWowFlutter
 
-                val dryL = inputSamples[sampleIndex]
-                val dryR = inputSamples[sampleIndex + 1]
+                val rawDryL = inputSamples[sampleIndex]
+                val rawDryR = inputSamples[sampleIndex + 1]
+                val dryL = if (rawDryL.isNaN() || rawDryL.isInfinite()) 0.0f else rawDryL
+                val dryR = if (rawDryR.isNaN() || rawDryR.isInfinite()) 0.0f else rawDryR
 
                 // Fast path for silence
                 if (dryL == 0.0f && dryR == 0.0f &&
@@ -294,17 +304,19 @@ class LoFiDspEngine {
                 wetR = lpfStateRight2
 
                 // Stage 2: Decimation (Sample & Hold)
-                decimationPhase += 1.0f
-                if (decimationPhase >= decimationFactor) {
-                    holdLeft = wetL
-                    holdRight = wetR
-                    decimationPhase -= decimationFactor
+                if (decimationFactor > 1.005f) {
+                    decimationPhase += 1.0f
                     if (decimationPhase >= decimationFactor) {
-                        decimationPhase = 0.0f
+                        holdLeft = wetL
+                        holdRight = wetR
+                        decimationPhase -= decimationFactor
+                        if (decimationPhase >= decimationFactor) {
+                            decimationPhase = 0.0f
+                        }
+                    } else {
+                        wetL = holdLeft
+                        wetR = holdRight
                     }
-                } else {
-                    wetL = holdLeft
-                    wetR = holdRight
                 }
 
                 // Stage 3: Bit crushing (quantization)
@@ -313,7 +325,7 @@ class LoFiDspEngine {
                     wetR = (round(wetR * halfLevels) / halfLevels).coerceIn(-1.0f, 1.0f)
                 }
 
-                // Stage 4: Musical Analog Tape Saturation
+                // Stage 4: Musical Analog Tape Saturation (Cubic curve with 2nd harmonic warmth)
                 if (saturation > 0.005f) {
                     val drivenL = wetL * satDrive
                     val asymL = drivenL - (0.04f * drivenL * drivenL * saturation)
@@ -334,14 +346,16 @@ class LoFiDspEngine {
                     wetR = wetR * (1.0f - saturation) + satR * saturation
                 }
 
-                // Stage 5: Subtle Tape Wow & Flutter Modulation
+                // Stage 5: Subtle Tape Wow & Flutter Modulation (continuous buffer write & click-free transition)
+                val preModWetL = wetL
+                val preModWetR = wetR
                 if (wowFlutter > 0.005f) {
                     wowLfoPhase += wowPhaseInc
                     if (wowLfoPhase >= (2.0f * PI.toFloat())) wowLfoPhase -= (2.0f * PI.toFloat())
                     flutterLfoPhase += flutterPhaseInc
                     if (flutterLfoPhase >= (2.0f * PI.toFloat())) flutterLfoPhase -= (2.0f * PI.toFloat())
 
-                    val maxMod = 22.0f * wowFlutter
+                    val maxMod = 22.0f * wowFlutter * rateRatio
                     val modOffset = baseDelay + (sin(wowLfoPhase) * 0.75f + sin(flutterLfoPhase) * 0.25f) * maxMod
                     val readPos = (wowWriteIdx - modOffset + WOW_BUFFER_SIZE * 2) % WOW_BUFFER_SIZE
                     val idx0 = readPos.toInt() % WOW_BUFFER_SIZE
@@ -351,13 +365,15 @@ class LoFiDspEngine {
                     val delayedL = wowBufferL[idx0] * (1.0f - frac) + wowBufferL[idx1] * frac
                     val delayedR = wowBufferR[idx0] * (1.0f - frac) + wowBufferR[idx1] * frac
 
-                    wowBufferL[wowWriteIdx] = wetL
-                    wowBufferR[wowWriteIdx] = wetR
-                    if (++wowWriteIdx >= WOW_BUFFER_SIZE) wowWriteIdx = 0
-
-                    wetL = delayedL
-                    wetR = delayedR
+                    val ramp = (wowFlutter / 0.05f).coerceIn(0.0f, 1.0f)
+                    wetL = wetL * (1.0f - ramp) + delayedL * ramp
+                    wetR = wetR * (1.0f - ramp) + delayedR * ramp
                 }
+
+                // Continuously populate delay lines to prevent stale buffer artifacts or clicks on enable
+                wowBufferL[wowWriteIdx] = preModWetL
+                wowBufferR[wowWriteIdx] = preModWetR
+                if (++wowWriteIdx >= WOW_BUFFER_SIZE) wowWriteIdx = 0
 
                 // Stage 6: Dry/Wet Intensity Blend
                 val blendedL = dryL * (1.0f - intensity) + wetL * intensity
@@ -385,8 +401,10 @@ class LoFiDspEngine {
      * Transparent, click-free soft limiter.
      * Smoothly curves extreme excursions above 0.88 into the 1.0f ceiling.
      * Prevents digital overs while preserving dynamic punch and clarity.
+     * Strictly protects against NaN and Infinity values.
      */
     private fun softLimit(x: Float): Float {
+        if (x.isNaN() || x.isInfinite()) return 0.0f
         return when {
             x >= 1.0f -> 1.0f
             x <= -1.0f -> -1.0f

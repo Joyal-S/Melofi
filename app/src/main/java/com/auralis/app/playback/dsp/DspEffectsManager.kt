@@ -40,30 +40,30 @@ class DspEffectsManager @Inject constructor(
     }
 
     private fun applyPreferencesToProcessor(prefs: AudioPreferences) {
+        val current = _parametersState.value
         val baseParams = if (prefs.dspPreset != DspPreset.CUSTOM) {
             DspParameters.createPreset(prefs.dspPreset)
         } else {
-            DspParameters.DEFAULT.copy(
-                loFi = DspParameters.DEFAULT.loFi.copy(
-                    bitCrush = prefs.dspLoFiBitCrush,
-                    sampleRateReduction = prefs.dspLoFiSampleReduction,
-                    saturation = prefs.dspLoFiSaturation,
-                    wowFlutter = prefs.dspLoFiWowFlutter
-                )
-            )
+            current.copy(preset = DspPreset.CUSTOM)
         }
 
         val updated = baseParams.copy(
             preset = prefs.dspPreset,
             loFi = baseParams.loFi.copy(
                 enabled = prefs.dspLoFiEnabled,
-                intensity = prefs.dspLoFiIntensity
+                intensity = prefs.dspLoFiIntensity,
+                bitCrush = if (prefs.dspPreset == DspPreset.CUSTOM) prefs.dspLoFiBitCrush else baseParams.loFi.bitCrush,
+                sampleRateReduction = if (prefs.dspPreset == DspPreset.CUSTOM) prefs.dspLoFiSampleReduction else baseParams.loFi.sampleRateReduction,
+                lowPassCutoff = if (prefs.dspPreset == DspPreset.CUSTOM) prefs.dspLoFiLowPassCutoff else baseParams.loFi.lowPassCutoff,
+                saturation = if (prefs.dspPreset == DspPreset.CUSTOM) prefs.dspLoFiSaturation else baseParams.loFi.saturation,
+                wowFlutter = if (prefs.dspPreset == DspPreset.CUSTOM) prefs.dspLoFiWowFlutter else baseParams.loFi.wowFlutter
             ),
             reverb = baseParams.reverb.copy(
                 enabled = prefs.dspReverbEnabled,
-                roomSize = prefs.dspReverbRoomSize,
-                decay = prefs.dspReverbDecay,
-                wetLevel = prefs.dspReverbWetLevel
+                roomSize = if (prefs.dspPreset == DspPreset.CUSTOM) prefs.dspReverbRoomSize else baseParams.reverb.roomSize,
+                decay = if (prefs.dspPreset == DspPreset.CUSTOM) prefs.dspReverbDecay else baseParams.reverb.decay,
+                damping = if (prefs.dspPreset == DspPreset.CUSTOM) prefs.dspReverbDamping else baseParams.reverb.damping,
+                wetLevel = if (prefs.dspPreset == DspPreset.CUSTOM) prefs.dspReverbWetLevel else baseParams.reverb.wetLevel
             )
         )
 
@@ -128,10 +128,12 @@ class DspEffectsManager @Inject constructor(
             preferencesRepository.setDspLoFiIntensity(newParams.loFi.intensity)
             preferencesRepository.setDspLoFiBitCrush(newParams.loFi.bitCrush)
             preferencesRepository.setDspLoFiSampleReduction(newParams.loFi.sampleRateReduction)
+            preferencesRepository.setDspLoFiLowPassCutoff(newParams.loFi.lowPassCutoff)
             preferencesRepository.setDspLoFiSaturation(newParams.loFi.saturation)
             preferencesRepository.setDspLoFiWowFlutter(newParams.loFi.wowFlutter)
             preferencesRepository.setDspReverbRoomSize(newParams.reverb.roomSize)
             preferencesRepository.setDspReverbDecay(newParams.reverb.decay)
+            preferencesRepository.setDspReverbDamping(newParams.reverb.damping)
             preferencesRepository.setDspReverbWetLevel(newParams.reverb.wetLevel)
         }
     }
@@ -175,6 +177,20 @@ class DspEffectsManager @Inject constructor(
         scope.launch {
             preferencesRepository.setDspPreset(DspPreset.CUSTOM)
             preferencesRepository.setDspLoFiSampleReduction(updated.loFi.sampleRateReduction)
+        }
+    }
+
+    fun setLoFiLowPassCutoff(lowPassCutoff: Float) {
+        val current = audioProcessor.getParameters()
+        val updated = current.copy(
+            preset = DspPreset.CUSTOM,
+            loFi = current.loFi.copy(lowPassCutoff = lowPassCutoff.coerceIn(0.0f, 1.0f))
+        )
+        audioProcessor.updateParameters(updated)
+        _parametersState.update { updated }
+        scope.launch {
+            preferencesRepository.setDspPreset(DspPreset.CUSTOM)
+            preferencesRepository.setDspLoFiLowPassCutoff(updated.loFi.lowPassCutoff)
         }
     }
 
@@ -231,6 +247,20 @@ class DspEffectsManager @Inject constructor(
         scope.launch {
             preferencesRepository.setDspPreset(DspPreset.CUSTOM)
             preferencesRepository.setDspReverbDecay(updated.reverb.decay)
+        }
+    }
+
+    fun setReverbDamping(damping: Float) {
+        val current = audioProcessor.getParameters()
+        val updated = current.copy(
+            preset = DspPreset.CUSTOM,
+            reverb = current.reverb.copy(damping = damping.coerceIn(0.0f, 1.0f))
+        )
+        audioProcessor.updateParameters(updated)
+        _parametersState.update { updated }
+        scope.launch {
+            preferencesRepository.setDspPreset(DspPreset.CUSTOM)
+            preferencesRepository.setDspReverbDamping(updated.reverb.damping)
         }
     }
 

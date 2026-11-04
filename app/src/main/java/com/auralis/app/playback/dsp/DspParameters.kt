@@ -49,11 +49,11 @@ enum class DspPreset(val displayName: String) {
  *
  * @property enabled Master toggle for the Lo-Fi DSP effect.
  * @property intensity Master wet/dry intensity blend [0.0f..1.0f].
- * @property sampleRateReduction Decimation factor [0.0f..1.0f], downsampling from 1x (no decimation) up to 8x.
- * @property bitCrush Quantization depth reduction [0.0f..1.0f], scaling from 16-bit down to 8-bit resolution.
- * @property lowPassCutoff Analog tape warmth low-pass filter [0.0f..1.0f], rolling off from 20 kHz down to 2.5 kHz.
- * @property saturation Soft saturation harmonic warmth [0.0f..1.0f], adding analog tape-like soft clipping.
- * @property wowFlutter Subtle tape speed irregularity / pitch modulation [0.0f..1.0f].
+ * @property sampleRateReduction Decimation factor [0.0f..1.0f], downsampling from 1.0x (no decimation) up to 4.5x.
+ * @property bitCrush Quantization depth reduction [0.0f..1.0f], scaling from 16.0-bit down to 9.5-bit resolution.
+ * @property lowPassCutoff Analog tape warmth 2-pole low-pass filter [0.0f..1.0f], rolling off from 14.0 kHz down to 1.8 kHz (1800 Hz to 14000 Hz).
+ * @property saturation Soft tape saturation with asymmetric 2nd harmonic warmth, smooth compression curve, and headroom compensation [0.0f..1.0f].
+ * @property wowFlutter Subtle tape speed irregularity / pitch modulation [0.0f..1.0f], dual-rate LFO (0.55 Hz wow + 4.8 Hz flutter) with click-free state transitions.
  */
 data class LoFiParameters(
     val enabled: Boolean = false,

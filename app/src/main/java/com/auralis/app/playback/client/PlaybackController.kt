@@ -17,6 +17,7 @@ import com.auralis.app.playback.queue.PlaybackQueue
 import com.auralis.app.playback.service.AuralisPlaybackService
 import com.auralis.app.playback.util.SeekSanitizer
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -182,42 +183,68 @@ class PlaybackController @Inject constructor(
         }
     }
 
+    private val isSkippingNext = java.util.concurrent.atomic.AtomicBoolean(false)
+
     fun skipNext() {
+        if (!isSkippingNext.compareAndSet(false, true)) {
+            return
+        }
         ensureController { controller ->
-            val repeatMode = _playbackState.value.repeatMode
+            try {
+                if (!controller.isConnected) return@ensureController
 
-            // Priority 2: Repeat One rule (replay current track)
-            if (repeatMode == PlaybackRepeatMode.ONE) {
-                controller.seekTo(0L)
-                controller.play()
-                return@ensureController
+                // If player is currently empty, recover from active queue or recommendation
+                if (controller.mediaItemCount == 0) {
+                    val queueSongs = playbackQueue.getSongs()
+                    if (queueSongs.isNotEmpty()) {
+                        playSongs(queueSongs, 0)
+                    } else {
+                        triggerRecommendationContinuation(controller)
+                    }
+                    return@ensureController
+                }
+
+                val repeatMode = _playbackState.value.repeatMode
+
+                // Priority 2: Repeat One rule (replay current track from 0L)
+                if (repeatMode == PlaybackRepeatMode.ONE) {
+                    controller.seekTo(0L)
+                    controller.play()
+                    return@ensureController
+                }
+
+                // Priority 1 & 3: Explicit user queue / normal playback / shuffle
+                if (controller.hasNextMediaItem()) {
+                    controller.seekToNextMediaItem()
+                    return@ensureController
+                }
+
+                // Priority 2: Repeat All rule (loop to beginning)
+                if (repeatMode == PlaybackRepeatMode.ALL && controller.mediaItemCount > 0) {
+                    controller.seekTo(0, 0L)
+                    controller.play()
+                    return@ensureController
+                }
+
+                // Priority 4: Queue exhaustion -> Recommendation engine continuation
+                triggerRecommendationContinuation(controller)
+            } finally {
+                isSkippingNext.set(false)
             }
-
-            // Priority 1 & 3: Explicit user queue / normal playback / shuffle
-            if (controller.hasNextMediaItem()) {
-                controller.seekToNextMediaItem()
-                return@ensureController
-            }
-
-            // Priority 2: Repeat All rule (loop to beginning)
-            if (repeatMode == PlaybackRepeatMode.ALL && controller.mediaItemCount > 0) {
-                controller.seekTo(0, 0L)
-                controller.play()
-                return@ensureController
-            }
-
-            // Priority 4: Queue exhaustion -> Recommendation engine continuation
-            triggerRecommendationContinuation(controller)
         }
     }
 
+    private var continuationJob: Job? = null
+
     private fun triggerRecommendationContinuation(controller: MediaController) {
+        continuationJob?.cancel()
+
         val currentSong = _playbackState.value.currentSong
         val activeIds = playbackQueue.getSongs().map { it.id }.toSet()
 
         _playbackState.update { it.copy(status = PlaybackStatus.LOADING) }
 
-        scope.launch(Dispatchers.IO) {
+        continuationJob = scope.launch(Dispatchers.IO) {
             try {
                 val recommendation = recommendationRepository.getNextTrackRecommendation(
                     currentSong = currentSong,
@@ -225,12 +252,32 @@ class PlaybackController @Inject constructor(
                 )
                 if (recommendation != null) {
                     withContext(Dispatchers.Main.immediate) {
+                        if (!controller.isConnected) return@withContext
+
+                        // 1-song library edge case: replay the single existing song from 0L
+                        if (controller.mediaItemCount == 1 && currentSong?.id == recommendation.song.id) {
+                            controller.seekTo(0, 0L)
+                            controller.prepare()
+                            controller.play()
+                            return@withContext
+                        }
+
                         playbackQueue.addToQueue(recommendation.song)
                         _activeQueue.value = playbackQueue.getSongs()
                         val mediaItem = MediaItemMapper.toMediaItem(recommendation.song)
-                        controller.addMediaItem(mediaItem)
-                        val nextIndex = controller.mediaItemCount - 1
-                        controller.seekTo(nextIndex, 0L)
+
+                        if (controller.mediaItemCount == 0) {
+                            controller.setMediaItem(mediaItem, 0L)
+                        } else {
+                            val insertIndex = if (controller.currentMediaItemIndex != -1) {
+                                controller.currentMediaItemIndex + 1
+                            } else {
+                                controller.mediaItemCount
+                            }
+                            controller.addMediaItem(insertIndex, mediaItem)
+                            controller.seekTo(insertIndex, 0L)
+                        }
+                        controller.prepare()
                         controller.play()
                     }
                 } else {
@@ -238,6 +285,8 @@ class PlaybackController @Inject constructor(
                         _playbackState.update { it.copy(status = PlaybackStatus.ENDED) }
                     }
                 }
+            } catch (e: CancellationException) {
+                // Cooperative cancellation: do not corrupt state
             } catch (e: Exception) {
                 withContext(Dispatchers.Main.immediate) {
                     _playbackState.update {
@@ -253,6 +302,7 @@ class PlaybackController @Inject constructor(
 
     fun skipPrevious() {
         ensureController { controller ->
+            if (!controller.isConnected || controller.mediaItemCount == 0) return@ensureController
             if (controller.currentPosition > 3000L) {
                 // Restart track if more than 3 seconds in
                 controller.seekTo(0L)

@@ -198,7 +198,8 @@ class ReverbDspEngine {
                 dryLevel += stepDry
                 feedbackGain += stepFeedback
 
-                val input = inputSamples[sampleIndex]
+                val rawInput = inputSamples[sampleIndex]
+                val input = if (rawInput.isNaN() || rawInput.isInfinite()) 0.0f else rawInput
 
                 if (input == 0.0f && hpStateL == 0.0f && postLpfL == 0.0f) {
                     var allSilent = true
@@ -295,8 +296,10 @@ class ReverbDspEngine {
                 dryLevel += stepDry
                 feedbackGain += stepFeedback
 
-                val inputL = inputSamples[sampleIndex]
-                val inputR = inputSamples[sampleIndex + 1]
+                val rawInputL = inputSamples[sampleIndex]
+                val rawInputR = inputSamples[sampleIndex + 1]
+                val inputL = if (rawInputL.isNaN() || rawInputL.isInfinite()) 0.0f else rawInputL
+                val inputR = if (rawInputR.isNaN() || rawInputR.isInfinite()) 0.0f else rawInputR
 
                 if (inputL == 0.0f && inputR == 0.0f &&
                     hpStateL == 0.0f && hpStateR == 0.0f &&
@@ -456,6 +459,7 @@ class ReverbDspEngine {
     }
 
     private fun softLimit(x: Float): Float {
+        if (x.isNaN() || x.isInfinite()) return 0.0f
         return when {
             x >= 1.0f -> 1.0f
             x <= -1.0f -> -1.0f

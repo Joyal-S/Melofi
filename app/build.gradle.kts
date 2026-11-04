@@ -74,6 +74,7 @@ dependencies {
 
     // AndroidX
     implementation(libs.core)
+    implementation(libs.documentfile)
     implementation(libs.core.splashscreen)
     implementation(libs.activity.compose)
     implementation(libs.lifecycle.runtime.compose)

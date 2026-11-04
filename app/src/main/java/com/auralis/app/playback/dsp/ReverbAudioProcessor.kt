@@ -13,6 +13,10 @@ import java.nio.ByteOrder
  * When disabled ([ReverbParameters.enabled] = false), operates as an O(1) direct buffer passthrough
  * with zero audio processing and zero memory allocations.
  */
+@Deprecated(
+    message = "Legacy standalone audio processor retained for test compatibility. Authoritative production pipeline is MelofyDspAudioProcessor -> MelofyDspEngine.",
+    level = DeprecationLevel.WARNING
+)
 class ReverbAudioProcessor(
     private val engine: ReverbDspEngine = ReverbDspEngine()
 ) : BaseAudioProcessor() {
@@ -55,7 +59,8 @@ class ReverbAudioProcessor(
         // Each 16-bit sample is 2 bytes
         val totalSamples = remainingBytes / 2
         if (workBuffer.size < totalSamples) {
-            workBuffer = FloatArray(totalSamples)
+            val newCapacity = maxOf(totalSamples, workBuffer.size * 2)
+            workBuffer = FloatArray(newCapacity)
         }
 
         val channelCount = inputAudioFormat.channelCount
